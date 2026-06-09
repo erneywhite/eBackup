@@ -1,0 +1,35 @@
+# Build output
+[Bb]in/
+[Oo]bj/
+[Oo]ut/
+artifacts/
+
+# Visual Studio / Rider / VS Code
+.vs/
+.vscode/
+.idea/
+*.user
+*.suo
+*.userprefs
+*.DotSettings.user
+
+# Test / coverage
+[Tt]est[Rr]esult*/
+*.trx
+*.coverage
+*.coveragexml
+coverage*.json
+
+# NuGet
+*.nupkg
+*.snupkg
+.nuget/
+
+# eBackup runtime output (local backups should not be committed)
+backups/
+*.ebk
+
+# OS / misc
+Thumbs.db
+desktop.ini
+*.log

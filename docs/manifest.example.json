@@ -1,0 +1,23 @@
+{
+  "formatVersion": "1.0",
+  "createdAt": "2026-06-09T12:00:00+00:00",
+  "source": {
+    "machineName": "DESKTOP-OLD",
+    "userName": "erney",
+    "osVersion": "Microsoft Windows NT 10.0.26200.0"
+  },
+  "modules": [
+    {
+      "moduleId": "obs",
+      "displayName": "OBS Studio",
+      "entries": [
+        {
+          "tokenPath": "{APPDATA}/obs-studio",
+          "type": "Directory",
+          "archivePath": "obs/obs-studio",
+          "sha256": null
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,17 @@
+{
+  "id": "obs",
+  "displayName": "OBS Studio",
+  "formatVersion": "1.0",
+  "entries": [
+    {
+      "tokenPath": "{APPDATA}/obs-studio",
+      "type": "Directory",
+      "archivePath": "obs/obs-studio",
+      "description": "Профили, коллекции сцен, global.ini, service.json (подключения и стрим-ключи)"
+    }
+  ],
+  "notes": [
+    "Стрим-ключи лежат в service.json — рекомендуется включать шифрование архива при отправке вовне.",
+    "Бинарники сторонних плагинов OBS (в Program Files) в v1 не бэкапятся — только конфигурация."
+  ]
+}
