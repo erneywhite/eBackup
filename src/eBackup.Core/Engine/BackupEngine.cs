@@ -106,15 +106,22 @@ public sealed class BackupEngine
     /// <summary>
     /// Распаковать архив .ebk и разложить файлы по местам согласно манифесту.
     /// </summary>
+    /// <param name="modules">
+    /// Зарегистрированные модули — нужны, чтобы после распаковки вызвать их restore-хуки
+    /// (<see cref="IModuleRestoreHook"/>), напр. для размещения ассетов OBS.
+    /// </param>
     /// <param name="destinationRootOverride">
     /// Если задано — файлы извлекаются под эту папку (с сохранением структуры
     /// <c>archivePath</c>), вместо разворачивания токенов в реальные системные пути.
     /// Удобно для безопасной проверки восстановления, не затрагивая живые приложения.
     /// </param>
+    /// <param name="assetsDirectory">Папка для ассетов, управляемых модулями (если применимо).</param>
     public async Task RestoreAsync(
         string archivePath,
+        IEnumerable<IBackupModule>? modules = null,
         ConflictPolicy conflictPolicy = ConflictPolicy.BackupExisting,
         string? destinationRootOverride = null,
+        string? assetsDirectory = null,
         CancellationToken ct = default)
     {
         using var zip = ZipFile.OpenRead(archivePath);
@@ -165,7 +172,35 @@ public sealed class BackupEngine
                 // TODO(v1+): RegistryKey — импорт ветки реестра.
             }
         }
+
+        // Модульные restore-хуки: размещение ассетов и пост-обработка.
+        // Вся специфика приложения — внутри модуля; движок лишь зовёт хук.
+        if (modules is not null)
+        {
+            var hooks = modules.Where(m => m is IModuleRestoreHook).ToDictionary(m => m.Id);
+            if (hooks.Count > 0)
+            {
+                var assetsDir = assetsDirectory ?? DefaultAssetsDirectory();
+                foreach (var moduleEntry in manifest.Modules)
+                {
+                    if (!hooks.TryGetValue(moduleEntry.ModuleId, out var module))
+                        continue;
+
+                    await ((IModuleRestoreHook)module).RestoreAsync(new ModuleRestoreContext
+                    {
+                        Archive = zip,
+                        ModuleEntry = moduleEntry,
+                        AssetsDirectory = assetsDir,
+                        DestinationRootOverride = destinationRootOverride
+                    }, ct).ConfigureAwait(false);
+                }
+            }
+        }
     }
+
+    private static string DefaultAssetsDirectory()
+        => Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments), "eBackup", "Assets");
 
     private static void ExtractFile(ZipArchiveEntry entry, string destinationPath, ConflictPolicy policy)
     {

@@ -66,10 +66,18 @@ switch (command)
             return 1;
         }
 
-        await new BackupEngine().RestoreAsync(archive, destinationRootOverride: toDir);
+        var assetsDir = GetOption(args, "--assets-dir")
+            ?? Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments), "eBackup", "OBS-Assets");
+
+        await new BackupEngine().RestoreAsync(
+            archive,
+            modules: modules,
+            destinationRootOverride: toDir,
+            assetsDirectory: assetsDir);
+
         Console.WriteLine(toDir is null
-            ? "Восстановление завершено (файлы разложены по местам)."
-            : $"Восстановление завершено (извлечено в: {toDir}).");
+            ? $"Восстановление завершено (файлы разложены по местам; ассеты: {assetsDir})."
+            : $"Восстановление завершено (извлечено в: {toDir}; ассеты: {assetsDir}).");
         break;
     }
 
@@ -124,8 +132,9 @@ switch (command)
             Бэкап / восстановление:
               list-modules                                         Список доступных модулей
               backup  --out <dir> [--name <имя>] [--sftp <id>]     Создать .ebk (+ залить на SFTP)
-              restore --archive <путь.ebk> [--to <папка>]          Распаковать (в реальные места или в папку)
-              restore --sftp <id> --name <имя.ebk> [--to <папка>]  Скачать с SFTP и распаковать
+              restore --archive <путь.ebk> [--to <папка>] [--assets-dir <папка>]   Распаковать
+              restore --sftp <id> --name <имя.ebk> [--to <папка>]                  Скачать с SFTP и распаковать
+                  (--assets-dir: куда класть ассеты OBS; по умолчанию Documents\eBackup\OBS-Assets)
 
             SFTP-подключения (учётки шифруются через Windows DPAPI):
               sftp-add                                Добавить/обновить подключение (интерактивно)

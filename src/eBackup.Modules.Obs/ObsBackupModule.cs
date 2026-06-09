@@ -1,3 +1,4 @@
+using System.IO.Compression;
 using System.Text.Json;
 using eBackup.Core.Abstractions;
 using eBackup.Core.Model;
@@ -13,7 +14,7 @@ namespace eBackup.Modules.Obs;
 /// Корень данных OBS; по умолчанию %APPDATA%/obs-studio. Параметр нужен в основном
 /// для тестов (подсунуть временную папку со сценой).
 /// </param>
-public sealed class ObsBackupModule(string? obsRootOverride = null) : IBackupModule
+public sealed class ObsBackupModule(string? obsRootOverride = null) : IBackupModule, IModuleRestoreHook
 {
     private readonly string _obsRoot = obsRootOverride ?? Path.Combine(
         Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "obs-studio");
@@ -45,7 +46,8 @@ public sealed class ObsBackupModule(string? obsRootOverride = null) : IBackupMod
         {
             new()
             {
-                TokenPath = "{APPDATA}/obs-studio",
+                // В проде — токен (переносимо); при override (тесты) — конкретный путь.
+                TokenPath = obsRootOverride is null ? "{APPDATA}/obs-studio" : _obsRoot.Replace('\\', '/'),
                 Type = PathEntryType.Directory,
                 ArchivePath = "obs/obs-studio",
                 ExcludeGlobs = Excludes
@@ -175,5 +177,60 @@ public sealed class ObsBackupModule(string? obsRootOverride = null) : IBackupMod
         }
         value = string.Empty;
         return false;
+    }
+
+    /// <summary>
+    /// Restore-хук: раскладывает ассеты в выбранную пользователем папку и переписывает
+    /// абсолютные пути в восстановленных scene JSON на новое расположение.
+    /// </summary>
+    public async Task RestoreAsync(ModuleRestoreContext context, CancellationToken ct = default)
+    {
+        // Восстановленные сцены: в проде — реальный obs-studio; при override — под ним.
+        var scenesRoot = context.DestinationRootOverride is null
+            ? _obsRoot
+            : Path.Combine(context.DestinationRootOverride, "obs", "obs-studio");
+        var scenesDir = Path.Combine(scenesRoot, "basic", "scenes");
+
+        // 1) Извлечь ассеты в выбранную папку, собрать карту «старый путь → новый».
+        var remap = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var entry in context.ModuleEntry.Entries)
+        {
+            ct.ThrowIfCancellationRequested();
+            if (!entry.ManagedByModule || entry.Type != PathEntryType.File)
+                continue;
+
+            var zipEntry = context.Archive.GetEntry("data/" + entry.ArchivePath);
+            if (zipEntry is null)
+                continue;
+
+            // "obs/assets/0/file.jpg" -> "<AssetsDirectory>/0/file.jpg"
+            var rel = entry.ArchivePath.StartsWith("obs/assets/", StringComparison.Ordinal)
+                ? entry.ArchivePath["obs/assets/".Length..]
+                : Path.GetFileName(entry.ArchivePath);
+            var dest = Path.Combine(context.AssetsDirectory, rel.Replace('/', Path.DirectorySeparatorChar));
+
+            var destDir = Path.GetDirectoryName(dest);
+            if (!string.IsNullOrEmpty(destDir))
+                Directory.CreateDirectory(destDir);
+            zipEntry.ExtractToFile(dest, overwrite: true);
+
+            remap[entry.TokenPath] = dest.Replace('\\', '/');
+        }
+
+        if (remap.Count == 0 || !Directory.Exists(scenesDir))
+            return;
+
+        // 2) Переписать пути в восстановленных scene JSON на новое расположение ассетов.
+        foreach (var sceneFile in Directory.EnumerateFiles(scenesDir, "*.json"))
+        {
+            ct.ThrowIfCancellationRequested();
+            var text = await File.ReadAllTextAsync(sceneFile, ct).ConfigureAwait(false);
+            var updated = text;
+            foreach (var (oldPath, newPath) in remap)
+                updated = updated.Replace(oldPath, newPath, StringComparison.Ordinal);
+
+            if (!string.Equals(updated, text, StringComparison.Ordinal))
+                await File.WriteAllTextAsync(sceneFile, updated, ct).ConfigureAwait(false);
+        }
     }
 }
