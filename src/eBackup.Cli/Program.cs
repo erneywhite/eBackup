@@ -2,27 +2,41 @@ using System.Text;
 using eBackup.Core.Abstractions;
 using eBackup.Core.Crypto;
 using eBackup.Core.Engine;
+using eBackup.Core.Modules;
 using eBackup.Modules.Obs;
 using eBackup.Security;
 using eBackup.Storage.Sftp;
 
-// Зарегистрированные модули (v1 — только OBS).
-IReadOnlyList<IBackupModule> modules = [new ObsBackupModule()];
+// Реестр модулей: встроенные (OBS) + (позже) декларативные/DLL.
+var registry = new ModuleRegistry([new BuiltInModuleSource([new ObsBackupModule()])]);
+IReadOnlyList<IBackupModule> modules = registry.LoadEnabled();
 
 var command = args.Length > 0 ? args[0].ToLowerInvariant() : "help";
 
 switch (command)
 {
     case "list-modules":
-        Console.WriteLine("Доступные модули:");
-        foreach (var m in modules)
-            Console.WriteLine($"  {m.Id,-10} {m.DisplayName}");
+        Console.WriteLine("Модули:");
+        foreach (var d in registry.Discover())
+        {
+            var status = d.Problem is null ? d.Trust.ToString() : $"BLOCKED ({d.Problem})";
+            Console.WriteLine($"  {d.Id,-12} {d.DisplayName,-18} [{d.Source}] {status}");
+        }
         break;
 
     case "backup":
     {
         var outDir = GetOption(args, "--out") ?? Path.Combine(Environment.CurrentDirectory, "backups");
         var name = GetOption(args, "--name") ?? $"ebackup-{DateTime.UtcNow:yyyyMMdd-HHmmss}";
+
+        // --modules obs,foo — ограничить набор; по умолчанию все включённые.
+        var selectedIds = GetOption(args, "--modules");
+        var chosen = selectedIds is null
+            ? modules
+            : modules.Where(m => selectedIds
+                    .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+                    .Contains(m.Id, StringComparer.OrdinalIgnoreCase))
+                .ToList();
 
         string? passphrase = null;
         if (args.Contains("--encrypt"))
@@ -34,7 +48,7 @@ switch (command)
             if (string.IsNullOrEmpty(passphrase)) return 1;
         }
 
-        var path = await new BackupEngine().CreateBackupAsync(modules, outDir, name, passphrase);
+        var path = await new BackupEngine().CreateBackupAsync(chosen, outDir, name, passphrase);
         Console.WriteLine(passphrase is null
             ? $"Готово (локально): {path}"
             : $"Готово (локально, зашифровано): {path}");
@@ -172,7 +186,7 @@ switch (command)
 
             Бэкап / восстановление:
               list-modules                                         Список доступных модулей
-              backup  --out <dir> [--name <имя>] [--sftp <id>] [--encrypt]   Создать .ebk
+              backup  --out <dir> [--name <имя>] [--modules id,..] [--sftp <id>] [--encrypt]   Создать .ebk
               restore --archive <путь.ebk> [--to <папка>] [--assets-dir <папка>]   Распаковать
               restore --sftp <id> --name <имя.ebk> [--to <папка>]                  Скачать с SFTP и распаковать
                   (--encrypt: AES-256-GCM, ключ из парольной фразы через Argon2id; restore спросит фразу сам)
