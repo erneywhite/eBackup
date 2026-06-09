@@ -1,5 +1,6 @@
 using System.Text;
 using eBackup.Core.Abstractions;
+using eBackup.Core.Crypto;
 using eBackup.Core.Engine;
 using eBackup.Modules.Obs;
 using eBackup.Security;
@@ -22,8 +23,21 @@ switch (command)
     {
         var outDir = GetOption(args, "--out") ?? Path.Combine(Environment.CurrentDirectory, "backups");
         var name = GetOption(args, "--name") ?? $"ebackup-{DateTime.UtcNow:yyyyMMdd-HHmmss}";
-        var path = await new BackupEngine().CreateBackupAsync(modules, outDir, name);
-        Console.WriteLine($"Готово (локально): {path}");
+
+        string? passphrase = null;
+        if (args.Contains("--encrypt"))
+        {
+            // Неинтерактивно (скрипты/расписание) — через переменную окружения.
+            passphrase = Environment.GetEnvironmentVariable("EBACKUP_PASSPHRASE");
+            if (string.IsNullOrEmpty(passphrase))
+                passphrase = ReadNewPassphrase();
+            if (string.IsNullOrEmpty(passphrase)) return 1;
+        }
+
+        var path = await new BackupEngine().CreateBackupAsync(modules, outDir, name, passphrase);
+        Console.WriteLine(passphrase is null
+            ? $"Готово (локально): {path}"
+            : $"Готово (локально, зашифровано): {path}");
 
         var sftpId = GetOption(args, "--sftp");
         if (sftpId is not null)
@@ -77,12 +91,30 @@ switch (command)
             _ => ConflictPolicy.BackupExisting
         };
 
+        // Зашифрованный архив определяем сами и спрашиваем парольную фразу.
+        string? restorePass = null;
+        if (ArchiveCipher.IsEncrypted(archive))
+        {
+            restorePass = Environment.GetEnvironmentVariable("EBACKUP_PASSPHRASE");
+            if (string.IsNullOrEmpty(restorePass))
+            {
+                Console.WriteLine("Архив зашифрован.");
+                restorePass = ReadSecret("Парольная фраза");
+            }
+            if (string.IsNullOrEmpty(restorePass))
+            {
+                Console.Error.WriteLine("Пустая фраза — отмена.");
+                return 1;
+            }
+        }
+
         await new BackupEngine().RestoreAsync(
             archive,
             modules: modules,
             conflictPolicy: conflict,
             destinationRootOverride: toDir,
-            assetsDirectory: assetsDir);
+            assetsDirectory: assetsDir,
+            passphrase: restorePass);
 
         Console.WriteLine(toDir is null
             ? $"Восстановление завершено (файлы разложены по местам; ассеты: {assetsDir})."
@@ -140,9 +172,11 @@ switch (command)
 
             Бэкап / восстановление:
               list-modules                                         Список доступных модулей
-              backup  --out <dir> [--name <имя>] [--sftp <id>]     Создать .ebk (+ залить на SFTP)
+              backup  --out <dir> [--name <имя>] [--sftp <id>] [--encrypt]   Создать .ebk
               restore --archive <путь.ebk> [--to <папка>] [--assets-dir <папка>]   Распаковать
               restore --sftp <id> --name <имя.ebk> [--to <папка>]                  Скачать с SFTP и распаковать
+                  (--encrypt: AES-256-GCM, ключ из парольной фразы через Argon2id; restore спросит фразу сам)
+                  (неинтерактивно фразу можно задать через переменную окружения EBACKUP_PASSPHRASE)
                   (--assets-dir: куда класть ассеты OBS; по умолчанию Documents\eBackup\OBS-Assets)
                   (--conflict: backup [по умолч., с .bak] | overwrite | add-missing)
                   (восстановление плагинов в Program Files требует запуска от администратора)
@@ -196,6 +230,22 @@ static string ReadSecret(string label)
             sb.Append(key.KeyChar);
     }
     return sb.ToString();
+}
+
+static string? ReadNewPassphrase()
+{
+    var first = ReadSecret("Парольная фраза для шифрования");
+    if (string.IsNullOrEmpty(first))
+    {
+        Console.Error.WriteLine("Пустая фраза — отмена.");
+        return null;
+    }
+    if (ReadSecret("Повторите фразу") != first)
+    {
+        Console.Error.WriteLine("Фразы не совпадают — отмена.");
+        return null;
+    }
+    return first;
 }
 
 // ---------- команды SFTP ----------

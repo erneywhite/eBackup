@@ -4,6 +4,7 @@ using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
 using eBackup.Core.Abstractions;
+using eBackup.Core.Crypto;
 using eBackup.Core.Engine;
 using eBackup.Core.Model;
 using Xunit;
@@ -96,6 +97,41 @@ public class BackupEngineTests
             if (Directory.Exists(srcDir)) Directory.Delete(srcDir, recursive: true);
             if (Directory.Exists(outDir)) Directory.Delete(outDir, recursive: true);
             if (Directory.Exists(restoreDir)) Directory.Delete(restoreDir, recursive: true);
+        }
+    }
+
+    [Fact]
+    public async Task Encrypted_Backup_Restores_Only_With_Correct_Passphrase()
+    {
+        var localAppData = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
+        var srcName = $"eBackup-test-{Guid.NewGuid():N}";
+        var srcDir = Path.Combine(localAppData, srcName);
+        var outDir = Path.Combine(Path.GetTempPath(), $"ebk-out-{Guid.NewGuid():N}");
+        var restoreDir = Path.Combine(Path.GetTempPath(), $"ebk-restore-{Guid.NewGuid():N}");
+        try
+        {
+            Directory.CreateDirectory(srcDir);
+            await File.WriteAllTextAsync(Path.Combine(srcDir, "hello.txt"), "секрет");
+
+            var engine = new BackupEngine();
+            var module = new DirModule("{LOCALAPPDATA}/" + srcName);
+
+            var archive = await engine.CreateBackupAsync([module], outDir, "enc", passphrase: "pw-12345");
+            Assert.True(ArchiveCipher.IsEncrypted(archive));
+
+            // Без фразы — отказ.
+            await Assert.ThrowsAsync<InvalidOperationException>(
+                () => engine.RestoreAsync(archive, destinationRootOverride: restoreDir));
+
+            // С верной фразой — успех.
+            await engine.RestoreAsync(archive, destinationRootOverride: restoreDir, passphrase: "pw-12345");
+            Assert.Equal("секрет",
+                await File.ReadAllTextAsync(Path.Combine(restoreDir, "test", "data", "hello.txt")));
+        }
+        finally
+        {
+            foreach (var d in new[] { srcDir, outDir, restoreDir })
+                if (Directory.Exists(d)) Directory.Delete(d, recursive: true);
         }
     }
 }

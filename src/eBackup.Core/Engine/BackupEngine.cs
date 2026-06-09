@@ -3,6 +3,7 @@ using System.Security.Cryptography;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using eBackup.Core.Abstractions;
+using eBackup.Core.Crypto;
 using eBackup.Core.Model;
 using eBackup.Core.Paths;
 using Microsoft.Extensions.FileSystemGlobbing;
@@ -31,10 +32,13 @@ public sealed class BackupEngine
         IEnumerable<IBackupModule> modules,
         string outputDirectory,
         string archiveName,
+        string? passphrase = null,
         CancellationToken ct = default)
     {
         Directory.CreateDirectory(outputDirectory);
         var archivePath = Path.Combine(outputDirectory, archiveName + ".ebk");
+        // При шифровании сначала собираем ZIP во временный файл, затем шифруем в .ebk.
+        var buildPath = passphrase is null ? archivePath : archivePath + ".plain";
 
         var manifest = new Manifest
         {
@@ -47,7 +51,7 @@ public sealed class BackupEngine
             }
         };
 
-        using (var zip = ZipFile.Open(archivePath, ZipArchiveMode.Create))
+        using (var zip = ZipFile.Open(buildPath, ZipArchiveMode.Create))
         {
             foreach (var module in modules)
             {
@@ -100,6 +104,12 @@ public sealed class BackupEngine
             await JsonSerializer.SerializeAsync(ms, manifest, JsonOptions, ct).ConfigureAwait(false);
         }
 
+        if (passphrase is not null)
+        {
+            await ArchiveCipher.EncryptAsync(buildPath, archivePath, passphrase, ct).ConfigureAwait(false);
+            File.Delete(buildPath);
+        }
+
         return archivePath;
     }
 
@@ -116,15 +126,31 @@ public sealed class BackupEngine
     /// Удобно для безопасной проверки восстановления, не затрагивая живые приложения.
     /// </param>
     /// <param name="assetsDirectory">Папка для ассетов, управляемых модулями (если применимо).</param>
+    /// <param name="passphrase">Парольная фраза, если архив зашифрован.</param>
     public async Task RestoreAsync(
         string archivePath,
         IEnumerable<IBackupModule>? modules = null,
         ConflictPolicy conflictPolicy = ConflictPolicy.BackupExisting,
         string? destinationRootOverride = null,
         string? assetsDirectory = null,
+        string? passphrase = null,
         CancellationToken ct = default)
     {
-        using var zip = ZipFile.OpenRead(archivePath);
+        // Зашифрованный архив сначала расшифровываем во временный файл.
+        var workingPath = archivePath;
+        string? tempPlain = null;
+        if (ArchiveCipher.IsEncrypted(archivePath))
+        {
+            if (string.IsNullOrEmpty(passphrase))
+                throw new InvalidOperationException("Архив зашифрован — требуется парольная фраза.");
+            tempPlain = Path.Combine(Path.GetTempPath(), $"ebk-dec-{Guid.NewGuid():N}.ebk");
+            await ArchiveCipher.DecryptAsync(archivePath, tempPlain, passphrase, ct).ConfigureAwait(false);
+            workingPath = tempPlain;
+        }
+
+        try
+        {
+        using var zip = ZipFile.OpenRead(workingPath);
         var manifestEntry = zip.GetEntry("manifest.json")
             ?? throw new InvalidDataException("В архиве нет manifest.json — это не архив eBackup.");
 
@@ -195,6 +221,12 @@ public sealed class BackupEngine
                     }, ct).ConfigureAwait(false);
                 }
             }
+        }
+        }
+        finally
+        {
+            if (tempPlain is not null && File.Exists(tempPlain))
+                File.Delete(tempPlain);
         }
     }
 
