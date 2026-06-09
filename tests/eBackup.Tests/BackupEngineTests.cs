@@ -13,7 +13,7 @@ namespace eBackup.Tests;
 public class BackupEngineTests
 {
     /// <summary>Тестовый модуль: бэкапит указанный токенизированный каталог.</summary>
-    private sealed class DirModule(string tokenPath) : IBackupModule
+    private sealed class DirModule(string tokenPath, string[]? excludes = null) : IBackupModule
     {
         public string Id => "test";
         public string DisplayName => "Test";
@@ -25,7 +25,8 @@ public class BackupEngineTests
                 {
                     TokenPath = tokenPath,
                     Type = PathEntryType.Directory,
-                    ArchivePath = "test/data"
+                    ArchivePath = "test/data",
+                    ExcludeGlobs = excludes ?? []
                 }
             ]);
     }
@@ -57,6 +58,38 @@ public class BackupEngineTests
             var restored = Path.Combine(restoreDir, "test", "data", "hello.txt");
             Assert.True(File.Exists(restored));
             Assert.Equal("привет", await File.ReadAllTextAsync(restored));
+        }
+        finally
+        {
+            if (Directory.Exists(srcDir)) Directory.Delete(srcDir, recursive: true);
+            if (Directory.Exists(outDir)) Directory.Delete(outDir, recursive: true);
+            if (Directory.Exists(restoreDir)) Directory.Delete(restoreDir, recursive: true);
+        }
+    }
+
+    [Fact]
+    public async Task Backup_Skips_Files_Matching_ExcludeGlobs()
+    {
+        var localAppData = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
+        var srcName = $"eBackup-test-{Guid.NewGuid():N}";
+        var srcDir = Path.Combine(localAppData, srcName);
+        var outDir = Path.Combine(Path.GetTempPath(), $"ebk-out-{Guid.NewGuid():N}");
+        var restoreDir = Path.Combine(Path.GetTempPath(), $"ebk-restore-{Guid.NewGuid():N}");
+
+        try
+        {
+            Directory.CreateDirectory(Path.Combine(srcDir, "logs"));
+            await File.WriteAllTextAsync(Path.Combine(srcDir, "keep.txt"), "keep");
+            await File.WriteAllTextAsync(Path.Combine(srcDir, "logs", "skip.txt"), "skip");
+
+            var engine = new BackupEngine();
+            var module = new DirModule("{LOCALAPPDATA}/" + srcName, ["logs/**"]);
+
+            var archive = await engine.CreateBackupAsync([module], outDir, "ex");
+            await engine.RestoreAsync(archive, destinationRootOverride: restoreDir);
+
+            Assert.True(File.Exists(Path.Combine(restoreDir, "test", "data", "keep.txt")));
+            Assert.False(File.Exists(Path.Combine(restoreDir, "test", "data", "logs", "skip.txt")));
         }
         finally
         {

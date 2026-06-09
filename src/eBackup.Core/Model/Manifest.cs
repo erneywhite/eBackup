@@ -26,6 +26,12 @@ public sealed record PathEntry
 
     /// <summary>SHA-256 содержимого (для файлов) — для верификации при восстановлении.</summary>
     public string? Sha256 { get; init; }
+
+    /// <summary>
+    /// Для записей-каталогов: glob-маски (через «/») того, что НЕ включать в бэкап,
+    /// напр. "logs/**". Обобщённый механизм — конкретные маски задаёт модуль.
+    /// </summary>
+    public IReadOnlyList<string> ExcludeGlobs { get; init; } = [];
 }
 
 /// <summary>Записи одного модуля внутри манифеста.</summary>

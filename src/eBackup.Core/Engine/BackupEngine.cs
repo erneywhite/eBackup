@@ -5,6 +5,7 @@ using System.Text.Json.Serialization;
 using eBackup.Core.Abstractions;
 using eBackup.Core.Model;
 using eBackup.Core.Paths;
+using Microsoft.Extensions.FileSystemGlobbing;
 
 namespace eBackup.Core.Engine;
 
@@ -72,7 +73,14 @@ public sealed class BackupEngine
                     else if (entry.Type == PathEntryType.Directory && Directory.Exists(source))
                     {
                         var basePrefix = "data/" + entry.ArchivePath.Replace('\\', '/');
-                        foreach (var file in Directory.EnumerateFiles(source, "*", SearchOption.AllDirectories))
+
+                        // Обобщённые исключения: включаем всё, кроме заданных модулем масок.
+                        var matcher = new Matcher(StringComparison.OrdinalIgnoreCase);
+                        matcher.AddInclude("**/*");
+                        foreach (var glob in entry.ExcludeGlobs)
+                            matcher.AddExclude(glob);
+
+                        foreach (var file in matcher.GetResultsInFullPath(source))
                         {
                             ct.ThrowIfCancellationRequested();
                             var rel = Path.GetRelativePath(source, file).Replace('\\', '/');
