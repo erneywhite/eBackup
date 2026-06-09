@@ -1,30 +1,38 @@
 using eBackup.App.Pages;
 using eBackup.Core.Abstractions;
 using eBackup.Core.Engine;
-using eBackup.Core.Modules;
-using eBackup.Modules.Obs;
 using eBackup.Security;
 using eBackup.Storage.Sftp;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
-using Microsoft.UI.Xaml.Media;
 using Microsoft.UI.Xaml.Media.Animation;
 
 namespace eBackup.App;
 
+/// <summary>Параметры запуска бэкапа, собранные страницей «Бэкап».</summary>
+public sealed record BackupRequest(
+    IReadOnlyList<IBackupModule> Modules,
+    bool KeepLocal,
+    IReadOnlyList<SavedSftpConnection> Targets,
+    string? Passphrase);
+
 public sealed partial class MainWindow : Window
 {
-    private readonly ModuleRegistry _registry = new(
-    [
-        new BuiltInModuleSource([new ObsBackupModule()]),
-        new DeclarativeModuleSource(),
-    ]);
+    /// <summary>Текущее окно — для страниц (запуск бэкапа, HWND для пикеров).</summary>
+    public static MainWindow? Instance { get; private set; }
+
+    /// <summary>Срабатывает по завершении бэкапа — страницы (напр. «Архивы») обновляются сами.</summary>
+    public static event Action? BackupCompleted;
+
     private readonly SftpConnectionStore _store = new(new DpapiSecretProtector());
     private bool _backupRunning;
     private double _fill; // текущая доля заливки-прогресса нижней панели (0..1)
 
+    public bool IsBackupRunning => _backupRunning;
+
     public MainWindow()
     {
+        Instance = this;
         InitializeComponent();
         Title = "eBackup";
 
@@ -55,19 +63,81 @@ public sealed partial class MainWindow : Window
             ContentFrame.Navigate(page);
     }
 
-    // ---------- флоу бэкапа ----------
+    private void BackupBtn_Click(object sender, RoutedEventArgs e)
+    {
+        // Настройка бэкапа — обычная страница интерфейса, а не модальный диалог.
+        Nav.SelectedItem = null;
+        if (ContentFrame.CurrentSourcePageType != typeof(BackupPage))
+            ContentFrame.Navigate(typeof(BackupPage));
+    }
+
+    // ---------- запуск бэкапа (вызывается страницей «Бэкап») ----------
 
     private static string DefaultBackupDir()
         => Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments), "eBackup", "Backups");
 
-    private async void BackupBtn_Click(object sender, RoutedEventArgs e)
+    public async Task StartBackupAsync(BackupRequest request)
     {
         if (_backupRunning)
             return;
 
+        _backupRunning = true;
+        BackupBtn.IsEnabled = false;
+        StatusTitle.Text = "Делаю бэкап…";
+        StatusSub.Text = "подготовка…";
+
+        // Сборка архива занимает 0..70% заливки; каждое сообщение двигает её вперёд.
+        SetFill(0.04);
+        var progress = new Progress<string>(s =>
+        {
+            StatusSub.Text = s;
+            BumpFill(stageEnd: 0.70);
+        });
+
         try
         {
-            await RunBackupFlowAsync();
+            // Если локально хранить не нужно — собираем во временной папке и удалим после заливки.
+            var outDir = request.KeepLocal
+                ? DefaultBackupDir()
+                : Path.Combine(Path.GetTempPath(), "eBackup");
+            var name = $"ebackup-{DateTime.Now:yyyyMMdd-HHmmss}";
+
+            var engine = new BackupEngine();
+            var archive = await Task.Run(() =>
+                engine.CreateBackupAsync(request.Modules, outDir, name, request.Passphrase, progress));
+            SetFill(request.Targets.Count == 0 ? 1.0 : 0.75); // архив готов
+
+            var uploaded = new List<string>();
+            var failed = new List<string>();
+            for (var i = 0; i < request.Targets.Count; i++)
+            {
+                var conn = request.Targets[i];
+                StatusSub.Text = $"Загружаю на {conn.Name}…";
+                try
+                {
+                    var provider = new SftpStorageProvider(_store.Unprotect(conn));
+                    await provider.UploadAsync(archive, Path.GetFileName(archive));
+                    uploaded.Add(conn.Name);
+                }
+                catch (Exception ex)
+                {
+                    failed.Add($"{conn.Name}: {ex.Message}");
+                }
+                SetFill(0.75 + 0.25 * (i + 1) / request.Targets.Count); // заливка по целям
+            }
+
+            if (!request.KeepLocal)
+            {
+                try { File.Delete(archive); } catch { /* мусор в temp не критичен */ }
+            }
+
+            var parts = new List<string>();
+            if (request.KeepLocal) parts.Add(archive);
+            if (uploaded.Count > 0) parts.Add("→ " + string.Join(", ", uploaded));
+
+            StatusTitle.Text = failed.Count == 0 ? "Готов к работе" : "Бэкап завершён с ошибками";
+            StatusSub.Text = $"последний бэкап: {DateTime.Now:HH:mm}  {string.Join("  ", parts)}"
+                + (failed.Count > 0 ? $"  ✕ {string.Join("; ", failed)}" : string.Empty);
         }
         catch (Exception ex)
         {
@@ -78,6 +148,7 @@ public sealed partial class MainWindow : Window
         {
             _backupRunning = false;
             BackupBtn.IsEnabled = true;
+            BackupCompleted?.Invoke();
             await FadeOutFillAsync();
         }
     }
@@ -113,170 +184,5 @@ public sealed partial class MainWindow : Window
         ProgressFill.Opacity = 0;
         FillScale.ScaleX = 0;
         _fill = 0;
-    }
-
-    private async Task RunBackupFlowAsync()
-    {
-        // --- данные для диалога: модули из реестра + сохранённые подключения
-        var descriptors = _registry.Discover()
-            .Where(d => d.Problem is null && d.Instance is not null)
-            .ToList();
-
-        List<SavedSftpConnection> connections;
-        try
-        {
-            connections = (await _store.LoadAsync()).ToList();
-        }
-        catch
-        {
-            connections = [];
-        }
-
-        // --- собираем содержимое диалога
-        var dim = (Brush)Application.Current.Resources["EbTextDimBrush"];
-
-        var moduleChecks = descriptors
-            .Select(d => new CheckBox { Content = d.DisplayName, IsChecked = true, Tag = d.Instance })
-            .ToList();
-
-        var localCheck = new CheckBox { Content = "Локальная папка (Документы\\eBackup\\Backups)", IsChecked = true };
-        var sftpChecks = connections
-            .Select(c => new CheckBox { Content = $"{c.Name}  ({c.Username}@{c.Host}:{c.Port})", Tag = c })
-            .ToList();
-
-        var encryptCheck = new CheckBox { Content = "Зашифровать архив (AES-256, ключ из парольной фразы)" };
-        var pass1 = new PasswordBox { PlaceholderText = "парольная фраза", Visibility = Visibility.Collapsed };
-        var pass2 = new PasswordBox { PlaceholderText = "повтори фразу", Visibility = Visibility.Collapsed };
-        encryptCheck.Checked += (_, _) => { pass1.Visibility = Visibility.Visible; pass2.Visibility = Visibility.Visible; };
-        encryptCheck.Unchecked += (_, _) => { pass1.Visibility = Visibility.Collapsed; pass2.Visibility = Visibility.Collapsed; };
-
-        var errorText = new TextBlock
-        {
-            FontSize = 12,
-            TextWrapping = TextWrapping.Wrap,
-            Visibility = Visibility.Collapsed,
-            Foreground = new SolidColorBrush(Microsoft.UI.ColorHelper.FromArgb(0xFF, 0xFF, 0x8A, 0x9C))
-        };
-
-        var panel = new StackPanel { Spacing = 8, MinWidth = 420 };
-        panel.Children.Add(new TextBlock { Text = "Что бэкапим", FontSize = 12, Foreground = dim });
-        foreach (var cb in moduleChecks) panel.Children.Add(cb);
-        panel.Children.Add(new TextBlock { Text = "Куда", FontSize = 12, Foreground = dim, Margin = new Thickness(0, 8, 0, 0) });
-        panel.Children.Add(localCheck);
-        foreach (var cb in sftpChecks) panel.Children.Add(cb);
-        panel.Children.Add(new TextBlock { Text = "Шифрование", FontSize = 12, Foreground = dim, Margin = new Thickness(0, 8, 0, 0) });
-        panel.Children.Add(encryptCheck);
-        panel.Children.Add(pass1);
-        panel.Children.Add(pass2);
-        panel.Children.Add(errorText);
-
-        var appRes = Application.Current.Resources;
-        var dialog = new ContentDialog
-        {
-            Title = "Сделать бэкап",
-            Content = new ScrollViewer { Content = panel, MaxHeight = 460, VerticalScrollBarVisibility = ScrollBarVisibility.Auto },
-            PrimaryButtonText = "Запустить",
-            CloseButtonText = "Отмена",
-            DefaultButton = ContentDialogButton.Primary,
-            XamlRoot = Content.XamlRoot,
-            // Стиль в духе приложения, а не стоковый диалог.
-            Background = (Brush)appRes["EbDialogBrush"],
-            BorderBrush = (Brush)appRes["EbCardBorderBrush"],
-            BorderThickness = new Thickness(1),
-            CornerRadius = new CornerRadius(16),
-            PrimaryButtonStyle = (Style)appRes["EbDialogPrimaryStyle"],
-            CloseButtonStyle = (Style)appRes["EbDialogCloseStyle"]
-        };
-
-        dialog.PrimaryButtonClick += (_, args) =>
-        {
-            string? err = null;
-            if (!moduleChecks.Any(cb => cb.IsChecked == true))
-                err = "Выбери хотя бы один модуль.";
-            else if (localCheck.IsChecked != true && !sftpChecks.Any(cb => cb.IsChecked == true))
-                err = "Выбери хотя бы одно хранилище.";
-            else if (encryptCheck.IsChecked == true)
-            {
-                if (pass1.Password.Length == 0)
-                    err = "Введи парольную фразу.";
-                else if (pass1.Password != pass2.Password)
-                    err = "Парольные фразы не совпадают.";
-            }
-
-            if (err is not null)
-            {
-                errorText.Text = err;
-                errorText.Visibility = Visibility.Visible;
-                args.Cancel = true;
-            }
-        };
-
-        if (await dialog.ShowAsync() != ContentDialogResult.Primary)
-            return;
-
-        // --- выбранное
-        var modules = moduleChecks.Where(cb => cb.IsChecked == true)
-            .Select(cb => (IBackupModule)cb.Tag).ToList();
-        var targets = sftpChecks.Where(cb => cb.IsChecked == true)
-            .Select(cb => (SavedSftpConnection)cb.Tag).ToList();
-        var keepLocal = localCheck.IsChecked == true;
-        var passphrase = encryptCheck.IsChecked == true ? pass1.Password : null;
-
-        // --- поехали
-        _backupRunning = true;
-        BackupBtn.IsEnabled = false;
-        StatusTitle.Text = "Делаю бэкап…";
-        StatusSub.Text = "подготовка…";
-
-        // Сборка архива занимает 0..70% заливки; каждое сообщение двигает её вперёд.
-        SetFill(0.04);
-        var progress = new Progress<string>(s =>
-        {
-            StatusSub.Text = s;
-            BumpFill(stageEnd: 0.70);
-        });
-
-        // Если локально хранить не нужно — собираем во временной папке и удалим после заливки.
-        var outDir = keepLocal
-            ? DefaultBackupDir()
-            : Path.Combine(Path.GetTempPath(), "eBackup");
-        var name = $"ebackup-{DateTime.Now:yyyyMMdd-HHmmss}";
-
-        var engine = new BackupEngine();
-        var archive = await Task.Run(() => engine.CreateBackupAsync(modules, outDir, name, passphrase, progress));
-        SetFill(targets.Count == 0 ? 1.0 : 0.75); // архив готов
-
-        var uploaded = new List<string>();
-        var failed = new List<string>();
-        for (var i = 0; i < targets.Count; i++)
-        {
-            var conn = targets[i];
-            StatusSub.Text = $"Загружаю на {conn.Name}…";
-            try
-            {
-                var provider = new SftpStorageProvider(_store.Unprotect(conn));
-                await provider.UploadAsync(archive, Path.GetFileName(archive));
-                uploaded.Add(conn.Name);
-            }
-            catch (Exception ex)
-            {
-                failed.Add($"{conn.Name}: {ex.Message}");
-            }
-            SetFill(0.75 + 0.25 * (i + 1) / targets.Count); // заливка по целям
-        }
-
-        if (!keepLocal)
-        {
-            try { File.Delete(archive); } catch { /* мусор в temp не критичен */ }
-        }
-
-        // --- итог
-        var parts = new List<string>();
-        if (keepLocal) parts.Add(archive);
-        if (uploaded.Count > 0) parts.Add("→ " + string.Join(", ", uploaded));
-
-        StatusTitle.Text = failed.Count == 0 ? "Готов к работе" : "Бэкап завершён с ошибками";
-        StatusSub.Text = $"последний бэкап: {DateTime.Now:HH:mm}  {string.Join("  ", parts)}"
-            + (failed.Count > 0 ? $"  ✕ {string.Join("; ", failed)}" : string.Empty);
     }
 }

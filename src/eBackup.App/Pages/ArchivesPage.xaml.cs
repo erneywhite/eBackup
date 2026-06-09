@@ -15,8 +15,16 @@ public sealed partial class ArchivesPage : Page
     public ArchivesPage()
     {
         InitializeComponent();
-        Loaded += async (_, _) => await RefreshAsync();
+        Loaded += async (_, _) =>
+        {
+            // Обновляемся сами, когда бэкап завершился, пока страница открыта.
+            MainWindow.BackupCompleted += OnBackupCompleted;
+            await RefreshAsync();
+        };
+        Unloaded += (_, _) => MainWindow.BackupCompleted -= OnBackupCompleted;
     }
+
+    private async void OnBackupCompleted() => await RefreshAsync();
 
     private static string LocalBackupDir()
         => Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments), "eBackup", "Backups");

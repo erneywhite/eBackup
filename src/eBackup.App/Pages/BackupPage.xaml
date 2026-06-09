@@ -1,0 +1,72 @@
+<Page
+    x:Class="eBackup.App.Pages.BackupPage"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+    <Page.Resources>
+        <SolidColorBrush x:Key="EbErrBrush" Color="#FF8A9C" />
+        <Style x:Key="EbSectionCard" TargetType="Border">
+            <Setter Property="CornerRadius" Value="16" />
+            <Setter Property="Background" Value="{StaticResource EbCardBrush}" />
+            <Setter Property="BorderBrush" Value="{StaticResource EbCardBorderBrush}" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="Padding" Value="18,14" />
+        </Style>
+    </Page.Resources>
+
+    <ScrollViewer>
+        <StackPanel Spacing="14" MaxWidth="660" HorizontalAlignment="Left">
+            <TextBlock Text="Бэкап" FontSize="26" FontWeight="SemiBold" />
+
+            <!-- Что бэкапим -->
+            <Border Style="{StaticResource EbSectionCard}">
+                <StackPanel Spacing="8">
+                    <TextBlock Text="Что бэкапим" FontSize="12"
+                               Foreground="{StaticResource EbTextDimBrush}" />
+                    <StackPanel x:Name="ModulesPanel" Spacing="6" />
+
+                    <TextBlock Text="Свои папки" FontSize="12"
+                               Foreground="{StaticResource EbTextDimBrush}" Margin="0,10,0,0" />
+                    <StackPanel x:Name="FoldersPanel" Spacing="6" />
+                    <Button x:Name="AddFolderBtn" Content="+ Добавить папку" CornerRadius="10"
+                            Click="AddFolderBtn_Click" Margin="0,2,0,0" />
+                </StackPanel>
+            </Border>
+
+            <!-- Куда -->
+            <Border Style="{StaticResource EbSectionCard}">
+                <StackPanel Spacing="8">
+                    <TextBlock Text="Куда" FontSize="12"
+                               Foreground="{StaticResource EbTextDimBrush}" />
+                    <CheckBox x:Name="LocalCheck" Content="Локальная папка (Документы\eBackup\Backups)"
+                              IsChecked="True" />
+                    <StackPanel x:Name="SftpPanel" Spacing="6" />
+                </StackPanel>
+            </Border>
+
+            <!-- Шифрование -->
+            <Border Style="{StaticResource EbSectionCard}">
+                <StackPanel Spacing="8">
+                    <TextBlock Text="Шифрование" FontSize="12"
+                               Foreground="{StaticResource EbTextDimBrush}" />
+                    <CheckBox x:Name="EncryptCheck"
+                              Content="Зашифровать архив (AES-256, ключ из парольной фразы)"
+                              Checked="EncryptCheck_Changed" Unchecked="EncryptCheck_Changed" />
+                    <PasswordBox x:Name="Pass1" PlaceholderText="парольная фраза"
+                                 Visibility="Collapsed" MaxWidth="380" HorizontalAlignment="Left" />
+                    <PasswordBox x:Name="Pass2" PlaceholderText="повтори фразу"
+                                 Visibility="Collapsed" MaxWidth="380" HorizontalAlignment="Left" />
+                </StackPanel>
+            </Border>
+
+            <TextBlock x:Name="ErrorText" FontSize="12" TextWrapping="Wrap"
+                       Foreground="{StaticResource EbErrBrush}" Visibility="Collapsed" />
+
+            <Button x:Name="LaunchBtn" Height="46" Padding="32,0" CornerRadius="23"
+                    Background="{StaticResource EbAccentGradient}" BorderThickness="0"
+                    Click="LaunchBtn_Click" Margin="0,4,0,16">
+                <TextBlock Text="Запустить бэкап" FontWeight="SemiBold" Foreground="#1A0F22" />
+            </Button>
+        </StackPanel>
+    </ScrollViewer>
+</Page>
