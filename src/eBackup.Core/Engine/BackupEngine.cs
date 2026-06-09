@@ -4,6 +4,7 @@ using System.Text.Json;
 using eBackup.Core.Abstractions;
 using eBackup.Core.Crypto;
 using eBackup.Core.Model;
+using eBackup.Core.Modules;
 using eBackup.Core.Paths;
 using Microsoft.Extensions.FileSystemGlobbing;
 
@@ -48,7 +49,23 @@ public sealed class BackupEngine
             foreach (var module in modules)
             {
                 ct.ThrowIfCancellationRequested();
-                var entries = await module.DiscoverAsync(ct).ConfigureAwait(false);
+
+                // Изоляция сбоев: упавший модуль не должен ронять весь бэкап.
+                IReadOnlyList<PathEntry> entries;
+                try
+                {
+                    entries = await module.DiscoverAsync(ct).ConfigureAwait(false);
+                }
+                catch (OperationCanceledException)
+                {
+                    throw;
+                }
+                catch (Exception ex)
+                {
+                    Console.Error.WriteLine($"[eBackup] модуль '{module.Id}' пропущен (ошибка обнаружения): {ex.Message}");
+                    continue;
+                }
+
                 var moduleEntry = new ModuleEntry
                 {
                     ModuleId = module.Id,
@@ -153,6 +170,16 @@ public sealed class BackupEngine
                 ?? throw new InvalidDataException("Не удалось прочитать manifest.json.");
         }
 
+        // Граница доверия — сам архив: валидируем структуру манифеста (защита от zip-slip / порчи).
+        foreach (var m in manifest.Modules)
+        {
+            if (!ModuleValidation.IsValidId(m.ModuleId))
+                throw new InvalidDataException($"Недопустимый ModuleId в манифесте: '{m.ModuleId}'.");
+            foreach (var e in m.Entries)
+                if (!ModuleValidation.IsSafeArchivePath(e.ArchivePath))
+                    throw new InvalidDataException($"Небезопасный archivePath в манифесте: '{e.ArchivePath}'.");
+        }
+
         foreach (var module in manifest.Modules)
         {
             foreach (var entry in module.Entries)
@@ -184,6 +211,8 @@ public sealed class BackupEngine
 
                         var rel = ze.FullName[(prefix.Length + 1)..];
                         var dest = Path.Combine(target, rel.Replace('/', Path.DirectorySeparatorChar));
+                        if (!PathSafety.IsWithin(target, dest))
+                            throw new InvalidDataException($"Запись выходит за пределы целевой папки (zip-slip): {ze.FullName}");
                         ExtractFile(ze, dest, conflictPolicy);
                     }
                 }
@@ -212,6 +241,8 @@ public sealed class BackupEngine
                         .Select(e => e.FullName["data/".Length..])
                         .ToList();
 
+                    try
+                    {
                     await ((IModuleRestoreHook)module).RestoreAsync(new ModuleRestoreContext
                     {
                         OpenModuleEntry = archivePath =>
@@ -226,6 +257,15 @@ public sealed class BackupEngine
                         AssetsDirectory = assetsDir,
                         DestinationRootOverride = destinationRootOverride
                     }, ct).ConfigureAwait(false);
+                    }
+                    catch (OperationCanceledException)
+                    {
+                        throw;
+                    }
+                    catch (Exception ex)
+                    {
+                        Console.Error.WriteLine($"[eBackup] restore-хук модуля '{moduleEntry.ModuleId}' завершился с ошибкой: {ex.Message}");
+                    }
                 }
             }
         }

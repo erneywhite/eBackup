@@ -1,5 +1,4 @@
 using System.Text.Json;
-using System.Text.RegularExpressions;
 using eBackup.Core.Abstractions;
 using eBackup.Core.Model;
 
@@ -11,7 +10,7 @@ namespace eBackup.Core.Modules;
 /// ввод, а не папка). Безопасно по исполнению (кода нет), но НЕ exfiltration-free, поэтому
 /// пути ограничены app-data корнями + денлист чувствительных файлов.
 /// </summary>
-public sealed partial class DeclarativeModuleSource(string? modulesDirectory = null) : IModuleSource
+public sealed class DeclarativeModuleSource(string? modulesDirectory = null) : IModuleSource
 {
     private readonly string _dir = modulesDirectory ?? ModulePaths.ModulesDirectory;
 
@@ -19,9 +18,6 @@ public sealed partial class DeclarativeModuleSource(string? modulesDirectory = n
     private static readonly string[] AllowedTokens = ["{APPDATA}", "{LOCALAPPDATA}", "{PROGRAMDATA}"];
     private static readonly string[] DenyGlobs =
         ["**/.ssh/**", "**/.aws/**", "**/.gnupg/**", "**/*.key", "**/*.pfx"];
-
-    [GeneratedRegex("^[a-z0-9][a-z0-9._-]{0,63}$")]
-    private static partial Regex IdRegex();
 
     public ModuleSource Kind => ModuleSource.Declarative;
 
@@ -52,7 +48,7 @@ public sealed partial class DeclarativeModuleSource(string? modulesDirectory = n
             return Blocked(fallbackId, file, "нет id");
 
         var id = json.Id.Trim();
-        if (!IdRegex().IsMatch(id))
+        if (!ModuleValidation.IsValidId(id))
             return Blocked(id, file, "недопустимый id (разрешено: a-z 0-9 . _ -, до 64 символов)");
 
         if (!string.IsNullOrWhiteSpace(json.MinApiVersion))
@@ -72,7 +68,7 @@ public sealed partial class DeclarativeModuleSource(string? modulesDirectory = n
             if (string.IsNullOrWhiteSpace(e.TokenPath) || !IsAllowedToken(e.TokenPath!))
                 return Blocked(id, file, $"путь вне разрешённых app-data корней: {e.TokenPath}");
 
-            if (string.IsNullOrWhiteSpace(e.ArchivePath) || !IsSafeRelative(e.ArchivePath!))
+            if (string.IsNullOrWhiteSpace(e.ArchivePath) || !ModuleValidation.IsSafeArchivePath(e.ArchivePath))
                 return Blocked(id, file, $"недопустимый archivePath: {e.ArchivePath}");
 
             IReadOnlyList<string> excludes = e.Type == PathEntryType.Directory
@@ -111,12 +107,6 @@ public sealed partial class DeclarativeModuleSource(string? modulesDirectory = n
             return false;
         return AllowedTokens.Any(t => tokenPath == t || tokenPath.StartsWith(t + "/", StringComparison.Ordinal));
     }
-
-    private static bool IsSafeRelative(string archivePath)
-        => !archivePath.Contains("..")
-           && !archivePath.StartsWith('/')
-           && !archivePath.StartsWith('\\')
-           && !Path.IsPathRooted(archivePath);
 
     private static ModuleDescriptor Blocked(string id, string file, string problem) => new()
     {
