@@ -41,6 +41,17 @@
         <!-- ===== Кастомный тёмный тайтлбар ===== -->
         <Grid x:Name="TitleBarDragArea" Grid.Row="0" Padding="16,0,0,0">
             <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Spacing="10">
+                <!-- Слот под лого: сюда позже встанет картинка (Image) от художницы.
+                     Пока — временная монограмма в стиле приложения. -->
+                <Border x:Name="LogoSlot" Width="26" Height="26" CornerRadius="8"
+                        Background="{StaticResource EbCardBrush}"
+                        BorderBrush="{StaticResource EbCardBorderBrush}" BorderThickness="1"
+                        VerticalAlignment="Center">
+                    <TextBlock Text="e" FontSize="14" FontWeight="Bold"
+                               Foreground="{StaticResource EbAccentGradient}"
+                               HorizontalAlignment="Center" VerticalAlignment="Center"
+                               Margin="0,-2,0,0" />
+                </Border>
                 <TextBlock Text="eBackup" FontSize="16" FontWeight="Bold"
                            Foreground="{StaticResource EbAccentGradient}" />
                 <TextBlock Text="бэкапы, которые переезжают с тобой" FontSize="12"
