@@ -16,6 +16,15 @@ public sealed record BackupRequest(
     IReadOnlyList<SavedSftpConnection> Targets,
     string? Passphrase);
 
+/// <summary>Параметры восстановления, собранные страницей «Восстановление».</summary>
+public sealed record RestoreRequest(
+    Pages.RestoreSource Source,
+    IReadOnlyList<IBackupModule> Modules,
+    Core.Engine.ConflictPolicy Policy,
+    string? TargetDir,          // null — в исходные места
+    string AssetsDir,
+    string? Passphrase);
+
 public sealed partial class MainWindow : Window
 {
     /// <summary>Текущее окно — для страниц (запуск бэкапа, HWND для пикеров).</summary>
@@ -25,10 +34,10 @@ public sealed partial class MainWindow : Window
     public static event Action? BackupCompleted;
 
     private readonly SftpConnectionStore _store = new(new DpapiSecretProtector());
-    private bool _backupRunning;
-    private double _fill; // текущая доля заливки-прогресса нижней панели (0..1)
+    private bool _operationRunning; // бэкап или восстановление — одновременно только одно
+    private double _fill;           // текущая доля заливки-прогресса нижней панели (0..1)
 
-    public bool IsBackupRunning => _backupRunning;
+    public bool IsBusy => _operationRunning;
 
     public MainWindow()
     {
@@ -85,10 +94,10 @@ public sealed partial class MainWindow : Window
 
     public async Task StartBackupAsync(BackupRequest request)
     {
-        if (_backupRunning)
+        if (_operationRunning)
             return;
 
-        _backupRunning = true;
+        _operationRunning = true;
         BackupBtn.IsEnabled = false;
         StatusTitle.Text = "Делаю бэкап…";
         StatusSub.Text = "подготовка…";
@@ -153,9 +162,85 @@ public sealed partial class MainWindow : Window
         }
         finally
         {
-            _backupRunning = false;
+            _operationRunning = false;
             BackupBtn.IsEnabled = true;
             BackupCompleted?.Invoke();
+            await FadeOutFillAsync();
+        }
+    }
+
+    // ---------- восстановление (вызывается страницей «Восстановление») ----------
+
+    public async Task StartRestoreAsync(RestoreRequest request)
+    {
+        if (_operationRunning)
+            return;
+
+        _operationRunning = true;
+        BackupBtn.IsEnabled = false;
+        StatusTitle.Text = "Восстанавливаю…";
+        StatusSub.Text = "подготовка…";
+        SetFill(0.04);
+
+        string? tempDownloaded = null;
+        try
+        {
+            // Источник: локальный файл либо скачивание с сервера во временную папку.
+            string archive;
+            if (request.Source.LocalPath is not null)
+            {
+                archive = request.Source.LocalPath;
+            }
+            else
+            {
+                var conns = await _store.LoadAsync();
+                var conn = conns.FirstOrDefault(c => c.Id == request.Source.ConnectionId)
+                    ?? throw new InvalidOperationException("Подключение-источник не найдено.");
+                StatusSub.Text = $"Скачиваю {request.Source.RemoteName} с {conn.Name}…";
+                var provider = new SftpStorageProvider(_store.Unprotect(conn));
+                tempDownloaded = Path.Combine(Path.GetTempPath(), "eBackup", request.Source.RemoteName!);
+                await provider.DownloadAsync(request.Source.RemoteName!, tempDownloaded);
+                archive = tempDownloaded;
+                SetFill(0.25);
+            }
+
+            if (Core.Crypto.ArchiveCipher.IsEncrypted(archive) && string.IsNullOrEmpty(request.Passphrase))
+                throw new InvalidOperationException("Архив зашифрован — укажи парольную фразу.");
+
+            var progress = new Progress<string>(s =>
+            {
+                StatusSub.Text = s;
+                BumpFill(stageEnd: 0.95);
+            });
+
+            var engine = new BackupEngine();
+            await Task.Run(() => engine.RestoreAsync(
+                archive,
+                request.Modules,
+                request.Policy,
+                destinationRootOverride: request.TargetDir,
+                assetsDirectory: request.AssetsDir,
+                passphrase: request.Passphrase,
+                progress: progress));
+
+            SetFill(1.0);
+            StatusTitle.Text = "Готов к работе";
+            StatusSub.Text = $"восстановлено {DateTime.Now:HH:mm}: {Path.GetFileName(archive)} → "
+                + (request.TargetDir is null ? "исходные места" : request.TargetDir);
+        }
+        catch (Exception ex)
+        {
+            StatusTitle.Text = "Ошибка восстановления";
+            StatusSub.Text = ex.Message;
+        }
+        finally
+        {
+            if (tempDownloaded is not null)
+            {
+                try { File.Delete(tempDownloaded); } catch { /* temp */ }
+            }
+            _operationRunning = false;
+            BackupBtn.IsEnabled = true;
             await FadeOutFillAsync();
         }
     }

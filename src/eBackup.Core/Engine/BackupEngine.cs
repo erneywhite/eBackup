@@ -144,6 +144,7 @@ public sealed class BackupEngine
     /// </param>
     /// <param name="assetsDirectory">Папка для ассетов, управляемых модулями (если применимо).</param>
     /// <param name="passphrase">Парольная фраза, если архив зашифрован.</param>
+    /// <param name="progress">Необязательный прогресс (фазы восстановления).</param>
     public async Task RestoreAsync(
         string archivePath,
         IEnumerable<IBackupModule>? modules = null,
@@ -151,6 +152,7 @@ public sealed class BackupEngine
         string? destinationRootOverride = null,
         string? assetsDirectory = null,
         string? passphrase = null,
+        IProgress<string>? progress = null,
         CancellationToken ct = default)
     {
         // Зашифрованный архив сначала расшифровываем во временный файл.
@@ -160,6 +162,7 @@ public sealed class BackupEngine
         {
             if (string.IsNullOrEmpty(passphrase))
                 throw new InvalidOperationException("Архив зашифрован — требуется парольная фраза.");
+            progress?.Report("Расшифровываю архив…");
             tempPlain = Path.Combine(Path.GetTempPath(), $"ebk-dec-{Guid.NewGuid():N}.ebk");
             await ArchiveCipher.DecryptAsync(archivePath, tempPlain, passphrase, ct).ConfigureAwait(false);
             workingPath = tempPlain;
@@ -190,6 +193,7 @@ public sealed class BackupEngine
 
         foreach (var module in manifest.Modules)
         {
+            progress?.Report($"Восстанавливаю: {module.DisplayName}…");
             foreach (var entry in module.Entries)
             {
                 ct.ThrowIfCancellationRequested();
@@ -240,6 +244,8 @@ public sealed class BackupEngine
                 {
                     if (!hooks.TryGetValue(moduleEntry.ModuleId, out var module))
                         continue;
+
+                    progress?.Report($"{moduleEntry.DisplayName}: раскладываю ассеты…");
 
                     // Заужаем доступ хука до записей только этого модуля (data/<id>/).
                     var modulePrefix = "data/" + moduleEntry.ModuleId + "/";

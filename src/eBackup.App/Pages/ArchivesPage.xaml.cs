@@ -64,9 +64,11 @@ public sealed partial class ArchivesPage : Page
                     {
                         var encrypted = false;
                         try { encrypted = ArchiveCipher.IsEncrypted(f.FullName); } catch { }
+                        var path = f.FullName;
                         AddRow(f.Name,
                             $"{f.Length / 1024.0 / 1024.0:0.#} МБ · {f.LastWriteTime:dd.MM.yyyy HH:mm}"
-                            + (encrypted ? " · 🔒 зашифрован" : ""));
+                            + (encrypted ? " · 🔒 зашифрован" : ""),
+                            () => OpenRestore(new RestoreSource(path, null, null)));
                     }
                 }
             }
@@ -98,7 +100,8 @@ public sealed partial class ArchivesPage : Page
                     else
                         foreach (var f in files)
                             AddRow(f.Name,
-                                $"{f.Length / 1024.0 / 1024.0:0.#} МБ · {f.LastWriteTime:dd.MM.yyyy HH:mm} · на сервере");
+                                $"{f.Length / 1024.0 / 1024.0:0.#} МБ · {f.LastWriteTime:dd.MM.yyyy HH:mm} · на сервере",
+                                () => OpenRestore(new RestoreSource(null, conn.Id, f.Name)));
                 }
                 catch (Exception ex)
                 {
@@ -135,17 +138,41 @@ public sealed partial class ArchivesPage : Page
             TextWrapping = TextWrapping.Wrap
         });
 
-    private void AddRow(string title, string subtitle)
+    private void OpenRestore(RestoreSource source)
+        => Frame.Navigate(typeof(RestorePage), source);
+
+    private void AddRow(string title, string subtitle, Action? onRestore = null)
     {
         var appRes = Application.Current.Resources;
-        var panel = new StackPanel { Spacing = 2 };
-        panel.Children.Add(new TextBlock { Text = title, FontWeight = Microsoft.UI.Text.FontWeights.SemiBold });
-        panel.Children.Add(new TextBlock
+
+        var textPanel = new StackPanel { Spacing = 2, VerticalAlignment = VerticalAlignment.Center };
+        textPanel.Children.Add(new TextBlock { Text = title, FontWeight = Microsoft.UI.Text.FontWeights.SemiBold });
+        textPanel.Children.Add(new TextBlock
         {
             Text = subtitle,
             FontSize = 11,
             Foreground = (Brush)appRes["EbTextDimBrush"]
         });
+
+        var row = new Grid { ColumnSpacing = 10 };
+        row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+        row.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+        Grid.SetColumn(textPanel, 0);
+        row.Children.Add(textPanel);
+
+        if (onRestore is not null)
+        {
+            var restoreBtn = new Button
+            {
+                Content = "Восстановить",
+                CornerRadius = new CornerRadius(10),
+                Padding = new Thickness(14, 6, 14, 6),
+                VerticalAlignment = VerticalAlignment.Center
+            };
+            restoreBtn.Click += (_, _) => onRestore();
+            Grid.SetColumn(restoreBtn, 1);
+            row.Children.Add(restoreBtn);
+        }
 
         Sections.Children.Add(new Border
         {
@@ -154,7 +181,7 @@ public sealed partial class ArchivesPage : Page
             BorderBrush = (Brush)appRes["EbCardBorderBrush"],
             BorderThickness = new Thickness(1),
             Padding = new Thickness(14, 10, 14, 10),
-            Child = panel
+            Child = row
         });
     }
 }

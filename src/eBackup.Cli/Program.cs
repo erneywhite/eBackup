@@ -133,7 +133,8 @@ switch (command)
             conflictPolicy: conflict,
             destinationRootOverride: toDir,
             assetsDirectory: assetsDir,
-            passphrase: restorePass);
+            passphrase: restorePass,
+            progress: new ConsoleProgress());
 
         Console.WriteLine(toDir is null
             ? $"Восстановление завершено (файлы разложены по местам; ассеты: {assetsDir})."

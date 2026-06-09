@@ -75,7 +75,7 @@ public sealed partial class BackupPage : Page
             SftpPanel.Children.Add(cb);
         }
 
-        LaunchBtn.IsEnabled = MainWindow.Instance?.IsBackupRunning != true;
+        LaunchBtn.IsEnabled = MainWindow.Instance?.IsBusy != true;
     }
 
     // ---------- свои папки ----------
@@ -221,7 +221,7 @@ public sealed partial class BackupPage : Page
 
     private async void LaunchBtn_Click(object sender, RoutedEventArgs e)
     {
-        if (MainWindow.Instance is null || MainWindow.Instance.IsBackupRunning)
+        if (MainWindow.Instance is null || MainWindow.Instance.IsBusy)
             return;
 
         var modules = _moduleChecks.Where(cb => cb.IsChecked == true)
