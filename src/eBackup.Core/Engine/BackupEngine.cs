@@ -1,7 +1,6 @@
 using System.IO.Compression;
 using System.Security.Cryptography;
 using System.Text.Json;
-using System.Text.Json.Serialization;
 using eBackup.Core.Abstractions;
 using eBackup.Core.Crypto;
 using eBackup.Core.Model;
@@ -18,13 +17,6 @@ namespace eBackup.Core.Engine;
 /// </summary>
 public sealed class BackupEngine
 {
-    private static readonly JsonSerializerOptions JsonOptions = new()
-    {
-        WriteIndented = true,
-        PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
-        Converters = { new JsonStringEnumConverter() }
-    };
-
     /// <summary>
     /// Создать архив из набора модулей. Возвращает путь к готовому .ebk.
     /// </summary>
@@ -101,7 +93,7 @@ public sealed class BackupEngine
             // Манифест в корень архива.
             var manifestEntry = zip.CreateEntry("manifest.json");
             using var ms = manifestEntry.Open();
-            await JsonSerializer.SerializeAsync(ms, manifest, JsonOptions, ct).ConfigureAwait(false);
+            await JsonSerializer.SerializeAsync(ms, manifest, ManifestJson.Options, ct).ConfigureAwait(false);
         }
 
         if (passphrase is not null)
@@ -157,7 +149,7 @@ public sealed class BackupEngine
         Manifest manifest;
         using (var ms = manifestEntry.Open())
         {
-            manifest = await JsonSerializer.DeserializeAsync<Manifest>(ms, JsonOptions, ct).ConfigureAwait(false)
+            manifest = await JsonSerializer.DeserializeAsync<Manifest>(ms, ManifestJson.Options, ct).ConfigureAwait(false)
                 ?? throw new InvalidDataException("Не удалось прочитать manifest.json.");
         }
 
@@ -212,9 +204,24 @@ public sealed class BackupEngine
                     if (!hooks.TryGetValue(moduleEntry.ModuleId, out var module))
                         continue;
 
+                    // Заужаем доступ хука до записей только этого модуля (data/<id>/).
+                    var modulePrefix = "data/" + moduleEntry.ModuleId + "/";
+                    var modulePaths = zip.Entries
+                        .Where(e => !string.IsNullOrEmpty(e.Name) &&
+                                    e.FullName.StartsWith(modulePrefix, StringComparison.Ordinal))
+                        .Select(e => e.FullName["data/".Length..])
+                        .ToList();
+
                     await ((IModuleRestoreHook)module).RestoreAsync(new ModuleRestoreContext
                     {
-                        Archive = zip,
+                        OpenModuleEntry = archivePath =>
+                        {
+                            var full = "data/" + archivePath.Replace('\\', '/');
+                            return full.StartsWith(modulePrefix, StringComparison.Ordinal)
+                                ? zip.GetEntry(full)?.Open()
+                                : null;
+                        },
+                        ModuleEntryPaths = modulePaths,
                         ModuleEntry = moduleEntry,
                         AssetsDirectory = assetsDir,
                         DestinationRootOverride = destinationRootOverride

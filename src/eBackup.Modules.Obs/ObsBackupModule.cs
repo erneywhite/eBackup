@@ -1,4 +1,3 @@
-using System.IO.Compression;
 using System.Text.Json;
 using eBackup.Core.Abstractions;
 using eBackup.Core.Model;
@@ -235,8 +234,8 @@ public sealed class ObsBackupModule(string? obsRootOverride = null, string? inst
             if (!entry.ManagedByModule || entry.Type != PathEntryType.File)
                 continue;
 
-            var zipEntry = context.Archive.GetEntry("data/" + entry.ArchivePath);
-            if (zipEntry is null)
+            using var src = context.OpenModuleEntry(entry.ArchivePath);
+            if (src is null)
                 continue;
 
             // "obs/assets/0/file.jpg" -> "<AssetsDirectory>/0/file.jpg"
@@ -248,7 +247,9 @@ public sealed class ObsBackupModule(string? obsRootOverride = null, string? inst
             var destDir = Path.GetDirectoryName(dest);
             if (!string.IsNullOrEmpty(destDir))
                 Directory.CreateDirectory(destDir);
-            zipEntry.ExtractToFile(dest, overwrite: true);
+
+            await using (var outFs = File.Create(dest))
+                await src.CopyToAsync(outFs, ct).ConfigureAwait(false);
 
             remap[entry.TokenPath] = dest.Replace('\\', '/');
         }

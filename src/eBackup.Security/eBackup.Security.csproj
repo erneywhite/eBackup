@@ -1,7 +1,7 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <ItemGroup>
-    <ProjectReference Include="..\eBackup.Core\eBackup.Core.csproj" />
+    <ProjectReference Include="..\eBackup.Abstractions\eBackup.Abstractions.csproj" />
   </ItemGroup>
 
   <ItemGroup>
