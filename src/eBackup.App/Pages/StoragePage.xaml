@@ -1,0 +1,151 @@
+<Page
+    x:Class="eBackup.App.Pages.StoragePage"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:pages="using:eBackup.App.Pages">
+
+    <Page.Resources>
+        <SolidColorBrush x:Key="EbOkBrush" Color="#7CE3A8" />
+        <SolidColorBrush x:Key="EbErrBrush" Color="#FF8A9C" />
+    </Page.Resources>
+
+    <Grid ColumnSpacing="18">
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="270" />
+            <ColumnDefinition Width="*" />
+        </Grid.ColumnDefinitions>
+
+        <!-- ===== Левая панель: список подключений ===== -->
+        <Grid Grid.Column="0">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="*" />
+                <RowDefinition Height="Auto" />
+            </Grid.RowDefinitions>
+
+            <TextBlock Grid.Row="0" Text="Хранилища" FontSize="26" FontWeight="SemiBold"
+                       Margin="0,0,0,12" />
+
+            <ListView x:Name="ConnList" Grid.Row="1" SelectionMode="Single"
+                      SelectionChanged="ConnList_SelectionChanged"
+                      ItemContainerStyle="{StaticResource EbNavItemStyle}">
+                <ListView.ItemTemplate>
+                    <DataTemplate x:DataType="pages:ConnItem">
+                        <StackPanel Spacing="2" Margin="0,8">
+                            <TextBlock Text="{x:Bind Name}" FontWeight="SemiBold" />
+                            <TextBlock Text="{x:Bind Endpoint}" FontSize="11"
+                                       Foreground="{StaticResource EbTextDimBrush}" />
+                        </StackPanel>
+                    </DataTemplate>
+                </ListView.ItemTemplate>
+            </ListView>
+
+            <Button x:Name="AddBtn" Grid.Row="2" HorizontalAlignment="Stretch"
+                    Margin="0,10,0,0" CornerRadius="12" Click="AddBtn_Click">
+                <TextBlock Text="+ Добавить SFTP" />
+            </Button>
+        </Grid>
+
+        <!-- ===== Правая панель: редактор ===== -->
+        <Grid Grid.Column="1">
+            <TextBlock x:Name="EmptyHint"
+                       Text="Выбери подключение слева или добавь новое"
+                       Foreground="{StaticResource EbTextDimBrush}"
+                       HorizontalAlignment="Center" VerticalAlignment="Center" />
+
+            <Border x:Name="Editor" Visibility="Collapsed" CornerRadius="16"
+                    Background="{StaticResource EbCardBrush}"
+                    BorderBrush="{StaticResource EbCardBorderBrush}" BorderThickness="1"
+                    Padding="20" VerticalAlignment="Top">
+                <ScrollViewer MaxHeight="560" VerticalScrollBarVisibility="Auto">
+                    <StackPanel Spacing="10">
+                        <TextBlock x:Name="EditorTitle" Text="Новое подключение"
+                                   FontSize="18" FontWeight="SemiBold" Margin="0,0,0,4" />
+
+                        <TextBlock Text="Название" FontSize="12"
+                                   Foreground="{StaticResource EbTextDimBrush}" />
+                        <TextBox x:Name="NameBox" PlaceholderText="Домашний NAS" />
+
+                        <Grid ColumnSpacing="10">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="110" />
+                            </Grid.ColumnDefinitions>
+                            <StackPanel Grid.Column="0" Spacing="10">
+                                <TextBlock Text="Хост / IP" FontSize="12"
+                                           Foreground="{StaticResource EbTextDimBrush}" />
+                                <TextBox x:Name="HostBox" PlaceholderText="192.168.1.10" />
+                            </StackPanel>
+                            <StackPanel Grid.Column="1" Spacing="10">
+                                <TextBlock Text="Порт" FontSize="12"
+                                           Foreground="{StaticResource EbTextDimBrush}" />
+                                <TextBox x:Name="PortBox" Text="22" />
+                            </StackPanel>
+                        </Grid>
+
+                        <TextBlock Text="Логин" FontSize="12"
+                                   Foreground="{StaticResource EbTextDimBrush}" />
+                        <TextBox x:Name="UserBox" PlaceholderText="user" />
+
+                        <TextBlock Text="Аутентификация" FontSize="12"
+                                   Foreground="{StaticResource EbTextDimBrush}" Margin="0,4,0,0" />
+                        <StackPanel Orientation="Horizontal" Spacing="18">
+                            <RadioButton x:Name="AuthPassword" Content="Пароль" GroupName="auth"
+                                         IsChecked="True" Checked="AuthMode_Changed" />
+                            <RadioButton x:Name="AuthKey" Content="SSH-ключ" GroupName="auth"
+                                         Checked="AuthMode_Changed" />
+                        </StackPanel>
+
+                        <StackPanel x:Name="PasswordPanel" Spacing="10">
+                            <PasswordBox x:Name="PassBox" PlaceholderText="пароль" />
+                        </StackPanel>
+
+                        <StackPanel x:Name="KeyPanel" Spacing="10" Visibility="Collapsed">
+                            <TextBox x:Name="KeyPathBox"
+                                     PlaceholderText="C:\Users\you\.ssh\id_ed25519 (путь к приватному ключу)" />
+                            <PasswordBox x:Name="KeyPassBox"
+                                         PlaceholderText="парольная фраза ключа (если есть)" />
+                        </StackPanel>
+
+                        <TextBlock Text="Удалённая папка для архивов" FontSize="12"
+                                   Foreground="{StaticResource EbTextDimBrush}" Margin="0,4,0,0" />
+                        <Grid ColumnSpacing="10">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <TextBox x:Name="RemoteDirBox" Grid.Column="0" Text="." />
+                            <Button x:Name="BrowseBtn" Grid.Column="1" Content="Обзор…"
+                                    CornerRadius="10" Click="BrowseBtn_Click" />
+                        </Grid>
+
+                        <!-- Дерево удалённых папок (ленивая подгрузка по раскрытию узла) -->
+                        <Border x:Name="TreePanel" Visibility="Collapsed" CornerRadius="12"
+                                Background="#0DFFFFFF"
+                                BorderBrush="{StaticResource EbCardBorderBrush}" BorderThickness="1"
+                                Padding="6">
+                            <TreeView x:Name="FolderTree" MaxHeight="220"
+                                      SelectionMode="None" CanDragItems="False"
+                                      CanReorderItems="False" />
+                        </Border>
+
+                        <StackPanel Orientation="Horizontal" Spacing="10" Margin="0,8,0,0">
+                            <Button x:Name="TestBtn" Content="Тест" CornerRadius="12"
+                                    Padding="22,8" Click="TestBtn_Click" />
+                            <Button x:Name="SaveBtn" CornerRadius="12" Padding="22,8"
+                                    Background="{StaticResource EbAccentGradient}"
+                                    BorderThickness="0" Click="SaveBtn_Click">
+                                <TextBlock Text="Сохранить" FontWeight="SemiBold" Foreground="#1A0F22" />
+                            </Button>
+                            <Button x:Name="DeleteBtn" Content="Удалить" CornerRadius="12"
+                                    Padding="22,8" Foreground="{StaticResource EbErrBrush}"
+                                    Visibility="Collapsed" Click="DeleteBtn_Click" />
+                        </StackPanel>
+
+                        <TextBlock x:Name="StatusText" TextWrapping="Wrap" FontSize="12" />
+                    </StackPanel>
+                </ScrollViewer>
+            </Border>
+        </Grid>
+    </Grid>
+</Page>

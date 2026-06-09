@@ -1,0 +1,11 @@
+<Page
+    x:Class="eBackup.App.Pages.ArchivesPage"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+    <StackPanel Spacing="12">
+        <TextBlock Text="Архивы" FontSize="26" FontWeight="SemiBold" />
+        <TextBlock Text="Список архивов (локальных и на серверах) появится после экрана бэкапа."
+                   Foreground="{StaticResource EbTextDimBrush}" />
+    </StackPanel>
+</Page>

@@ -1,0 +1,11 @@
+<Page
+    x:Class="eBackup.App.Pages.ModulesPage"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+    <StackPanel Spacing="12">
+        <TextBlock Text="Модули" FontSize="26" FontWeight="SemiBold" />
+        <TextBlock Text="Карточки модулей из реестра появятся на следующем шаге (G-2)."
+                   Foreground="{StaticResource EbTextDimBrush}" />
+    </StackPanel>
+</Page>

@@ -22,4 +22,10 @@
     <PackageReference Include="Microsoft.WindowsAppSDK" Version="2.1.3" />
   </ItemGroup>
 
+  <ItemGroup>
+    <ProjectReference Include="..\eBackup.Storage.Sftp\eBackup.Storage.Sftp.csproj" />
+    <ProjectReference Include="..\eBackup.Security\eBackup.Security.csproj" />
+    <ProjectReference Include="..\eBackup.Core\eBackup.Core.csproj" />
+  </ItemGroup>
+
 </Project>

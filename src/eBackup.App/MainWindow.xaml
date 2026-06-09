@@ -121,59 +121,8 @@
                 </ListView>
             </Grid>
 
-            <!-- Рабочая область (G-0: заглушка с карточками для оценки стиля) -->
-            <ScrollViewer Grid.Column="1" Padding="8,36,24,8">
-                <StackPanel Spacing="16">
-                    <TextBlock x:Name="PageTitle" Text="Обзор" FontSize="26" FontWeight="SemiBold" Margin="0,8,0,0" />
-
-                    <ItemsControl>
-                        <ItemsControl.ItemsPanel>
-                            <ItemsPanelTemplate>
-                                <StackPanel Orientation="Horizontal" Spacing="14" />
-                            </ItemsPanelTemplate>
-                        </ItemsControl.ItemsPanel>
-
-                        <!-- Карточка-образец 1 -->
-                        <Border Width="210" Height="120" CornerRadius="16"
-                                Background="{StaticResource EbCardBrush}"
-                                BorderBrush="{StaticResource EbCardBorderBrush}" BorderThickness="1"
-                                Padding="16">
-                            <StackPanel Spacing="6">
-                                <TextBlock Text="OBS Studio" FontWeight="SemiBold" />
-                                <TextBlock Text="встроенный модуль" FontSize="12"
-                                           Foreground="{StaticResource EbTextDimBrush}" />
-                                <TextBlock Text="✓ включён" FontSize="12" Foreground="#7CE3A8" />
-                            </StackPanel>
-                        </Border>
-
-                        <!-- Карточка-образец 2 -->
-                        <Border Width="210" Height="120" CornerRadius="16"
-                                Background="{StaticResource EbCardBrush}"
-                                BorderBrush="{StaticResource EbCardBorderBrush}" BorderThickness="1"
-                                Padding="16">
-                            <StackPanel Spacing="6">
-                                <TextBlock Text="NAS (SFTP)" FontWeight="SemiBold" />
-                                <TextBlock Text="хранилище" FontSize="12"
-                                           Foreground="{StaticResource EbTextDimBrush}" />
-                                <TextBlock Text="✓ подключено" FontSize="12" Foreground="#7CE3A8" />
-                            </StackPanel>
-                        </Border>
-
-                        <!-- Карточка «добавить» -->
-                        <Border Width="120" Height="120" CornerRadius="16"
-                                Background="Transparent"
-                                BorderBrush="{StaticResource EbCardBorderBrush}" BorderThickness="1"
-                                Padding="16">
-                            <TextBlock Text="+" FontSize="34" HorizontalAlignment="Center"
-                                       VerticalAlignment="Center"
-                                       Foreground="{StaticResource EbTextDimBrush}" />
-                        </Border>
-                    </ItemsControl>
-
-                    <TextBlock Text="(G-0: каркас для оценки стиля — функциональность подключим в G-1+)"
-                               FontSize="12" Foreground="{StaticResource EbTextDimBrush}" />
-                </StackPanel>
-            </ScrollViewer>
+            <!-- Рабочая область: страницы (Обзор/Модули/Хранилища/Архивы) -->
+            <Frame x:Name="ContentFrame" Grid.Column="1" Margin="8,36,24,8" />
         </Grid>
 
         <!-- ===== Нижняя панель-статус (аналог плеера eCoda) ===== -->
