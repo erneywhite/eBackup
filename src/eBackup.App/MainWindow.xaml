@@ -63,14 +63,8 @@
                 </Grid.RowDefinitions>
 
                 <ListView x:Name="Nav" Grid.Row="0" SelectionMode="Single"
-                          SelectionChanged="Nav_SelectionChanged" IsItemClickEnabled="False">
-                    <ListView.ItemContainerStyle>
-                        <Style TargetType="ListViewItem">
-                            <Setter Property="CornerRadius" Value="10" />
-                            <Setter Property="Margin" Value="0,2" />
-                            <Setter Property="Padding" Value="12,10" />
-                        </Style>
-                    </ListView.ItemContainerStyle>
+                          SelectionChanged="Nav_SelectionChanged" IsItemClickEnabled="False"
+                          ItemContainerStyle="{StaticResource EbNavItemStyle}">
                     <ListViewItem Tag="overview" IsSelected="True">
                         <StackPanel Orientation="Horizontal" Spacing="12">
                             <FontIcon Glyph="&#xE80F;" FontSize="16" />
@@ -98,7 +92,8 @@
                 </ListView>
 
                 <!-- Настройки прижаты к низу, как в eCoda -->
-                <ListView Grid.Row="1" SelectionMode="None">
+                <ListView Grid.Row="1" SelectionMode="None"
+                          ItemContainerStyle="{StaticResource EbNavItemStyle}">
                     <ListViewItem>
                         <StackPanel Orientation="Horizontal" Spacing="12">
                             <FontIcon Glyph="&#xE713;" FontSize="16" />

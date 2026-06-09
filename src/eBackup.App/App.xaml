@@ -23,6 +23,31 @@
                 <GradientStop Color="{StaticResource EbAccent1}" Offset="0" />
                 <GradientStop Color="{StaticResource EbAccent2}" Offset="1" />
             </LinearGradientBrush>
+
+            <!-- Пилюля-таб сайдбара: нормальное скругление + виолетовая подсветка выделения -->
+            <Style x:Key="EbNavItemStyle" TargetType="ListViewItem">
+                <Setter Property="Margin" Value="0,2" />
+                <Setter Property="MinHeight" Value="42" />
+                <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+                <Setter Property="Template">
+                    <Setter.Value>
+                        <ControlTemplate TargetType="ListViewItem">
+                            <ListViewItemPresenter
+                                CornerRadius="12"
+                                ContentMargin="12,0"
+                                VerticalContentAlignment="Center"
+                                SelectionCheckMarkVisualEnabled="False"
+                                SelectionIndicatorVisualEnabled="False"
+                                PointerOverBackground="#12FFFFFF"
+                                PressedBackground="#1CFFFFFF"
+                                SelectedBackground="#2BC97DF6"
+                                SelectedPointerOverBackground="#36C97DF6"
+                                SelectedPressedBackground="#40C97DF6"
+                                ContentTransitions="{TemplateBinding ContentTransitions}" />
+                        </ControlTemplate>
+                    </Setter.Value>
+                </Setter>
+            </Style>
         </ResourceDictionary>
     </Application.Resources>
 </Application>
