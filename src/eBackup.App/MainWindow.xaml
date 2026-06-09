@@ -5,13 +5,12 @@
 
     <Grid Background="{StaticResource EbBackgroundBrush}">
         <Grid.RowDefinitions>
-            <RowDefinition Height="44" />
             <RowDefinition Height="*" />
             <RowDefinition Height="76" />
         </Grid.RowDefinitions>
 
         <!-- ===== Аврора-фон: три мягких цветных пятна за всем интерфейсом ===== -->
-        <Canvas Grid.RowSpan="3" IsHitTestVisible="False">
+        <Canvas Grid.RowSpan="2" IsHitTestVisible="False">
             <Ellipse Width="900" Height="620" Canvas.Left="-220" Canvas.Top="-180">
                 <Ellipse.Fill>
                     <RadialGradientBrush>
@@ -38,20 +37,21 @@
             </Ellipse>
         </Canvas>
 
-        <!-- ===== Кастомный тёмный тайтлбар ===== -->
-        <!-- Тайтлбар — чистая полоса перетаскивания; брендинг переехал в сайдбар -->
-        <Grid x:Name="TitleBarDragArea" Grid.Row="0" />
-
+        <!-- Невидимая полоса перетаскивания окна поверх верхней кромки.
+             Брендинг под ней некликабелен (IsHitTestVisible=False), так что
+             окно таскается и за лого. -->
+        <Grid x:Name="TitleBarDragArea" Grid.Row="0" Height="44"
+              VerticalAlignment="Top" Background="Transparent" />
 
         <!-- ===== Контент: сайдбар + рабочая область ===== -->
-        <Grid Grid.Row="1">
+        <Grid Grid.Row="0">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="216" />
                 <ColumnDefinition Width="*" />
             </Grid.ColumnDefinitions>
 
             <!-- Сайдбар -->
-            <Grid Grid.Column="0" Padding="12,0,12,12">
+            <Grid Grid.Column="0" Padding="12,10,12,12">
                 <Grid.RowDefinitions>
                     <RowDefinition Height="Auto" />
                     <RowDefinition Height="*" />
@@ -60,7 +60,8 @@
 
                 <!-- Брендинг (как в eCoda — верх сайдбара).
                      LogoSlot 44×44: сюда позже встанет Image с лого от художницы. -->
-                <StackPanel Grid.Row="0" Orientation="Horizontal" Spacing="11" Margin="6,2,6,16">
+                <StackPanel Grid.Row="0" Orientation="Horizontal" Spacing="11" Margin="6,2,6,16"
+                            IsHitTestVisible="False">
                     <Border x:Name="LogoSlot" Width="44" Height="44" CornerRadius="12"
                             Background="{StaticResource EbCardBrush}"
                             BorderBrush="{StaticResource EbCardBorderBrush}" BorderThickness="1"
@@ -121,7 +122,7 @@
             </Grid>
 
             <!-- Рабочая область (G-0: заглушка с карточками для оценки стиля) -->
-            <ScrollViewer Grid.Column="1" Padding="8,0,24,8">
+            <ScrollViewer Grid.Column="1" Padding="8,36,24,8">
                 <StackPanel Spacing="16">
                     <TextBlock x:Name="PageTitle" Text="Обзор" FontSize="26" FontWeight="SemiBold" Margin="0,8,0,0" />
 
@@ -176,7 +177,7 @@
         </Grid>
 
         <!-- ===== Нижняя панель-статус (аналог плеера eCoda) ===== -->
-        <Border Grid.Row="2" Margin="12,0,12,12" CornerRadius="16"
+        <Border Grid.Row="1" Margin="12,0,12,12" CornerRadius="16"
                 Background="{StaticResource EbCardBrush}"
                 BorderBrush="{StaticResource EbCardBorderBrush}" BorderThickness="1"
                 Padding="20,0">
