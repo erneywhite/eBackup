@@ -1,0 +1,28 @@
+<Application
+    x:Class="eBackup.App.App"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    RequestedTheme="Dark">
+    <Application.Resources>
+        <ResourceDictionary>
+            <ResourceDictionary.MergedDictionaries>
+                <XamlControlsResources xmlns="using:Microsoft.UI.Xaml.Controls" />
+            </ResourceDictionary.MergedDictionaries>
+
+            <!-- Палитра eBackup (в стиле eCoda) -->
+            <Color x:Key="EbBackgroundColor">#0E0A16</Color>
+            <Color x:Key="EbAccent1">#C97DF6</Color>
+            <Color x:Key="EbAccent2">#FF6DC8</Color>
+
+            <SolidColorBrush x:Key="EbBackgroundBrush" Color="{StaticResource EbBackgroundColor}" />
+            <SolidColorBrush x:Key="EbCardBrush" Color="#14FFFFFF" />
+            <SolidColorBrush x:Key="EbCardBorderBrush" Color="#1FFFFFFF" />
+            <SolidColorBrush x:Key="EbTextDimBrush" Color="#9AA0AC" />
+
+            <LinearGradientBrush x:Key="EbAccentGradient" StartPoint="0,0" EndPoint="1,1">
+                <GradientStop Color="{StaticResource EbAccent1}" Offset="0" />
+                <GradientStop Color="{StaticResource EbAccent2}" Offset="1" />
+            </LinearGradientBrush>
+        </ResourceDictionary>
+    </Application.Resources>
+</Application>
