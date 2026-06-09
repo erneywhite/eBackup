@@ -180,33 +180,8 @@ public sealed partial class BackupPage : Page
         RenderFolders();
     }
 
-    /// <summary>Свои папки как обычный модуль: токенизированные пути → переносимый архив.</summary>
-    private DeclarativeModule? BuildFoldersModule()
-    {
-        if (_folders.Count == 0)
-            return null;
-
-        var entries = new List<PathEntry>();
-        for (var i = 0; i < _folders.Count; i++)
-        {
-            var leaf = new string(Path.GetFileName(_folders[i].TrimEnd('\\', '/'))
-                    .ToLowerInvariant()
-                    .Select(ch => char.IsAsciiLetterOrDigit(ch) ? ch : '-')
-                    .ToArray())
-                .Trim('-');
-            if (leaf.Length == 0)
-                leaf = "folder";
-
-            entries.Add(new PathEntry
-            {
-                TokenPath = PathTokens.Tokenize(_folders[i]),
-                Type = PathEntryType.Directory,
-                ArchivePath = $"folders/{i}-{leaf}"
-            });
-        }
-
-        return new DeclarativeModule("folders", "Свои папки", entries);
-    }
+    /// <summary>Свои папки как обычный модуль (логика — в Core.Modules.CustomFolders).</summary>
+    private DeclarativeModule? BuildFoldersModule() => CustomFolders.Build(_folders);
 
     // ---------- запуск ----------
 

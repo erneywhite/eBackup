@@ -109,8 +109,8 @@ public class ObsBackupModuleTests
                 destinationRootOverride: restoreDir,
                 assetsDirectory: assetsDir);
 
-            // Ассет извлечён в выбранную папку.
-            var restoredAsset = Path.Combine(assetsDir, "0", Path.GetFileName(assetFile));
+            // Ассет извлечён в выбранную папку — плоско, без промежуточных «0/1/…».
+            var restoredAsset = Path.Combine(assetsDir, Path.GetFileName(assetFile));
             Assert.True(File.Exists(restoredAsset));
 
             // В восстановленной сцене путь переписан на новую папку; старого пути нет.

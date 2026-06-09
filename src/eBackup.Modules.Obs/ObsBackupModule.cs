@@ -103,6 +103,7 @@ public sealed class ObsBackupModule(string? obsRootOverride = null, string? inst
             return;
 
         var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var usedNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         var index = 0;
 
         foreach (var sceneFile in Directory.EnumerateFiles(scenesDir, "*.json"))
@@ -139,13 +140,20 @@ public sealed class ObsBackupModule(string? obsRootOverride = null, string? inst
                         // Файлы внутри папки OBS и так попадут в основной каталог — не дублируем.
                         if (full.StartsWith(_obsRoot, StringComparison.OrdinalIgnoreCase)) continue;
 
+                        // Ассеты лежат в архиве плоско по имени файла; индекс-префикс —
+                        // только при совпадении имён (чтобы не плодить папки «0», «1»…).
+                        var fileName = Path.GetFileName(full);
+                        while (fileName.Contains(".."))
+                            fileName = fileName.Replace("..", ".");
+                        var entryName = usedNames.Add(fileName) ? fileName : $"{index}-{fileName}";
+
                         entries.Add(new PathEntry
                         {
                             // Для ассетов храним ИСХОДНЫЙ путь как есть (не токенизируем):
                             // он нужен As-2, чтобы найти и переписать эту строку в scene JSON.
                             TokenPath = full.Replace('\\', '/'),
                             Type = PathEntryType.File,
-                            ArchivePath = $"obs/assets/{index}/{Path.GetFileName(full)}",
+                            ArchivePath = $"obs/assets/{entryName}",
                             ManagedByModule = true
                         });
                         index++;
