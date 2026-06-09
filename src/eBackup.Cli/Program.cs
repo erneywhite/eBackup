@@ -7,8 +7,12 @@ using eBackup.Modules.Obs;
 using eBackup.Security;
 using eBackup.Storage.Sftp;
 
-// Реестр модулей: встроенные (OBS) + (позже) декларативные/DLL.
-var registry = new ModuleRegistry([new BuiltInModuleSource([new ObsBackupModule()])]);
+// Реестр модулей: встроенные (OBS, приоритетнее) + декларативные drop-in + (позже) DLL.
+var registry = new ModuleRegistry(
+[
+    new BuiltInModuleSource([new ObsBackupModule()]),
+    new DeclarativeModuleSource(),
+]);
 IReadOnlyList<IBackupModule> modules = registry.LoadEnabled();
 
 var command = args.Length > 0 ? args[0].ToLowerInvariant() : "help";
@@ -179,6 +183,27 @@ switch (command)
         break;
     }
 
+    case "module-add":
+    {
+        var file = args.Length > 1 ? args[1] : GetOption(args, "--file");
+        if (file is null || !File.Exists(file))
+        {
+            Console.Error.WriteLine("Укажите путь к *.module.json: ebackup module-add <файл>");
+            return 1;
+        }
+        if (!file.EndsWith(".module.json", StringComparison.OrdinalIgnoreCase))
+        {
+            Console.Error.WriteLine("Файл должен оканчиваться на .module.json");
+            return 1;
+        }
+        Directory.CreateDirectory(ModulePaths.ModulesDirectory);
+        var dest = Path.Combine(ModulePaths.ModulesDirectory, Path.GetFileName(file));
+        File.Copy(file, dest, overwrite: true);
+        Console.WriteLine($"Импортирован модуль: {dest}");
+        Console.WriteLine("Проверить: ebackup list-modules");
+        break;
+    }
+
     default:
         Console.WriteLine(
             """
@@ -200,6 +225,9 @@ switch (command)
               sftp-list                               Список сохранённых подключений
               sftp-test <id>                          Проверить связь
               sftp-ls   <id>                          Список архивов .ebk на сервере
+
+            Модули (%APPDATA%\eBackup\modules):
+              module-add <файл.module.json>           Импортировать декларативный модуль (drop-in)
             """);
         break;
 }
