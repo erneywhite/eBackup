@@ -32,6 +32,13 @@ public sealed record PathEntry
     /// напр. "logs/**". Обобщённый механизм — конкретные маски задаёт модуль.
     /// </summary>
     public IReadOnlyList<string> ExcludeGlobs { get; init; } = [];
+
+    /// <summary>
+    /// true — запись упаковывается движком на бэкапе, но НЕ восстанавливается им
+    /// автоматически: её размещением занимается restore-хук модуля (например, ассеты
+    /// OBS — их кладут в отдельную папку и переписывают пути в сценах).
+    /// </summary>
+    public bool ManagedByModule { get; init; }
 }
 
 /// <summary>Записи одного модуля внутри манифеста.</summary>

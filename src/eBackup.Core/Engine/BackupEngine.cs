@@ -133,6 +133,12 @@ public sealed class BackupEngine
             foreach (var entry in module.Entries)
             {
                 ct.ThrowIfCancellationRequested();
+
+                // Управляемые модулем записи (напр. ассеты OBS) восстанавливает
+                // сам модуль через свой restore-хук — движок их пропускает.
+                if (entry.ManagedByModule)
+                    continue;
+
                 var target = destinationRootOverride is null
                     ? PathTokens.Resolve(entry.TokenPath)
                     : Path.Combine(destinationRootOverride, entry.ArchivePath.Replace('/', Path.DirectorySeparatorChar));

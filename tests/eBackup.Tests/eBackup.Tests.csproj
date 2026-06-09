@@ -21,6 +21,7 @@
   <ItemGroup>
     <ProjectReference Include="..\..\src\eBackup.Core\eBackup.Core.csproj" />
     <ProjectReference Include="..\..\src\eBackup.Storage.Sftp\eBackup.Storage.Sftp.csproj" />
+    <ProjectReference Include="..\..\src\eBackup.Modules.Obs\eBackup.Modules.Obs.csproj" />
   </ItemGroup>
 
 </Project>
