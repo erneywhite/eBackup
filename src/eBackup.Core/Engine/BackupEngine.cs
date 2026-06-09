@@ -26,6 +26,7 @@ public sealed class BackupEngine
         string outputDirectory,
         string archiveName,
         string? passphrase = null,
+        IProgress<string>? progress = null,
         CancellationToken ct = default)
     {
         Directory.CreateDirectory(outputDirectory);
@@ -50,6 +51,8 @@ public sealed class BackupEngine
             {
                 ct.ThrowIfCancellationRequested();
 
+                progress?.Report($"{module.DisplayName}: собираю файлы…");
+
                 // Изоляция сбоев: упавший модуль не должен ронять весь бэкап.
                 IReadOnlyList<PathEntry> entries;
                 try
@@ -71,6 +74,7 @@ public sealed class BackupEngine
                     ModuleId = module.Id,
                     DisplayName = module.DisplayName
                 };
+                var fileCount = 0;
 
                 foreach (var entry in entries)
                 {
@@ -98,6 +102,8 @@ public sealed class BackupEngine
                             ct.ThrowIfCancellationRequested();
                             var rel = Path.GetRelativePath(source, file).Replace('\\', '/');
                             zip.CreateEntryFromFile(file, basePrefix + "/" + rel);
+                            if (++fileCount % 250 == 0)
+                                progress?.Report($"{module.DisplayName}: {fileCount} файлов…");
                         }
                         moduleEntry.Entries.Add(entry);
                     }
@@ -108,6 +114,7 @@ public sealed class BackupEngine
             }
 
             // Манифест в корень архива.
+            progress?.Report("Записываю манифест…");
             var manifestEntry = zip.CreateEntry("manifest.json");
             using var ms = manifestEntry.Open();
             await JsonSerializer.SerializeAsync(ms, manifest, ManifestJson.Options, ct).ConfigureAwait(false);
@@ -115,6 +122,7 @@ public sealed class BackupEngine
 
         if (passphrase is not null)
         {
+            progress?.Report("Шифрую архив (AES-256-GCM)…");
             await ArchiveCipher.EncryptAsync(buildPath, archivePath, passphrase, ct).ConfigureAwait(false);
             File.Delete(buildPath);
         }

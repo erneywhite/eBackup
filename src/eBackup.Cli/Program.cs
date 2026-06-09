@@ -52,7 +52,7 @@ switch (command)
             if (string.IsNullOrEmpty(passphrase)) return 1;
         }
 
-        var path = await new BackupEngine().CreateBackupAsync(chosen, outDir, name, passphrase);
+        var path = await new BackupEngine().CreateBackupAsync(chosen, outDir, name, passphrase, new ConsoleProgress());
         Console.WriteLine(passphrase is null
             ? $"Готово (локально): {path}"
             : $"Готово (локально, зашифровано): {path}");
@@ -396,4 +396,10 @@ static async Task<bool> SftpTestAsync(string id)
     var result = await provider.TestConnectionAsync();
     Console.WriteLine((result.Success ? "OK: " : "ОШИБКА: ") + result.Message);
     return result.Success;
+}
+
+/// <summary>Прогресс бэкапа в консоль.</summary>
+sealed class ConsoleProgress : IProgress<string>
+{
+    public void Report(string value) => Console.WriteLine("  " + value);
 }
