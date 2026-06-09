@@ -23,20 +23,53 @@ switch (command)
         var outDir = GetOption(args, "--out") ?? Path.Combine(Environment.CurrentDirectory, "backups");
         var name = GetOption(args, "--name") ?? $"ebackup-{DateTime.UtcNow:yyyyMMdd-HHmmss}";
         var path = await new BackupEngine().CreateBackupAsync(modules, outDir, name);
-        Console.WriteLine($"Готово: {path}");
+        Console.WriteLine($"Готово (локально): {path}");
+
+        var sftpId = GetOption(args, "--sftp");
+        if (sftpId is not null)
+        {
+            var provider = await ResolveSftpAsync(sftpId);
+            if (provider is null) return 1;
+            var remoteName = Path.GetFileName(path);
+            Console.WriteLine($"Загружаю на {provider.Name} ...");
+            await provider.UploadAsync(path, remoteName);
+            Console.WriteLine($"Загружено на сервер: {remoteName}");
+        }
         break;
     }
 
     case "restore":
     {
+        var sftpId = GetOption(args, "--sftp");
+        var toDir = GetOption(args, "--to");
         var archive = GetOption(args, "--archive");
+
+        if (sftpId is not null)
+        {
+            var remoteName = GetOption(args, "--name") ?? archive;
+            if (remoteName is null)
+            {
+                Console.Error.WriteLine("Для restore по SFTP укажите --name <имя.ebk> (см. sftp-ls).");
+                return 1;
+            }
+            var provider = await ResolveSftpAsync(sftpId);
+            if (provider is null) return 1;
+            var tmp = Path.Combine(Path.GetTempPath(), Path.GetFileName(remoteName));
+            Console.WriteLine($"Скачиваю {remoteName} с {provider.Name} ...");
+            await provider.DownloadAsync(remoteName, tmp);
+            archive = tmp;
+        }
+
         if (archive is null)
         {
-            Console.Error.WriteLine("Укажите --archive <путь к .ebk>");
+            Console.Error.WriteLine("Укажите --archive <путь.ebk> либо --sftp <id> --name <имя.ebk>.");
             return 1;
         }
-        await new BackupEngine().RestoreAsync(archive);
-        Console.WriteLine("Восстановление завершено.");
+
+        await new BackupEngine().RestoreAsync(archive, destinationRootOverride: toDir);
+        Console.WriteLine(toDir is null
+            ? "Восстановление завершено (файлы разложены по местам)."
+            : $"Восстановление завершено (извлечено в: {toDir}).");
         break;
     }
 
@@ -59,20 +92,46 @@ switch (command)
         return await SftpTestAsync(id) ? 0 : 1;
     }
 
+    case "sftp-ls":
+    {
+        var id = args.Length > 1 ? args[1] : GetOption(args, "--id");
+        if (id is null)
+        {
+            Console.Error.WriteLine("Укажите id: ebackup sftp-ls <id>");
+            return 1;
+        }
+        var provider = await ResolveSftpAsync(id);
+        if (provider is null) return 1;
+        var files = await provider.ListAsync();
+        if (files.Count == 0)
+        {
+            Console.WriteLine("На сервере нет архивов .ebk в целевой папке.");
+        }
+        else
+        {
+            Console.WriteLine("Архивы на сервере:");
+            foreach (var f in files)
+                Console.WriteLine("  " + f);
+        }
+        break;
+    }
+
     default:
         Console.WriteLine(
             """
             eBackup CLI (v1, черновик)
 
             Бэкап / восстановление:
-              list-modules                            Список доступных модулей
-              backup  --out <dir> [--name <имя>]      Создать .ebk из всех модулей
-              restore --archive <путь.ebk>            Распаковать архив по манифесту
+              list-modules                                         Список доступных модулей
+              backup  --out <dir> [--name <имя>] [--sftp <id>]     Создать .ebk (+ залить на SFTP)
+              restore --archive <путь.ebk> [--to <папка>]          Распаковать (в реальные места или в папку)
+              restore --sftp <id> --name <имя.ebk> [--to <папка>]  Скачать с SFTP и распаковать
 
             SFTP-подключения (учётки шифруются через Windows DPAPI):
               sftp-add                                Добавить/обновить подключение (интерактивно)
               sftp-list                               Список сохранённых подключений
-              sftp-test <id>                          Проверить связь по сохранённому подключению
+              sftp-test <id>                          Проверить связь
+              sftp-ls   <id>                          Список архивов .ebk на сервере
             """);
         break;
 }
@@ -197,16 +256,22 @@ static async Task SftpListAsync()
     }
 }
 
-static async Task<bool> SftpTestAsync(string id)
+static async Task<SftpStorageProvider?> ResolveSftpAsync(string id)
 {
     var conn = (await Store().LoadAsync()).FirstOrDefault(c => c.Id == id);
     if (conn is null)
     {
         Console.Error.WriteLine($"Подключение с id «{id}» не найдено. Список: ebackup sftp-list");
-        return false;
+        return null;
     }
+    return new SftpStorageProvider(Store().Unprotect(conn));
+}
 
-    var provider = new SftpStorageProvider(Store().Unprotect(conn));
+static async Task<bool> SftpTestAsync(string id)
+{
+    var provider = await ResolveSftpAsync(id);
+    if (provider is null) return false;
+
     Console.WriteLine($"Проверяю {provider.Name} ...");
     var result = await provider.TestConnectionAsync();
     Console.WriteLine((result.Success ? "OK: " : "ОШИБКА: ") + result.Message);

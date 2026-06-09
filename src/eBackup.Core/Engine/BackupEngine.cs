@@ -98,9 +98,15 @@ public sealed class BackupEngine
     /// <summary>
     /// Распаковать архив .ebk и разложить файлы по местам согласно манифесту.
     /// </summary>
+    /// <param name="destinationRootOverride">
+    /// Если задано — файлы извлекаются под эту папку (с сохранением структуры
+    /// <c>archivePath</c>), вместо разворачивания токенов в реальные системные пути.
+    /// Удобно для безопасной проверки восстановления, не затрагивая живые приложения.
+    /// </param>
     public async Task RestoreAsync(
         string archivePath,
         ConflictPolicy conflictPolicy = ConflictPolicy.BackupExisting,
+        string? destinationRootOverride = null,
         CancellationToken ct = default)
     {
         using var zip = ZipFile.OpenRead(archivePath);
@@ -119,7 +125,9 @@ public sealed class BackupEngine
             foreach (var entry in module.Entries)
             {
                 ct.ThrowIfCancellationRequested();
-                var target = PathTokens.Resolve(entry.TokenPath);
+                var target = destinationRootOverride is null
+                    ? PathTokens.Resolve(entry.TokenPath)
+                    : Path.Combine(destinationRootOverride, entry.ArchivePath.Replace('/', Path.DirectorySeparatorChar));
                 var prefix = "data/" + entry.ArchivePath.Replace('\\', '/');
 
                 if (entry.Type == PathEntryType.File)
