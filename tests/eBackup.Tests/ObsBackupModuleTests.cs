@@ -126,4 +126,32 @@ public class ObsBackupModuleTests
             if (File.Exists(assetFile)) File.Delete(assetFile);
         }
     }
+
+    [Fact]
+    public async Task Discovers_Plugin_Folders_From_Install_Root()
+    {
+        var obsRoot = Path.Combine(Path.GetTempPath(), $"obs-root-{Guid.NewGuid():N}");
+        var installRoot = Path.Combine(Path.GetTempPath(), $"obs-install-{Guid.NewGuid():N}");
+        try
+        {
+            var bin = Path.Combine(installRoot, "obs-plugins", "64bit");
+            Directory.CreateDirectory(bin);
+            await File.WriteAllTextAsync(Path.Combine(bin, "sample.dll"), "dll");
+
+            var data = Path.Combine(installRoot, "data", "obs-plugins", "sample");
+            Directory.CreateDirectory(data);
+            await File.WriteAllTextAsync(Path.Combine(data, "info.txt"), "data");
+
+            var module = new ObsBackupModule(obsRoot, installRoot);
+            var entries = await module.DiscoverAsync();
+
+            Assert.Contains(entries, e => e.ArchivePath == "obs/install/obs-plugins" && e.Type == PathEntryType.Directory);
+            Assert.Contains(entries, e => e.ArchivePath == "obs/install/data-obs-plugins" && e.Type == PathEntryType.Directory);
+        }
+        finally
+        {
+            foreach (var d in new[] { obsRoot, installRoot })
+                if (Directory.Exists(d)) Directory.Delete(d, recursive: true);
+        }
+    }
 }

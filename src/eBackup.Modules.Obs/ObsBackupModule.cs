@@ -11,13 +11,19 @@ namespace eBackup.Modules.Obs;
 /// зависимые ассеты сцен (картинки/медиа), которые лежат ВНЕ папки OBS.
 /// </summary>
 /// <param name="obsRootOverride">
-/// Корень данных OBS; по умолчанию %APPDATA%/obs-studio. Параметр нужен в основном
-/// для тестов (подсунуть временную папку со сценой).
+/// Корень данных OBS (Roaming); по умолчанию %APPDATA%/obs-studio. Нужен для тестов.
 /// </param>
-public sealed class ObsBackupModule(string? obsRootOverride = null) : IBackupModule, IModuleRestoreHook
+/// <param name="installRootOverride">
+/// Корень установки OBS; по умолчанию %PROGRAMFILES%/obs-studio. Нужен для тестов.
+/// </param>
+public sealed class ObsBackupModule(string? obsRootOverride = null, string? installRootOverride = null)
+    : IBackupModule, IModuleRestoreHook
 {
     private readonly string _obsRoot = obsRootOverride ?? Path.Combine(
         Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "obs-studio");
+
+    private readonly string _installRoot = installRootOverride ?? Path.Combine(
+        Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles), "obs-studio");
 
     public string Id => "obs";
     public string DisplayName => "OBS Studio";
@@ -54,11 +60,41 @@ public sealed class ObsBackupModule(string? obsRootOverride = null) : IBackupMod
             }
         };
 
+        // Бинарники и данные плагинов из папки установки (Program Files) — тянем целиком.
+        AddPlugins(entries);
+
         // Зависимые ассеты сцен (картинки/видео/слайдшоу/VLC), лежащие вне папки OBS.
         // Помечаем ManagedByModule — их разложит restore-хук модуля (As-2), а не движок.
         AddSceneAssets(entries, ct);
 
         return Task.FromResult<IReadOnlyList<PathEntry>>(entries);
+    }
+
+    private void AddPlugins(List<PathEntry> entries)
+    {
+        // obs-plugins (DLL плагинов) и data/obs-plugins (их данные) из папки установки.
+        // ВНИМАНИЕ: восстановление сюда требует прав администратора (Program Files).
+        var pluginBin = Path.Combine(_installRoot, "obs-plugins");
+        if (Directory.Exists(pluginBin))
+            entries.Add(new PathEntry
+            {
+                TokenPath = installRootOverride is null
+                    ? "{PROGRAMFILES}/obs-studio/obs-plugins"
+                    : pluginBin.Replace('\\', '/'),
+                Type = PathEntryType.Directory,
+                ArchivePath = "obs/install/obs-plugins"
+            });
+
+        var pluginData = Path.Combine(_installRoot, "data", "obs-plugins");
+        if (Directory.Exists(pluginData))
+            entries.Add(new PathEntry
+            {
+                TokenPath = installRootOverride is null
+                    ? "{PROGRAMFILES}/obs-studio/data/obs-plugins"
+                    : pluginData.Replace('\\', '/'),
+                Type = PathEntryType.Directory,
+                ArchivePath = "obs/install/data-obs-plugins"
+            });
     }
 
     private void AddSceneAssets(List<PathEntry> entries, CancellationToken ct)

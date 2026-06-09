@@ -19,10 +19,23 @@
         "plugin_config/obs-browser/GrShaderCache/**",
         "plugin_config/obs-browser/Crashpad/**"
       ]
+    },
+    {
+      "tokenPath": "{PROGRAMFILES}/obs-studio/obs-plugins",
+      "type": "Directory",
+      "archivePath": "obs/install/obs-plugins",
+      "description": "Бинарники плагинов (DLL). Восстановление в Program Files требует прав администратора."
+    },
+    {
+      "tokenPath": "{PROGRAMFILES}/obs-studio/data/obs-plugins",
+      "type": "Directory",
+      "archivePath": "obs/install/data-obs-plugins",
+      "description": "Данные плагинов (локали, шейдеры и т.п.)."
     }
   ],
   "notes": [
     "Стрим-ключи лежат в service.json — рекомендуется включать шифрование архива при отправке вовне.",
-    "Бинарники сторонних плагинов OBS (в Program Files) в v1 не бэкапятся — только конфигурация."
+    "Плагины из Program Files бэкапятся целиком; их восстановление в Program Files требует прав администратора.",
+    "На восстановлении доступен выбор режима конфликтов (--conflict): заменять существующее или дополнять только недостающее."
   ]
 }

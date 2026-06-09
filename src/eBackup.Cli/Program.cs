@@ -69,9 +69,18 @@ switch (command)
         var assetsDir = GetOption(args, "--assets-dir")
             ?? Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments), "eBackup", "OBS-Assets");
 
+        // Режим разрешения конфликтов: replace (с .bak) / overwrite / add-missing.
+        var conflict = (GetOption(args, "--conflict") ?? "backup").ToLowerInvariant() switch
+        {
+            "overwrite" => ConflictPolicy.Overwrite,
+            "skip" or "add" or "add-missing" => ConflictPolicy.Skip,
+            _ => ConflictPolicy.BackupExisting
+        };
+
         await new BackupEngine().RestoreAsync(
             archive,
             modules: modules,
+            conflictPolicy: conflict,
             destinationRootOverride: toDir,
             assetsDirectory: assetsDir);
 
@@ -135,6 +144,8 @@ switch (command)
               restore --archive <путь.ebk> [--to <папка>] [--assets-dir <папка>]   Распаковать
               restore --sftp <id> --name <имя.ebk> [--to <папка>]                  Скачать с SFTP и распаковать
                   (--assets-dir: куда класть ассеты OBS; по умолчанию Documents\eBackup\OBS-Assets)
+                  (--conflict: backup [по умолч., с .bak] | overwrite | add-missing)
+                  (восстановление плагинов в Program Files требует запуска от администратора)
 
             SFTP-подключения (учётки шифруются через Windows DPAPI):
               sftp-add                                Добавить/обновить подключение (интерактивно)
