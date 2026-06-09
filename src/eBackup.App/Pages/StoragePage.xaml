@@ -85,7 +85,7 @@
 
                         <TextBlock Text="Название" FontSize="12"
                                    Foreground="{StaticResource EbTextDimBrush}" />
-                        <TextBox x:Name="NameBox" PlaceholderText="Домашний NAS" />
+                        <TextBox x:Name="NameBox" PlaceholderText="имя подключения — как будет показано в списке" />
 
                         <Grid ColumnSpacing="10">
                             <Grid.ColumnDefinitions>
@@ -95,7 +95,7 @@
                             <StackPanel Grid.Column="0" Spacing="10">
                                 <TextBlock Text="Хост / IP" FontSize="12"
                                            Foreground="{StaticResource EbTextDimBrush}" />
-                                <TextBox x:Name="HostBox" PlaceholderText="192.168.1.10" />
+                                <TextBox x:Name="HostBox" PlaceholderText="адрес сервера (домен или IP)" />
                             </StackPanel>
                             <StackPanel Grid.Column="1" Spacing="10">
                                 <TextBlock Text="Порт" FontSize="12"
@@ -106,7 +106,7 @@
 
                         <TextBlock Text="Логин" FontSize="12"
                                    Foreground="{StaticResource EbTextDimBrush}" />
-                        <TextBox x:Name="UserBox" PlaceholderText="user" />
+                        <TextBox x:Name="UserBox" PlaceholderText="имя пользователя на сервере" />
 
                         <TextBlock Text="Аутентификация" FontSize="12"
                                    Foreground="{StaticResource EbTextDimBrush}" Margin="0,4,0,0" />
