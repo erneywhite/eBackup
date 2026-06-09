@@ -110,15 +110,15 @@
                 </ListView>
 
                 <!-- Настройки прижаты к низу, как в eCoda -->
-                <ListView Grid.Row="2" SelectionMode="None"
-                          ItemContainerStyle="{StaticResource EbNavItemStyle}">
-                    <ListViewItem>
-                        <StackPanel Orientation="Horizontal" Spacing="12">
-                            <FontIcon Glyph="&#xE713;" FontSize="16" />
-                            <TextBlock Text="Настройки" />
-                        </StackPanel>
-                    </ListViewItem>
-                </ListView>
+                <Button x:Name="SettingsBtn" Grid.Row="2" Click="SettingsBtn_Click"
+                        Background="Transparent" BorderThickness="0" CornerRadius="12"
+                        HorizontalAlignment="Stretch" HorizontalContentAlignment="Left"
+                        Padding="12,10">
+                    <StackPanel Orientation="Horizontal" Spacing="12">
+                        <FontIcon Glyph="&#xE713;" FontSize="16" />
+                        <TextBlock Text="Настройки" />
+                    </StackPanel>
+                </Button>
             </Grid>
 
             <!-- Рабочая область: страницы (Обзор/Модули/Хранилища/Архивы) -->

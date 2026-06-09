@@ -32,6 +32,16 @@ public class BackupEngineTests
             ]);
     }
 
+    [Fact]
+    public void DefaultName_Contains_Module_Ids_And_Readable_Timestamp()
+    {
+        var name = BackupNaming.DefaultName(
+            [new DirModule("{LOCALAPPDATA}/x")],
+            new DateTime(2026, 6, 10, 14, 5, 33));
+
+        Assert.Equal("ebackup_test_2026-06-10_14-05-33", name);
+    }
+
     private sealed class ListProgress : IProgress<string>
     {
         public List<string> Items { get; } = [];

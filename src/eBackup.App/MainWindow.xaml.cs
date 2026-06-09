@@ -71,6 +71,13 @@ public sealed partial class MainWindow : Window
             ContentFrame.Navigate(typeof(BackupPage));
     }
 
+    private void SettingsBtn_Click(object sender, RoutedEventArgs e)
+    {
+        Nav.SelectedItem = null;
+        if (ContentFrame.CurrentSourcePageType != typeof(SettingsPage))
+            ContentFrame.Navigate(typeof(SettingsPage));
+    }
+
     // ---------- запуск бэкапа (вызывается страницей «Бэкап») ----------
 
     private static string DefaultBackupDir()
@@ -100,7 +107,7 @@ public sealed partial class MainWindow : Window
             var outDir = request.KeepLocal
                 ? DefaultBackupDir()
                 : Path.Combine(Path.GetTempPath(), "eBackup");
-            var name = $"ebackup-{DateTime.Now:yyyyMMdd-HHmmss}";
+            var name = BackupNaming.DefaultName(request.Modules);
 
             var engine = new BackupEngine();
             var archive = await Task.Run(() =>

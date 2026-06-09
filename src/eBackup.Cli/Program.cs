@@ -31,7 +31,6 @@ switch (command)
     case "backup":
     {
         var outDir = GetOption(args, "--out") ?? Path.Combine(Environment.CurrentDirectory, "backups");
-        var name = GetOption(args, "--name") ?? $"ebackup-{DateTime.UtcNow:yyyyMMdd-HHmmss}";
 
         // --modules obs,foo — ограничить набор; по умолчанию все включённые.
         var selectedIds = GetOption(args, "--modules");
@@ -41,6 +40,8 @@ switch (command)
                     .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
                     .Contains(m.Id, StringComparer.OrdinalIgnoreCase))
                 .ToList();
+
+        var name = GetOption(args, "--name") ?? BackupNaming.DefaultName(chosen);
 
         string? passphrase = null;
         if (args.Contains("--encrypt"))

@@ -1,0 +1,18 @@
+<Page
+    x:Class="eBackup.App.Pages.SettingsPage"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+    <StackPanel Spacing="12" MaxWidth="660" HorizontalAlignment="Left">
+        <TextBlock Text="Настройки" FontSize="26" FontWeight="SemiBold" />
+        <TextBlock Foreground="{StaticResource EbTextDimBrush}" TextWrapping="Wrap"
+                   Text="Раздел в разработке. Здесь появятся:" />
+        <StackPanel Spacing="6" Margin="6,0,0,0">
+            <TextBlock Foreground="{StaticResource EbTextDimBrush}" Text="·  папка для локальных бэкапов" />
+            <TextBlock Foreground="{StaticResource EbTextDimBrush}" Text="·  хранение версий (сколько архивов держать)" />
+            <TextBlock Foreground="{StaticResource EbTextDimBrush}" Text="·  расписание автоматических бэкапов" />
+            <TextBlock Foreground="{StaticResource EbTextDimBrush}" Text="·  автозапуск и иконка в трее" />
+            <TextBlock Foreground="{StaticResource EbTextDimBrush}" Text="·  язык интерфейса" />
+        </StackPanel>
+    </StackPanel>
+</Page>
