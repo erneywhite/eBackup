@@ -92,12 +92,13 @@ public sealed partial class ArchivesPage : Page
                 try
                 {
                     var provider = new SftpStorageProvider(_store.Unprotect(conn));
-                    var files = await provider.ListAsync();
+                    var files = await provider.ListDetailedAsync();
                     if (files.Count == 0)
                         AddDim("архивов нет");
                     else
-                        foreach (var f in files.OrderByDescending(n => n, StringComparer.OrdinalIgnoreCase))
-                            AddRow(f, "на сервере");
+                        foreach (var f in files)
+                            AddRow(f.Name,
+                                $"{f.Length / 1024.0 / 1024.0:0.#} МБ · {f.LastWriteTime:dd.MM.yyyy HH:mm} · на сервере");
                 }
                 catch (Exception ex)
                 {

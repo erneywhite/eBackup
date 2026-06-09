@@ -53,6 +53,24 @@ public sealed class SftpStorageProvider : IStorageProvider
         }, ct);
 
     /// <summary>
+    /// Детальный список архивов (имя, размер, дата изменения). Дополнительных запросов
+    /// не делает: атрибуты приходят вместе с обычным листингом каталога.
+    /// </summary>
+    public Task<IReadOnlyList<RemoteFileInfo>> ListDetailedAsync(CancellationToken ct = default)
+        => Task.Run<IReadOnlyList<RemoteFileInfo>>(() =>
+        {
+            using var client = Connect();
+            if (!client.Exists(_options.RemoteDirectory))
+                return [];
+
+            return client.ListDirectory(_options.RemoteDirectory)
+                .Where(f => !f.IsDirectory && f.Name.EndsWith(".ebk", StringComparison.OrdinalIgnoreCase))
+                .Select(f => new RemoteFileInfo(f.Name, f.Length, f.LastWriteTime))
+                .OrderByDescending(f => f.LastWriteTime)
+                .ToList();
+        }, ct);
+
+    /// <summary>
     /// Список подкаталогов указанной удалённой папки — для ленивого построения дерева
     /// выбора каталога в UI (вместо ручного ввода пути).
     /// </summary>
