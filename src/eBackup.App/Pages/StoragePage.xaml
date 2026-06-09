@@ -23,19 +23,40 @@
                 <RowDefinition Height="Auto" />
             </Grid.RowDefinitions>
 
-            <TextBlock Grid.Row="0" Text="Хранилища" FontSize="26" FontWeight="SemiBold"
-                       Margin="0,0,0,12" />
+            <Grid Grid.Row="0" Margin="0,0,0,12">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+                <TextBlock Text="Хранилища" FontSize="26" FontWeight="SemiBold" />
+                <Button x:Name="RefreshBtn" Grid.Column="1" CornerRadius="10" Padding="9,7"
+                        VerticalAlignment="Center" Click="RefreshBtn_Click"
+                        ToolTipService.ToolTip="Проверить доступность всех хранилищ">
+                    <FontIcon Glyph="&#xE72C;" FontSize="13" />
+                </Button>
+            </Grid>
 
             <ListView x:Name="ConnList" Grid.Row="1" SelectionMode="Single"
                       SelectionChanged="ConnList_SelectionChanged"
                       ItemContainerStyle="{StaticResource EbNavItemStyle}">
                 <ListView.ItemTemplate>
                     <DataTemplate x:DataType="pages:ConnItem">
-                        <StackPanel Spacing="2" Margin="0,8">
-                            <TextBlock Text="{x:Bind Name}" FontWeight="SemiBold" />
-                            <TextBlock Text="{x:Bind Endpoint}" FontSize="11"
-                                       Foreground="{StaticResource EbTextDimBrush}" />
-                        </StackPanel>
+                        <Grid Margin="0,8" ColumnSpacing="8">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <StackPanel Grid.Column="0" Spacing="2">
+                                <TextBlock Text="{x:Bind Name}" FontWeight="SemiBold" />
+                                <TextBlock Text="{x:Bind Endpoint}" FontSize="11"
+                                           Foreground="{StaticResource EbTextDimBrush}" />
+                            </StackPanel>
+                            <!-- Селф-тест: ✓ доступно / ✕ недоступно / … проверяется -->
+                            <TextBlock Grid.Column="1" Text="{x:Bind StatusGlyph, Mode=OneWay}"
+                                       Foreground="{x:Bind StatusBrush, Mode=OneWay}"
+                                       FontSize="14" FontWeight="SemiBold"
+                                       VerticalAlignment="Center" />
+                        </Grid>
                     </DataTemplate>
                 </ListView.ItemTemplate>
             </ListView>
@@ -101,8 +122,12 @@
                         </StackPanel>
 
                         <StackPanel x:Name="KeyPanel" Spacing="10" Visibility="Collapsed">
-                            <TextBox x:Name="KeyPathBox"
-                                     PlaceholderText="C:\Users\you\.ssh\id_ed25519 (путь к приватному ключу)" />
+                            <!-- Содержимое ключа вставляется прямо сюда и хранится зашифрованным
+                                 (DPAPI) — файл ключа не обязан оставаться на диске. -->
+                            <TextBox x:Name="KeyPemBox" AcceptsReturn="True" Height="110"
+                                     TextWrapping="Wrap" FontFamily="Consolas" FontSize="12"
+                                     ScrollViewer.VerticalScrollBarVisibility="Auto"
+                                     PlaceholderText="-----BEGIN OPENSSH PRIVATE KEY-----  (вставь содержимое приватного ключа)" />
                             <PasswordBox x:Name="KeyPassBox"
                                          PlaceholderText="парольная фраза ключа (если есть)" />
                         </StackPanel>

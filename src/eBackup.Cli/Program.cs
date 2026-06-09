@@ -314,10 +314,18 @@ static async Task SftpAddAsync()
         return;
     }
 
-    string? password = null, keyPath = null, keyPassphrase = null;
+    string? password = null, keyPem = null, keyPassphrase = null;
     if (Prompt("Вход: [p]ароль или [k]люч?", "p").StartsWith('k'))
     {
-        keyPath = Prompt("Путь к приватному ключу");
+        // Содержимое ключа читается один раз и хранится зашифрованным (DPAPI) —
+        // сам файл ключа после этого может вообще не лежать на диске.
+        var keyFile = Prompt("Путь к файлу приватного ключа (содержимое сохранится зашифрованным)");
+        if (!File.Exists(keyFile))
+        {
+            Console.Error.WriteLine($"Файл не найден: {keyFile}");
+            return;
+        }
+        keyPem = await File.ReadAllTextAsync(keyFile);
         var pass = ReadSecret("Парольная фраза ключа (пусто, если нет)");
         keyPassphrase = string.IsNullOrEmpty(pass) ? null : pass;
     }
@@ -334,7 +342,7 @@ static async Task SftpAddAsync()
         Port = port,
         Username = user,
         Password = password,
-        PrivateKeyPath = keyPath,
+        PrivateKeyPem = keyPem,
         PrivateKeyPassphrase = keyPassphrase,
         RemoteDirectory = remoteDir
     };
@@ -362,7 +370,7 @@ static async Task SftpListAsync()
     foreach (var c in all)
     {
         var auth = c.ProtectedPassword is not null ? "пароль"
-                 : c.PrivateKeyPath is not null ? "ключ"
+                 : c.ProtectedPrivateKey is not null ? "ключ"
                  : "—";
         Console.WriteLine($"  {c.Id,-12} {c.Name,-20} {c.Username}@{c.Host}:{c.Port}  папка={c.RemoteDirectory}  вход={auth}");
     }

@@ -33,14 +33,16 @@ public class SftpConnectionStoreTests
                 Host = "nas.local",
                 Username = "erney",
                 Password = "super-secret",
+                PrivateKeyPem = "-----BEGIN OPENSSH PRIVATE KEY-----\nFAKEKEYBODY\n-----END OPENSSH PRIVATE KEY-----",
                 RemoteDirectory = "/backups"
             };
 
             await store.SaveAllAsync([store.Protect("nas", "Домашний NAS", options)]);
 
-            // 1) Пароль не должен присутствовать в файле в открытом виде.
+            // 1) Секреты (пароль и содержимое ключа) не должны лежать в файле открыто.
             var raw = await File.ReadAllTextAsync(tmp);
             Assert.DoesNotContain("super-secret", raw);
+            Assert.DoesNotContain("FAKEKEYBODY", raw);
 
             // 2) Загрузка + расшифровка возвращают исходные параметры.
             var loaded = await store.LoadAsync();
@@ -49,6 +51,7 @@ public class SftpConnectionStoreTests
             Assert.Equal("nas.local", back.Host);
             Assert.Equal("erney", back.Username);
             Assert.Equal("super-secret", back.Password);
+            Assert.Contains("FAKEKEYBODY", back.PrivateKeyPem);
             Assert.Equal("/backups", back.RemoteDirectory);
         }
         finally

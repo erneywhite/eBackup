@@ -96,11 +96,12 @@ public sealed class SftpStorageProvider : IStorageProvider
     {
         var methods = new List<AuthenticationMethod>();
 
-        if (!string.IsNullOrEmpty(o.PrivateKeyPath))
+        if (!string.IsNullOrEmpty(o.PrivateKeyPem))
         {
+            using var keyStream = new MemoryStream(System.Text.Encoding.UTF8.GetBytes(o.PrivateKeyPem));
             var keyFile = string.IsNullOrEmpty(o.PrivateKeyPassphrase)
-                ? new PrivateKeyFile(o.PrivateKeyPath)
-                : new PrivateKeyFile(o.PrivateKeyPath, o.PrivateKeyPassphrase);
+                ? new PrivateKeyFile(keyStream)
+                : new PrivateKeyFile(keyStream, o.PrivateKeyPassphrase);
             methods.Add(new PrivateKeyAuthenticationMethod(o.Username, keyFile));
         }
 

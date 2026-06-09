@@ -20,8 +20,8 @@ public sealed record SavedSftpConnection
     /// <summary>Зашифрованный пароль (или null, если используется ключ).</summary>
     public string? ProtectedPassword { get; init; }
 
-    /// <summary>Путь к файлу приватного ключа (не секрет сам по себе).</summary>
-    public string? PrivateKeyPath { get; init; }
+    /// <summary>Зашифрованное СОДЕРЖИМОЕ приватного ключа (PEM/OpenSSH-текст), или null.</summary>
+    public string? ProtectedPrivateKey { get; init; }
 
     /// <summary>Зашифрованная парольная фраза ключа (или null).</summary>
     public string? ProtectedKeyPassphrase { get; init; }

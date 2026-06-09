@@ -18,8 +18,11 @@ public sealed class SftpConnectionOptions
     /// <summary>Пароль (способ 1). Можно не задавать, если используется ключ.</summary>
     public string? Password { get; init; }
 
-    /// <summary>Путь к файлу приватного ключа (способ 2).</summary>
-    public string? PrivateKeyPath { get; init; }
+    /// <summary>
+    /// СОДЕРЖИМОЕ приватного ключа (способ 2), PEM/OpenSSH-текст. Намеренно не путь:
+    /// ключ хранится зашифрованным в конфиге и не обязан лежать файлом на диске.
+    /// </summary>
+    public string? PrivateKeyPem { get; init; }
 
     /// <summary>Парольная фраза приватного ключа, если он зашифрован.</summary>
     public string? PrivateKeyPassphrase { get; init; }

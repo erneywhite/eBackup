@@ -46,17 +46,24 @@ public sealed class SftpConnectionStore
         return list ?? [];
     }
 
-    /// <summary>Перезаписать весь список подключений.</summary>
+    /// <summary>
+    /// Перезаписать весь список подключений. Запись атомарная (temp-файл + переименование),
+    /// чтобы обрыв процесса на середине не оставил повреждённый конфиг.
+    /// </summary>
     public async Task SaveAllAsync(IEnumerable<SavedSftpConnection> connections, CancellationToken ct = default)
     {
         var dir = Path.GetDirectoryName(_filePath);
         if (!string.IsNullOrEmpty(dir))
             Directory.CreateDirectory(dir);
 
-        await using var stream = File.Create(_filePath);
-        await JsonSerializer
-            .SerializeAsync(stream, connections.ToList(), JsonOptions, ct)
-            .ConfigureAwait(false);
+        var tmpPath = _filePath + ".tmp";
+        await using (var stream = File.Create(tmpPath))
+        {
+            await JsonSerializer
+                .SerializeAsync(stream, connections.ToList(), JsonOptions, ct)
+                .ConfigureAwait(false);
+        }
+        File.Move(tmpPath, _filePath, overwrite: true);
     }
 
     /// <summary>Создать сохраняемую запись из «сырых» параметров — секреты шифруются.</summary>
@@ -69,7 +76,7 @@ public sealed class SftpConnectionStore
             Port = options.Port,
             Username = options.Username,
             ProtectedPassword = options.Password is null ? null : _protector.Protect(options.Password),
-            PrivateKeyPath = options.PrivateKeyPath,
+            ProtectedPrivateKey = options.PrivateKeyPem is null ? null : _protector.Protect(options.PrivateKeyPem),
             ProtectedKeyPassphrase = options.PrivateKeyPassphrase is null ? null : _protector.Protect(options.PrivateKeyPassphrase),
             RemoteDirectory = options.RemoteDirectory
         };
@@ -82,7 +89,7 @@ public sealed class SftpConnectionStore
             Port = c.Port,
             Username = c.Username,
             Password = c.ProtectedPassword is null ? null : _protector.Unprotect(c.ProtectedPassword),
-            PrivateKeyPath = c.PrivateKeyPath,
+            PrivateKeyPem = c.ProtectedPrivateKey is null ? null : _protector.Unprotect(c.ProtectedPrivateKey),
             PrivateKeyPassphrase = c.ProtectedKeyPassphrase is null ? null : _protector.Unprotect(c.ProtectedKeyPassphrase),
             RemoteDirectory = c.RemoteDirectory
         };
