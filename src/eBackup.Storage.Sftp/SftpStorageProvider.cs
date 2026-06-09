@@ -52,6 +52,14 @@ public sealed class SftpStorageProvider : IStorageProvider
                 .ToList();
         }, ct);
 
+    /// <summary>Удалить архив на сервере.</summary>
+    public Task DeleteAsync(string remoteName, CancellationToken ct = default)
+        => Task.Run(() =>
+        {
+            using var client = Connect();
+            client.DeleteFile(CombineRemote(_options.RemoteDirectory, remoteName));
+        }, ct);
+
     /// <summary>
     /// Детальный список архивов (имя, размер, дата изменения). Дополнительных запросов
     /// не делает: атрибуты приходят вместе с обычным листингом каталога.
