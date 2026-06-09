@@ -3,16 +3,70 @@
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
 
-    <StackPanel Spacing="12" MaxWidth="660" HorizontalAlignment="Left">
-        <TextBlock Text="Настройки" FontSize="26" FontWeight="SemiBold" />
-        <TextBlock Foreground="{StaticResource EbTextDimBrush}" TextWrapping="Wrap"
-                   Text="Раздел в разработке. Здесь появятся:" />
-        <StackPanel Spacing="6" Margin="6,0,0,0">
-            <TextBlock Foreground="{StaticResource EbTextDimBrush}" Text="·  папка для локальных бэкапов" />
-            <TextBlock Foreground="{StaticResource EbTextDimBrush}" Text="·  хранение версий (сколько архивов держать)" />
-            <TextBlock Foreground="{StaticResource EbTextDimBrush}" Text="·  расписание автоматических бэкапов" />
-            <TextBlock Foreground="{StaticResource EbTextDimBrush}" Text="·  автозапуск и иконка в трее" />
-            <TextBlock Foreground="{StaticResource EbTextDimBrush}" Text="·  язык интерфейса" />
+    <Page.Resources>
+        <SolidColorBrush x:Key="EbOkBrush" Color="#7CE3A8" />
+        <SolidColorBrush x:Key="EbErrBrush" Color="#FF8A9C" />
+        <Style x:Key="EbSectionCard" TargetType="Border">
+            <Setter Property="CornerRadius" Value="16" />
+            <Setter Property="Background" Value="{StaticResource EbCardBrush}" />
+            <Setter Property="BorderBrush" Value="{StaticResource EbCardBorderBrush}" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="Padding" Value="18,14" />
+        </Style>
+    </Page.Resources>
+
+    <ScrollViewer>
+        <StackPanel Spacing="14" MaxWidth="660" HorizontalAlignment="Left">
+            <TextBlock Text="Настройки" FontSize="26" FontWeight="SemiBold" />
+
+            <!-- Папка локальных бэкапов -->
+            <Border Style="{StaticResource EbSectionCard}">
+                <StackPanel Spacing="8">
+                    <TextBlock Text="Папка локальных бэкапов" FontSize="12"
+                               Foreground="{StaticResource EbTextDimBrush}" />
+                    <Grid ColumnSpacing="8">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+                        <TextBox x:Name="DirBox" PlaceholderText="куда складывать архивы" />
+                        <Button x:Name="PickDirBtn" Grid.Column="1" Content="Выбрать…"
+                                CornerRadius="10" Click="PickDirBtn_Click" />
+                    </Grid>
+                    <TextBlock Text="Сюда сохраняются архивы при бэкапе, отсюда же читается список на странице «Архивы»."
+                               FontSize="12" TextWrapping="Wrap"
+                               Foreground="{StaticResource EbTextDimBrush}" />
+                </StackPanel>
+            </Border>
+
+            <!-- Хранение версий -->
+            <Border Style="{StaticResource EbSectionCard}">
+                <StackPanel Spacing="8">
+                    <TextBlock Text="Хранение версий" FontSize="12"
+                               Foreground="{StaticResource EbTextDimBrush}" />
+                    <StackPanel Orientation="Horizontal" Spacing="10">
+                        <TextBlock Text="Хранить последних" VerticalAlignment="Center" />
+                        <TextBox x:Name="RetentionBox" Width="80" Text="0" />
+                        <TextBlock Text="архивов" VerticalAlignment="Center" />
+                    </StackPanel>
+                    <TextBlock Text="0 — хранить все. Правило применяется после каждого бэкапа: и в локальной папке, и на серверах, куда заливался архив (старые удаляются автоматически)."
+                               FontSize="12" TextWrapping="Wrap"
+                               Foreground="{StaticResource EbTextDimBrush}" />
+                </StackPanel>
+            </Border>
+
+            <StackPanel Orientation="Horizontal" Spacing="12">
+                <Button x:Name="SaveBtn" Height="42" Padding="28,0" CornerRadius="21"
+                        Background="{StaticResource EbAccentGradient}" BorderThickness="0"
+                        Click="SaveBtn_Click">
+                    <TextBlock Text="Сохранить" FontWeight="SemiBold" Foreground="#1A0F22" />
+                </Button>
+                <TextBlock x:Name="StatusText" FontSize="12" VerticalAlignment="Center" />
+            </StackPanel>
+
+            <TextBlock Text="Позже здесь появятся: расписание автоматических бэкапов, автозапуск и иконка в трее, язык интерфейса."
+                       FontSize="12" TextWrapping="Wrap" Margin="0,8,0,0"
+                       Foreground="{StaticResource EbTextDimBrush}" />
         </StackPanel>
-    </StackPanel>
+    </ScrollViewer>
 </Page>

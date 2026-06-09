@@ -89,9 +89,6 @@ public sealed partial class MainWindow : Window
 
     // ---------- запуск бэкапа (вызывается страницей «Бэкап») ----------
 
-    private static string DefaultBackupDir()
-        => Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments), "eBackup", "Backups");
-
     public async Task StartBackupAsync(BackupRequest request)
     {
         if (_operationRunning)
@@ -110,11 +107,12 @@ public sealed partial class MainWindow : Window
             BumpFill(stageEnd: 0.70);
         });
 
+        var settings = AppSettings.Load();
         try
         {
             // Если локально хранить не нужно — собираем во временной папке и удалим после заливки.
             var outDir = request.KeepLocal
-                ? DefaultBackupDir()
+                ? settings.LocalBackupDir
                 : Path.Combine(Path.GetTempPath(), "eBackup");
             var name = BackupNaming.DefaultName(request.Modules);
 
@@ -134,6 +132,15 @@ public sealed partial class MainWindow : Window
                     var provider = new SftpStorageProvider(_store.Unprotect(conn));
                     await provider.UploadAsync(archive, Path.GetFileName(archive));
                     uploaded.Add(conn.Name);
+
+                    // Хранение версий на сервере: оставляем последних N архивов.
+                    if (settings.RetentionCount > 0)
+                    {
+                        StatusSub.Text = $"{conn.Name}: убираю старые архивы…";
+                        var remote = await provider.ListDetailedAsync(); // уже отсортированы: свежие первыми
+                        foreach (var old in remote.Skip(settings.RetentionCount))
+                            await provider.DeleteAsync(old.Name);
+                    }
                 }
                 catch (Exception ex)
                 {
@@ -145,6 +152,11 @@ public sealed partial class MainWindow : Window
             if (!request.KeepLocal)
             {
                 try { File.Delete(archive); } catch { /* мусор в temp не критичен */ }
+            }
+            else if (settings.RetentionCount > 0)
+            {
+                // Хранение версий локально.
+                ApplyLocalRetention(outDir, settings.RetentionCount);
             }
 
             var parts = new List<string>();
@@ -166,6 +178,25 @@ public sealed partial class MainWindow : Window
             BackupBtn.IsEnabled = true;
             BackupCompleted?.Invoke();
             await FadeOutFillAsync();
+        }
+    }
+
+    private static void ApplyLocalRetention(string dir, int keep)
+    {
+        try
+        {
+            var old = Directory.GetFiles(dir, "*.ebk")
+                .Select(f => new FileInfo(f))
+                .OrderByDescending(f => f.LastWriteTime)
+                .Skip(keep);
+            foreach (var f in old)
+            {
+                try { f.Delete(); } catch { /* занятый файл пропустим — удалится в следующий раз */ }
+            }
+        }
+        catch
+        {
+            // чистка не должна ронять успешный бэкап
         }
     }
 

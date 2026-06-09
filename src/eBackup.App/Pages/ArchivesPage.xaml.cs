@@ -26,8 +26,7 @@ public sealed partial class ArchivesPage : Page
 
     private async void OnBackupCompleted() => await RefreshAsync();
 
-    private static string LocalBackupDir()
-        => Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments), "eBackup", "Backups");
+    private static string LocalBackupDir() => AppSettings.Load().LocalBackupDir;
 
     private async void RefreshBtn_Click(object sender, RoutedEventArgs e) => await RefreshAsync();
 

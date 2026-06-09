@@ -42,6 +42,9 @@ public sealed partial class BackupPage : Page
 
     private async Task InitAsync()
     {
+        // Локальная папка — из настроек.
+        LocalCheck.Content = $"Локальная папка ({AppSettings.Load().LocalBackupDir})";
+
         // Модули из реестра
         ModulesPanel.Children.Clear();
         _moduleChecks.Clear();
