@@ -18,11 +18,26 @@
             <SolidColorBrush x:Key="EbCardBrush" Color="#14FFFFFF" />
             <SolidColorBrush x:Key="EbCardBorderBrush" Color="#1FFFFFFF" />
             <SolidColorBrush x:Key="EbTextDimBrush" Color="#9AA0AC" />
+            <SolidColorBrush x:Key="EbDialogBrush" Color="#171022" />
 
             <LinearGradientBrush x:Key="EbAccentGradient" StartPoint="0,0" EndPoint="1,1">
                 <GradientStop Color="{StaticResource EbAccent1}" Offset="0" />
                 <GradientStop Color="{StaticResource EbAccent2}" Offset="1" />
             </LinearGradientBrush>
+
+            <!-- Кнопки диалогов в фирменном стиле -->
+            <Style x:Key="EbDialogPrimaryStyle" TargetType="Button">
+                <Setter Property="Background" Value="{StaticResource EbAccentGradient}" />
+                <Setter Property="Foreground" Value="#1A0F22" />
+                <Setter Property="FontWeight" Value="SemiBold" />
+                <Setter Property="CornerRadius" Value="12" />
+                <Setter Property="BorderThickness" Value="0" />
+            </Style>
+            <Style x:Key="EbDialogCloseStyle" TargetType="Button">
+                <Setter Property="CornerRadius" Value="12" />
+                <Setter Property="Background" Value="{StaticResource EbCardBrush}" />
+                <Setter Property="BorderBrush" Value="{StaticResource EbCardBorderBrush}" />
+            </Style>
 
             <!-- Пилюля-таб сайдбара: нормальное скругление + виолетовая подсветка выделения -->
             <Style x:Key="EbNavItemStyle" TargetType="ListViewItem">

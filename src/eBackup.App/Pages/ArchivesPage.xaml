@@ -3,9 +3,27 @@
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
 
-    <StackPanel Spacing="12">
-        <TextBlock Text="Архивы" FontSize="26" FontWeight="SemiBold" />
-        <TextBlock Text="Список архивов (локальных и на серверах) появится после экрана бэкапа."
-                   Foreground="{StaticResource EbTextDimBrush}" />
-    </StackPanel>
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
+
+        <Grid Grid.Row="0" Margin="0,0,0,12">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+            <TextBlock Text="Архивы" FontSize="26" FontWeight="SemiBold" />
+            <Button x:Name="RefreshBtn" Grid.Column="1" CornerRadius="10" Padding="9,7"
+                    VerticalAlignment="Center" Click="RefreshBtn_Click"
+                    ToolTipService.ToolTip="Обновить списки архивов">
+                <FontIcon Glyph="&#xE72C;" FontSize="13" />
+            </Button>
+        </Grid>
+
+        <ScrollViewer Grid.Row="1">
+            <StackPanel x:Name="Sections" Spacing="8" />
+        </ScrollViewer>
+    </Grid>
 </Page>

@@ -8,6 +8,7 @@ using eBackup.Storage.Sftp;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Media;
+using Microsoft.UI.Xaml.Media.Animation;
 
 namespace eBackup.App;
 
@@ -20,6 +21,7 @@ public sealed partial class MainWindow : Window
     ]);
     private readonly SftpConnectionStore _store = new(new DpapiSecretProtector());
     private bool _backupRunning;
+    private double _fill; // текущая доля заливки-прогресса нижней панели (0..1)
 
     public MainWindow()
     {
@@ -76,8 +78,41 @@ public sealed partial class MainWindow : Window
         {
             _backupRunning = false;
             BackupBtn.IsEnabled = true;
-            BackupProgress.Visibility = Visibility.Collapsed;
+            await FadeOutFillAsync();
         }
+    }
+
+    // ---------- заливка-прогресс нижней панели ----------
+
+    /// <summary>Плавно довести заливку до доли <paramref name="fraction"/> (0..1).</summary>
+    private void SetFill(double fraction)
+    {
+        _fill = Math.Clamp(fraction, 0, 1);
+        ProgressFill.Opacity = 0.22;
+
+        var anim = new DoubleAnimation
+        {
+            To = _fill,
+            Duration = new Duration(TimeSpan.FromMilliseconds(400)),
+            EasingFunction = new QuadraticEase { EasingMode = EasingMode.EaseOut }
+        };
+        Storyboard.SetTarget(anim, FillScale);
+        Storyboard.SetTargetProperty(anim, "ScaleX");
+        var sb = new Storyboard();
+        sb.Children.Add(anim);
+        sb.Begin();
+    }
+
+    /// <summary>Небольшой сдвиг заливки вперёд внутри длинной фазы (асимптотически к её концу).</summary>
+    private void BumpFill(double stageEnd)
+        => SetFill(Math.Min(stageEnd, _fill + (stageEnd - _fill) * 0.18));
+
+    private async Task FadeOutFillAsync()
+    {
+        await Task.Delay(1200);
+        ProgressFill.Opacity = 0;
+        FillScale.ScaleX = 0;
+        _fill = 0;
     }
 
     private async Task RunBackupFlowAsync()
@@ -135,6 +170,7 @@ public sealed partial class MainWindow : Window
         panel.Children.Add(pass2);
         panel.Children.Add(errorText);
 
+        var appRes = Application.Current.Resources;
         var dialog = new ContentDialog
         {
             Title = "Сделать бэкап",
@@ -142,7 +178,14 @@ public sealed partial class MainWindow : Window
             PrimaryButtonText = "Запустить",
             CloseButtonText = "Отмена",
             DefaultButton = ContentDialogButton.Primary,
-            XamlRoot = Content.XamlRoot
+            XamlRoot = Content.XamlRoot,
+            // Стиль в духе приложения, а не стоковый диалог.
+            Background = (Brush)appRes["EbDialogBrush"],
+            BorderBrush = (Brush)appRes["EbCardBorderBrush"],
+            BorderThickness = new Thickness(1),
+            CornerRadius = new CornerRadius(16),
+            PrimaryButtonStyle = (Style)appRes["EbDialogPrimaryStyle"],
+            CloseButtonStyle = (Style)appRes["EbDialogCloseStyle"]
         };
 
         dialog.PrimaryButtonClick += (_, args) =>
@@ -182,10 +225,16 @@ public sealed partial class MainWindow : Window
         // --- поехали
         _backupRunning = true;
         BackupBtn.IsEnabled = false;
-        BackupProgress.Visibility = Visibility.Visible;
         StatusTitle.Text = "Делаю бэкап…";
         StatusSub.Text = "подготовка…";
-        var progress = new Progress<string>(s => StatusSub.Text = s);
+
+        // Сборка архива занимает 0..70% заливки; каждое сообщение двигает её вперёд.
+        SetFill(0.04);
+        var progress = new Progress<string>(s =>
+        {
+            StatusSub.Text = s;
+            BumpFill(stageEnd: 0.70);
+        });
 
         // Если локально хранить не нужно — собираем во временной папке и удалим после заливки.
         var outDir = keepLocal
@@ -195,12 +244,14 @@ public sealed partial class MainWindow : Window
 
         var engine = new BackupEngine();
         var archive = await Task.Run(() => engine.CreateBackupAsync(modules, outDir, name, passphrase, progress));
+        SetFill(targets.Count == 0 ? 1.0 : 0.75); // архив готов
 
         var uploaded = new List<string>();
         var failed = new List<string>();
-        foreach (var conn in targets)
+        for (var i = 0; i < targets.Count; i++)
         {
-            ((IProgress<string>)progress).Report($"Загружаю на {conn.Name}…");
+            var conn = targets[i];
+            StatusSub.Text = $"Загружаю на {conn.Name}…";
             try
             {
                 var provider = new SftpStorageProvider(_store.Unprotect(conn));
@@ -211,6 +262,7 @@ public sealed partial class MainWindow : Window
             {
                 failed.Add($"{conn.Name}: {ex.Message}");
             }
+            SetFill(0.75 + 0.25 * (i + 1) / targets.Count); // заливка по целям
         }
 
         if (!keepLocal)
