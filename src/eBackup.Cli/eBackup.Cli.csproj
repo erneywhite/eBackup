@@ -2,6 +2,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\eBackup.Core\eBackup.Core.csproj" />
+    <ProjectReference Include="..\eBackup.Security\eBackup.Security.csproj" />
     <ProjectReference Include="..\eBackup.Storage.Local\eBackup.Storage.Local.csproj" />
     <ProjectReference Include="..\eBackup.Storage.Sftp\eBackup.Storage.Sftp.csproj" />
     <ProjectReference Include="..\eBackup.Modules.Obs\eBackup.Modules.Obs.csproj" />
@@ -9,7 +10,8 @@
 
   <PropertyGroup>
     <OutputType>Exe</OutputType>
-    <TargetFramework>net9.0</TargetFramework>
+    <!-- Windows-only: использует DPAPI через eBackup.Security -->
+    <TargetFramework>net9.0-windows</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
   </PropertyGroup>
