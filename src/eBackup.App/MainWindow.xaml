@@ -141,6 +141,12 @@
                             <TextBlock Text="Расписание" />
                         </StackPanel>
                     </ListViewItem>
+                    <ListViewItem Tag="history">
+                        <StackPanel Orientation="Horizontal" Spacing="12">
+                            <FontIcon Glyph="&#xE81C;" FontSize="16" />
+                            <TextBlock Text="История" />
+                        </StackPanel>
+                    </ListViewItem>
                 </ListView>
 
                 <!-- Настройки прижаты к низу, как в eCoda -->

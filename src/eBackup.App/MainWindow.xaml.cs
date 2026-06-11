@@ -1,6 +1,7 @@
 using eBackup.App.Pages;
 using eBackup.Core.Abstractions;
 using eBackup.Core.Engine;
+using eBackup.Core.History;
 using eBackup.Core.Modules;
 using eBackup.Core.Scheduling;
 using eBackup.Modules.Obs;
@@ -141,6 +142,7 @@ public sealed partial class MainWindow : Window
                 : e.SourcePageType == typeof(StoragePage) ? "storage"
                 : e.SourcePageType == typeof(ArchivesPage) ? "archives"
                 : e.SourcePageType == typeof(SchedulePage) ? "schedule"
+                : e.SourcePageType == typeof(HistoryPage) ? "history"
                 : null;
 
         _syncingNav = true;
@@ -180,7 +182,8 @@ public sealed partial class MainWindow : Window
          : page == typeof(StoragePage) ? 2
          : page == typeof(ArchivesPage) ? 3
          : page == typeof(SchedulePage) ? 4
-         : page == typeof(SettingsPage) ? 5
+         : page == typeof(HistoryPage) ? 5
+         : page == typeof(SettingsPage) ? 6
          : -1; // Бэкап/Восстановление и пр. — вне списка вкладок
 
     /// <summary>
@@ -311,6 +314,7 @@ public sealed partial class MainWindow : Window
             "storage" => typeof(StoragePage),
             "archives" => typeof(ArchivesPage),
             "schedule" => typeof(SchedulePage),
+            "history" => typeof(HistoryPage),
             _ => typeof(OverviewPage)
         };
 
@@ -348,7 +352,7 @@ public sealed partial class MainWindow : Window
 
     // ---------- запуск бэкапа (страница «Бэкап» или расписание) ----------
 
-    public async Task StartBackupAsync(BackupRequest request)
+    public async Task StartBackupAsync(BackupRequest request, string trigger = "вручную")
     {
         if (_operationRunning || request.Targets.Count == 0)
             return;
@@ -358,11 +362,31 @@ public sealed partial class MainWindow : Window
         StatusTitle.Text = "Делаю бэкап…";
         StatusSub.Text = "подготовка…";
 
+        // Журнал «История»: запись о запуске сразу (прерванный останется виден),
+        // плюс полный лог с таймкодами на каждый шаг.
+        var history = new HistoryStore();
+        var run = new BackupRunRecord
+        {
+            Id = $"{DateTime.Now:yyyyMMdd-HHmmss}-{Guid.NewGuid().ToString("N")[..4]}",
+            StartedAt = DateTimeOffset.Now,
+            Trigger = trigger,
+            Modules = request.Modules.Select(m => m.Id).ToList(),
+            Targets = request.Targets.Select(t => t.Name).ToList()
+        };
+        void Log(string message) => history.AppendLog(run.Id, message);
+        Log($"Запуск: {trigger}");
+        Log("Модули: " + string.Join(", ", run.Modules));
+        Log("Цели: " + string.Join(", ", run.Targets));
+        if (request.Passphrase is not null)
+            Log("Шифрование: включено (AES-256-GCM, ключ из парольной фразы)");
+        await history.SaveRunAsync(run);
+
         // Сборка архива занимает 0..70% заливки; каждое сообщение двигает её вперёд.
         SetFill(0.04);
         var progress = new Progress<string>(s =>
         {
             StatusSub.Text = s;
+            Log(s);
             BumpFill(stageEnd: 0.70);
         });
 
@@ -380,17 +404,23 @@ public sealed partial class MainWindow : Window
                     progress, settings.CompressionLevel));
             SetFill(0.70);
 
+            run.ArchiveName = Path.GetFileName(archive);
+            try { run.SizeBytes = new FileInfo(archive).Length; } catch { }
+            Log($"Архив собран: {run.ArchiveName} · {run.SizeBytes / 1024.0 / 1024.0:0.#} МБ");
+
             var done = new List<string>();
             var failed = new List<string>();
             for (var i = 0; i < request.Targets.Count; i++)
             {
                 var target = request.Targets[i];
                 StatusSub.Text = $"Сохраняю в «{target.Name}»…";
+                Log($"«{target.Name}»: заливаю…");
                 try
                 {
                     var storage = StorageFactory.Create(target, _storages.Protector);
                     await storage.UploadAsync(archive, Path.GetFileName(archive));
                     done.Add(target.Name);
+                    Log($"«{target.Name}»: ✓ сохранено");
 
                     // Хранение версий: одинаково для папок, SFTP и будущих облаков.
                     if (settings.RetentionCount > 0)
@@ -398,17 +428,24 @@ public sealed partial class MainWindow : Window
                         StatusSub.Text = $"{target.Name}: убираю старые архивы…";
                         var files = await storage.ListDetailedAsync();
                         foreach (var old in files.Skip(settings.RetentionCount))
+                        {
                             await storage.DeleteAsync(old.Name);
+                            Log($"«{target.Name}»: retention — удалил {old.Name}");
+                        }
                     }
                 }
                 catch (Exception ex)
                 {
                     failed.Add($"{target.Name}: {ex.Message}");
+                    Log($"«{target.Name}»: ✕ {ex.Message}");
                 }
                 SetFill(0.70 + 0.30 * (i + 1) / request.Targets.Count);
             }
 
             try { File.Delete(archive); } catch { /* temp */ }
+
+            run.Success = failed.Count == 0;
+            run.Error = failed.Count > 0 ? string.Join("; ", failed) : null;
 
             StatusTitle.Text = failed.Count == 0 ? "Готов к работе" : "Бэкап завершён с ошибками";
             StatusSub.Text = $"последний бэкап: {DateTime.Now:HH:mm}  → {string.Join(", ", done)}"
@@ -416,11 +453,21 @@ public sealed partial class MainWindow : Window
         }
         catch (Exception ex)
         {
+            run.Success = false;
+            run.Error = ex.Message;
+            Log("✕ Ошибка: " + ex.Message);
             StatusTitle.Text = "Ошибка бэкапа";
             StatusSub.Text = ex.Message;
         }
         finally
         {
+            run.FinishedAt = DateTimeOffset.Now;
+            var elapsed = run.FinishedAt.Value - run.StartedAt;
+            Log(run.Success == true
+                ? $"Готово за {elapsed:mm\\:ss}."
+                : $"Завершено с ошибками за {elapsed:mm\\:ss}.");
+            await history.SaveRunAsync(run);
+
             _operationRunning = false;
             BackupBtn.IsEnabled = true;
             BackupCompleted?.Invoke();
@@ -497,7 +544,7 @@ public sealed partial class MainWindow : Window
             }
 
             StatusSub.Text = $"по расписанию «{due.Name}»…";
-            await StartBackupAsync(request);
+            await StartBackupAsync(request, trigger: $"расписание «{due.Name}»");
         }
         finally
         {
@@ -530,7 +577,8 @@ public sealed partial class MainWindow : Window
         catch { /* не критично: значит, плановый запуск просто случится в своё время */ }
 
         StatusSub.Text = $"вручную по расписанию «{schedule.Name}»…";
-        _ = StartBackupAsync(request); // не ждём завершения: кнопке важен сам старт
+        // Не ждём завершения: кнопке важен сам старт.
+        _ = StartBackupAsync(request, trigger: $"вручную · расписание «{schedule.Name}»");
         return null;
     }
 
