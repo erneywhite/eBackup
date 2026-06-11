@@ -777,6 +777,21 @@ public sealed partial class MainWindow : Window
         StatusSub.Text = "подготовка…";
         SetFill(0.04);
 
+        // Журнал «История»: восстановления пишутся так же подробно, как бэкапы.
+        var history = new HistoryStore();
+        var targetLabel = request.TargetDir is null ? "исходные места" : request.TargetDir;
+        var run = new BackupRunRecord
+        {
+            Id = $"{DateTime.Now:yyyyMMdd-HHmmss}-{Guid.NewGuid().ToString("N")[..4]}",
+            Operation = "восстановление",
+            StartedAt = DateTimeOffset.Now,
+            Trigger = "вручную",
+            Targets = [targetLabel]
+        };
+        void Log(string message) => history.AppendLog(run.Id, message);
+        Log($"Восстановление → {targetLabel} · режим конфликтов: {request.Policy}");
+        await history.SaveRunAsync(run);
+
         string? tempDownloaded = null;
         try
         {
@@ -785,6 +800,7 @@ public sealed partial class MainWindow : Window
             if (request.Source.LocalPath is not null)
             {
                 archive = request.Source.LocalPath;
+                Log($"Источник: {archive}");
             }
             else
             {
@@ -792,12 +808,20 @@ public sealed partial class MainWindow : Window
                 var saved = storages.FirstOrDefault(s => s.Id == request.Source.StorageId)
                     ?? throw new InvalidOperationException("Хранилище-источник не найдено.");
                 StatusSub.Text = $"Скачиваю {request.Source.RemoteName} из «{saved.Name}»…";
+                Log($"Источник: «{saved.Name}» / {request.Source.RemoteName} — скачиваю…");
                 var storage = StorageFactory.Create(saved, _storages.Protector);
                 tempDownloaded = Path.Combine(Path.GetTempPath(), "eBackup", request.Source.RemoteName!);
+                var downloadWatch = System.Diagnostics.Stopwatch.StartNew();
                 await storage.DownloadAsync(request.Source.RemoteName!, tempDownloaded);
                 archive = tempDownloaded;
+                var seconds = Math.Max(0.1, downloadWatch.Elapsed.TotalSeconds);
+                var size = new FileInfo(archive).Length;
+                Log($"Скачано: {size / 1024.0 / 1024.0:0.#} МБ за {seconds:0.#} с ({size / 1024.0 / 1024.0 / seconds:0.#} МБ/с)");
                 SetFill(0.25);
             }
+
+            run.ArchiveName = Path.GetFileName(archive);
+            try { run.SizeBytes = new FileInfo(archive).Length; } catch { }
 
             if (Core.Crypto.ArchiveCipher.IsEncrypted(archive) && string.IsNullOrEmpty(request.Passphrase))
                 throw new InvalidOperationException("Архив зашифрован — укажи парольную фразу.");
@@ -816,8 +840,10 @@ public sealed partial class MainWindow : Window
                 destinationRootOverride: request.TargetDir,
                 assetsDirectory: request.AssetsDir,
                 passphrase: request.Passphrase,
-                progress: progress));
+                progress: progress,
+                log: Log));
 
+            run.Success = true;
             SetFill(1.0);
             StatusTitle.Text = "Готов к работе";
             StatusSub.Text = $"восстановлено {DateTime.Now:HH:mm}: {Path.GetFileName(archive)} → "
@@ -825,6 +851,9 @@ public sealed partial class MainWindow : Window
         }
         catch (Exception ex)
         {
+            run.Success = false;
+            run.Error = ex.Message;
+            Log("✕ Ошибка: " + ex.Message);
             StatusTitle.Text = "Ошибка восстановления";
             StatusSub.Text = ex.Message;
         }
@@ -834,6 +863,13 @@ public sealed partial class MainWindow : Window
             {
                 try { File.Delete(tempDownloaded); } catch { /* temp */ }
             }
+            run.FinishedAt = DateTimeOffset.Now;
+            var elapsed = run.FinishedAt.Value - run.StartedAt;
+            Log(run.Success == true
+                ? $"Готово за {elapsed:mm\\:ss}."
+                : $"Завершено с ошибкой за {elapsed:mm\\:ss}.");
+            await history.SaveRunAsync(run);
+
             _operationRunning = false;
             BackupBtn.IsEnabled = true;
             await FadeOutFillAsync();

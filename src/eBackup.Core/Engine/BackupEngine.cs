@@ -273,6 +273,7 @@ public sealed class BackupEngine
         string? assetsDirectory = null,
         string? passphrase = null,
         IProgress<string>? progress = null,
+        Action<string>? log = null,
         Func<string, bool>? entryFilter = null,
         CancellationToken ct = default)
     {
@@ -284,16 +285,18 @@ public sealed class BackupEngine
             if (string.IsNullOrEmpty(passphrase))
                 throw new InvalidOperationException("Архив зашифрован — требуется парольная фраза.");
             progress?.Report("Расшифровываю архив…");
+            var decryptWatch = Stopwatch.StartNew();
             tempPlain = Path.Combine(Path.GetTempPath(), $"ebk-dec-{Guid.NewGuid():N}.ebk");
             await ArchiveCipher.DecryptAsync(archivePath, tempPlain, passphrase, ct).ConfigureAwait(false);
             workingPath = tempPlain;
+            log?.Invoke($"Расшифрован (Argon2id + AES-256-GCM) за {decryptWatch.ElapsedMilliseconds} мс");
         }
 
         try
         {
             using var zip = ZipFile.OpenRead(workingPath);
             await RestoreFromArchiveAsync(zip, modules, conflictPolicy, destinationRootOverride,
-                assetsDirectory, progress, entryFilter, ct).ConfigureAwait(false);
+                assetsDirectory, progress, log, entryFilter, ct).ConfigureAwait(false);
         }
         finally
         {
@@ -314,12 +317,13 @@ public sealed class BackupEngine
         string? destinationRootOverride = null,
         string? assetsDirectory = null,
         IProgress<string>? progress = null,
+        Action<string>? log = null,
         Func<string, bool>? entryFilter = null,
         CancellationToken ct = default)
     {
         using var zip = new ZipArchive(zipStream, ZipArchiveMode.Read, leaveOpen: true);
         await RestoreFromArchiveAsync(zip, modules, conflictPolicy, destinationRootOverride,
-            assetsDirectory, progress, entryFilter, ct).ConfigureAwait(false);
+            assetsDirectory, progress, log, entryFilter, ct).ConfigureAwait(false);
     }
 
     private async Task RestoreFromArchiveAsync(
@@ -329,6 +333,7 @@ public sealed class BackupEngine
         string? destinationRootOverride,
         string? assetsDirectory,
         IProgress<string>? progress,
+        Action<string>? log,
         Func<string, bool>? entryFilter,
         CancellationToken ct)
     {
@@ -352,6 +357,13 @@ public sealed class BackupEngine
                     throw new InvalidDataException($"Небезопасный archivePath в манифесте: '{e.ArchivePath}'.");
         }
 
+        log?.Invoke($"Манифест: {manifest.Modules.Count} модулей, "
+            + $"{manifest.Modules.Sum(m => m.Entries.Count)} записей · создан {manifest.CreatedAt:dd.MM.yyyy HH:mm}"
+            + (manifest.Source is { } src ? $" на {src.MachineName}" : ""));
+        log?.Invoke(destinationRootOverride is null
+            ? "Назначение: исходные пути (режим конфликтов: " + conflictPolicy + ")"
+            : $"Назначение: {destinationRootOverride}");
+
         // Выборочный режим: сбой одного файла (например, ассет с исходным путём
         // на диске, которого на этой машине нет) не должен ронять остальные —
         // копим и отчитываемся в конце. Полное восстановление падает как раньше.
@@ -360,6 +372,7 @@ public sealed class BackupEngine
         foreach (var module in manifest.Modules)
         {
             progress?.Report($"Восстанавливаю: {module.DisplayName}…");
+            log?.Invoke($"Модуль «{module.DisplayName}» ({module.ModuleId}): {module.Entries.Count} записей");
             foreach (var entry in module.Entries)
             {
                 ct.ThrowIfCancellationRequested();
@@ -380,7 +393,7 @@ public sealed class BackupEngine
                 {
                     var ze = zip.GetEntry(prefix);
                     if (ze is not null && (entryFilter is null || entryFilter(ze.FullName)))
-                        ExtractTolerant(ze, target, conflictPolicy, selectiveFailures);
+                        ExtractTolerant(ze, target, conflictPolicy, selectiveFailures, log);
                 }
                 else if (entry.Type == PathEntryType.Directory)
                 {
@@ -394,7 +407,7 @@ public sealed class BackupEngine
                         var dest = Path.Combine(target, rel.Replace('/', Path.DirectorySeparatorChar));
                         if (!PathSafety.IsWithin(target, dest))
                             throw new InvalidDataException($"Запись выходит за пределы целевой папки (zip-slip): {ze.FullName}");
-                        ExtractTolerant(ze, dest, conflictPolicy, selectiveFailures);
+                        ExtractTolerant(ze, dest, conflictPolicy, selectiveFailures, log);
                     }
                 }
                 // TODO(v1+): RegistryKey — импорт ветки реестра.
@@ -422,6 +435,7 @@ public sealed class BackupEngine
                         continue;
 
                     progress?.Report($"{moduleEntry.DisplayName}: раскладываю ассеты…");
+                    log?.Invoke($"Restore-хук модуля «{moduleEntry.DisplayName}»: раскладываю ассеты…");
 
                     // Заужаем доступ хука до записей только этого модуля (data/<id>/).
                     var modulePrefix = "data/" + moduleEntry.ModuleId + "/";
@@ -467,21 +481,18 @@ public sealed class BackupEngine
 
     /// <summary>В выборочном режиме (failures != null) сбой файла копится, не роняя остальное.</summary>
     private static void ExtractTolerant(
-        ZipArchiveEntry entry, string destinationPath, ConflictPolicy policy, List<string>? failures)
+        ZipArchiveEntry entry, string destinationPath, ConflictPolicy policy,
+        List<string>? failures, Action<string>? log)
     {
-        if (failures is null)
-        {
-            ExtractFile(entry, destinationPath, policy);
-            return;
-        }
-
         try
         {
             ExtractFile(entry, destinationPath, policy);
+            log?.Invoke($"  → {destinationPath} ({FormatSize(entry.Length)})");
         }
-        catch (Exception ex)
+        catch (Exception ex) when (failures is not null)
         {
             failures.Add($"{entry.FullName}: {ex.Message}");
+            log?.Invoke($"  ✕ {entry.FullName}: {ex.Message}");
         }
     }
 

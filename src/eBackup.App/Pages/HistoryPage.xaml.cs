@@ -12,7 +12,9 @@ public sealed class RunItem(BackupRunRecord run)
 
     public string Title => Run.StartedAt.ToString("dd.MM.yyyy HH:mm:ss");
 
-    public string Subtitle => (Run.ArchiveName ?? "архив не собран") + " · " + Run.Trigger;
+    public string Subtitle =>
+        (Run.Operation == "бэкап" ? "" : Run.Operation + " · ")
+        + (Run.ArchiveName ?? "архив не собран") + " · " + Run.Trigger;
 
     public string StatusGlyph => Run.Success switch
     {
@@ -88,7 +90,7 @@ public sealed partial class HistoryPage : Page
             ? "не завершён"
             : (run.FinishedAt.Value - run.StartedAt).ToString(@"mm\:ss");
         DetailMeta.Text =
-            $"Запуск: {run.Trigger}\n" +
+            $"Операция: {run.Operation} · запуск: {run.Trigger}\n" +
             $"Начало: {run.StartedAt:dd.MM.yyyy HH:mm:ss} · длительность: {duration}\n" +
             $"Модули: {(run.Modules.Count > 0 ? string.Join(", ", run.Modules) : "—")}\n" +
             $"Цели: {(run.Targets.Count > 0 ? string.Join(", ", run.Targets) : "—")}" +

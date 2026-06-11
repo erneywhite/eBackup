@@ -5,6 +5,9 @@ public sealed class BackupRunRecord
 {
     public string Id { get; set; } = string.Empty;
 
+    /// <summary>Вид операции: «бэкап», «восстановление», «извлечение» и т.п.</summary>
+    public string Operation { get; set; } = "бэкап";
+
     public DateTimeOffset StartedAt { get; set; }
 
     public DateTimeOffset? FinishedAt { get; set; }

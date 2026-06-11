@@ -85,9 +85,7 @@
                      табы — ниже. Заменим картинку, когда художница дорисует. -->
                 <StackPanel Grid.Row="0" Spacing="8" Margin="6,10,6,18"
                             IsHitTestVisible="False" HorizontalAlignment="Center">
-                    <Border Width="96" Height="96" CornerRadius="22"
-                            BorderBrush="{StaticResource EbCardBorderBrush}" BorderThickness="1"
-                            HorizontalAlignment="Center">
+                    <Border Width="96" Height="96" CornerRadius="22" HorizontalAlignment="Center">
                         <Border.Background>
                             <ImageBrush Stretch="UniformToFill"
                                         ImageSource="ms-appx:///Assets/logo.png" />

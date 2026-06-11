@@ -340,6 +340,23 @@ public sealed partial class ArchiveBrowsePage : Page
         RestoreBtn.IsEnabled = DownloadBtn.IsEnabled = false;
         var window = MainWindow.Instance;
         var succeeded = false;
+
+        // Журнал «История»: выборочные операции из браузера — тоже с полным логом.
+        var history = new eBackup.Core.History.HistoryStore();
+        var run = new eBackup.Core.History.BackupRunRecord
+        {
+            Id = $"{DateTime.Now:yyyyMMdd-HHmmss}-{Guid.NewGuid().ToString("N")[..4]}",
+            Operation = destinationRoot is null ? "восстановление (выборочное)" : "извлечение",
+            StartedAt = DateTimeOffset.Now,
+            Trigger = "вручную · браузер архива",
+            ArchiveName = TitleText.Text,
+            Targets = [destinationRoot ?? "исходные пути"]
+        };
+        void Log(string message) => history.AppendLog(run.Id, message);
+        Log($"Архив: {TitleText.Text}" + (_remoteStream is not null ? " (читается из хранилища кусками)" : ""));
+        Log($"Выбрано файлов: {selected.Count} → {destinationRoot ?? "исходные пути"}");
+        await history.SaveRunAsync(run);
+
         try
         {
             SetStatus(destinationRoot is null
@@ -361,25 +378,35 @@ public sealed partial class ArchiveBrowsePage : Page
                     conflictPolicy: ConflictPolicy.BackupExisting,
                     destinationRootOverride: destinationRoot,
                     progress: progress,
+                    log: Log,
                     entryFilter: selected.Contains)
                 : engine.RestoreAsync(
                     zipPath!,
                     conflictPolicy: ConflictPolicy.BackupExisting,
                     destinationRootOverride: destinationRoot,
                     progress: progress,
+                    log: Log,
                     entryFilter: selected.Contains));
 
             succeeded = true;
+            run.Success = true;
             SetStatus(destinationRoot is null
                 ? $"✓ Восстановлено файлов: {selected.Count} (существовавшие сохранены как .bak)"
                 : $"✓ Скачано файлов: {selected.Count} → {destinationRoot}", dim: false, ok: true);
         }
         catch (Exception ex)
         {
+            run.Success = false;
+            run.Error = ex.Message;
+            Log("✕ Ошибка: " + ex.Message);
             SetStatus("✕ " + ex.Message, dim: false);
         }
         finally
         {
+            run.FinishedAt = DateTimeOffset.Now;
+            Log(run.Success == true ? "Готово." : "Завершено с ошибкой.");
+            await history.SaveRunAsync(run);
+
             _busy = false;
             RestoreBtn.IsEnabled = DownloadBtn.IsEnabled = true;
             if (window is not null)
