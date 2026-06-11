@@ -35,11 +35,14 @@ public sealed partial class OverviewPage : Page
 
     private async void OnBackupCompleted() => await RefreshAsync();
 
+    private async void RefreshBtn_Click(object sender, RoutedEventArgs e) => await RefreshAsync();
+
     private async Task RefreshAsync()
     {
         if (_refreshing)
             return;
         _refreshing = true;
+        RefreshBtn.IsEnabled = false;
         try
         {
             var dim = (Brush)Application.Current.Resources["EbTextDimBrush"];
@@ -127,8 +130,17 @@ public sealed partial class OverviewPage : Page
                     VerticalAlignment = VerticalAlignment.Center
                 };
 
+                // Кол-во архивов и занятое место — заполняется по результату проверки.
+                var stats = new TextBlock
+                {
+                    FontSize = 12,
+                    Foreground = dim,
+                    VerticalAlignment = VerticalAlignment.Center
+                };
+
                 var row = new Grid { ColumnSpacing = 8 };
                 row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+                row.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
                 row.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
                 var label = new TextBlock
                 {
@@ -138,12 +150,14 @@ public sealed partial class OverviewPage : Page
                     TextTrimming = TextTrimming.CharacterEllipsis
                 };
                 Grid.SetColumn(label, 0);
-                Grid.SetColumn(badge, 1);
+                Grid.SetColumn(stats, 1);
+                Grid.SetColumn(badge, 2);
                 row.Children.Add(label);
+                row.Children.Add(stats);
                 row.Children.Add(badge);
                 StorageRows.Children.Add(row);
 
-                checks.Add(CheckOneAsync(s, badge));
+                checks.Add(CheckOneAsync(s, stats, badge));
             }
 
             _ = FinishStatsAsync(checks, settings, gen); // бейджи и счётчики — по мере прихода
@@ -151,21 +165,25 @@ public sealed partial class OverviewPage : Page
         finally
         {
             _refreshing = false;
+            RefreshBtn.IsEnabled = true;
         }
     }
 
     /// <summary>
     /// Одно хранилище = один запрос: листинг архивов и как проверка доступности (бейдж),
-    /// и как источник счётчиков. Никогда не бросает.
+    /// и как источник счётчиков и занятого места. Никогда не бросает.
     /// </summary>
     private async Task<(SavedStorage Storage, IReadOnlyList<RemoteFileInfo>? Files)> CheckOneAsync(
-        SavedStorage s, TextBlock badge)
+        SavedStorage s, TextBlock stats, TextBlock badge)
     {
         try
         {
             var files = await StorageFactory.Create(s, _store.Protector).ListDetailedAsync();
             badge.Text = "✓";
             badge.Foreground = (Brush)Application.Current.Resources["EbOkBrush"];
+            stats.Text = files.Count == 0
+                ? "пусто"
+                : $"{files.Count} шт · {FormatSize(files.Sum(f => f.Length))}";
             return (s, files);
         }
         catch
@@ -175,6 +193,11 @@ public sealed partial class OverviewPage : Page
             return (s, null);
         }
     }
+
+    private static string FormatSize(long bytes)
+        => bytes >= 1L << 30
+            ? $"{bytes / 1024.0 / 1024 / 1024:0.##} ГБ"
+            : $"{bytes / 1024.0 / 1024:0.#} МБ";
 
     /// <summary>Когда все ответы собраны — плитка «Архивы» и герой «Последний бэкап».</summary>
     private async Task FinishStatsAsync(

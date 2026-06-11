@@ -19,7 +19,18 @@
     <ScrollViewer x:Name="Scroller">
         <!-- Контент тянется на всю ширину окна (выбор пользователя: не пустовато). -->
         <StackPanel x:Name="ContentPanel" Spacing="14">
-            <TextBlock Text="Обзор" FontSize="26" FontWeight="SemiBold" />
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+                <TextBlock Text="Обзор" FontSize="26" FontWeight="SemiBold" />
+                <Button x:Name="RefreshBtn" Grid.Column="1" CornerRadius="10" Padding="9,7"
+                        VerticalAlignment="Center" Click="RefreshBtn_Click"
+                        ToolTipService.ToolTip="Обновить дашборд и проверить все хранилища">
+                    <FontIcon Glyph="&#xE72C;" FontSize="13" />
+                </Button>
+            </Grid>
 
             <!-- Последний бэкап -->
             <Button x:Name="LastBackupCard" Style="{StaticResource EbTileStyle}"
