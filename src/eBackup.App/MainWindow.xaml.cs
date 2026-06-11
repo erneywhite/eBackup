@@ -71,6 +71,8 @@ public sealed partial class MainWindow : Window
             presenter.PreferredMinimumHeight = 600;
         }
 
+        InitLiquidProgress();
+
         ContentFrame.Navigate(typeof(OverviewPage));
 
         // Одноразово: хранилище «Локальная папка» по умолчанию.
@@ -576,22 +578,93 @@ public sealed partial class MainWindow : Window
         }
     }
 
-    // ---------- заливка-прогресс нижней панели ----------
+    // ---------- «жидкая» заливка-прогресс нижней панели ----------
+
+    private bool _wavesRunning;
+
+    /// <summary>
+    /// Подготовка жидкости: геометрия волн (синус из квадратичных Безье) и
+    /// скруглённый Composition-клип контейнера (XAML-клип умеет только прямые углы,
+    /// а волны шире контейнера и без клипа торчали бы из круглых углов панели).
+    /// </summary>
+    private void InitLiquidProgress()
+    {
+        Wave1.Data = BuildWaveGeometry(period: 200, ctrlAmp: 14, baseline: 20, width: 5200, height: 64);
+        Wave2.Data = BuildWaveGeometry(period: 280, ctrlAmp: 20, baseline: 30, width: 5320, height: 64);
+
+        var visual = Microsoft.UI.Xaml.Hosting.ElementCompositionPreview.GetElementVisual(LiquidFill);
+        var compositor = visual.Compositor;
+        var clipGeometry = compositor.CreateRoundedRectangleGeometry();
+        clipGeometry.CornerRadius = new System.Numerics.Vector2(15f, 15f);
+        // Размер клипа следует за анимируемым размером контейнера покадрово.
+        var sizeExpr = compositor.CreateExpressionAnimation("host.Size");
+        sizeExpr.SetReferenceParameter("host", visual);
+        clipGeometry.StartAnimation("Size", sizeExpr);
+        visual.Clip = compositor.CreateGeometricClip(clipGeometry);
+
+        // При изменении размера окна заливка держит свою долю ширины.
+        BarRoot.SizeChanged += (_, e) =>
+        {
+            if (_fill > 0)
+                LiquidFill.Width = _fill * e.NewSize.Width;
+        };
+    }
+
+    private static Microsoft.UI.Xaml.Media.PathGeometry BuildWaveGeometry(
+        int period, int ctrlAmp, int baseline, int width, int height)
+    {
+        var figure = new Microsoft.UI.Xaml.Media.PathFigure
+        {
+            StartPoint = new Windows.Foundation.Point(0, baseline),
+            IsClosed = true,
+            IsFilled = true
+        };
+
+        var half = period / 2;
+        var up = true;
+        for (var x = 0; x < width; x += half)
+        {
+            figure.Segments.Add(new Microsoft.UI.Xaml.Media.QuadraticBezierSegment
+            {
+                Point1 = new Windows.Foundation.Point(x + half / 2.0, up ? baseline - ctrlAmp : baseline + ctrlAmp),
+                Point2 = new Windows.Foundation.Point(x + half, baseline)
+            });
+            up = !up;
+        }
+        figure.Segments.Add(new Microsoft.UI.Xaml.Media.LineSegment
+        {
+            Point = new Windows.Foundation.Point(width, height)
+        });
+        figure.Segments.Add(new Microsoft.UI.Xaml.Media.LineSegment
+        {
+            Point = new Windows.Foundation.Point(0, height)
+        });
+
+        var geometry = new Microsoft.UI.Xaml.Media.PathGeometry();
+        geometry.Figures.Add(figure);
+        return geometry;
+    }
 
     /// <summary>Плавно довести заливку до доли <paramref name="fraction"/> (0..1).</summary>
     private void SetFill(double fraction)
     {
         _fill = Math.Clamp(fraction, 0, 1);
-        ProgressFill.Opacity = 0.22;
+        LiquidFill.Opacity = 1;
+        if (!_wavesRunning)
+        {
+            WaveStoryboard.Begin();
+            _wavesRunning = true;
+        }
 
         var anim = new DoubleAnimation
         {
-            To = _fill,
+            To = _fill * BarRoot.ActualWidth,
             Duration = new Duration(TimeSpan.FromMilliseconds(400)),
-            EasingFunction = new QuadraticEase { EasingMode = EasingMode.EaseOut }
+            EasingFunction = new QuadraticEase { EasingMode = EasingMode.EaseOut },
+            EnableDependentAnimation = true // Width — layout-свойство
         };
-        Storyboard.SetTarget(anim, FillScale);
-        Storyboard.SetTargetProperty(anim, "ScaleX");
+        Storyboard.SetTarget(anim, LiquidFill);
+        Storyboard.SetTargetProperty(anim, "Width");
         var sb = new Storyboard();
         sb.Children.Add(anim);
         sb.Begin();
@@ -604,8 +677,13 @@ public sealed partial class MainWindow : Window
     private async Task FadeOutFillAsync()
     {
         await Task.Delay(1200);
-        ProgressFill.Opacity = 0;
-        FillScale.ScaleX = 0;
+        LiquidFill.Opacity = 0;
+        LiquidFill.Width = 0;
         _fill = 0;
+        if (_wavesRunning)
+        {
+            WaveStoryboard.Stop();
+            _wavesRunning = false;
+        }
     }
 }
