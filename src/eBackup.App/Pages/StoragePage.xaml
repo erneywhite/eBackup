@@ -72,6 +72,8 @@
                         <MenuFlyoutItem Text="FTP / FTPS-сервер" Click="AddFtp_Click" />
                         <MenuFlyoutItem Text="S3-совместимое (AWS, MinIO, B2, R2…)" Click="AddS3_Click" />
                         <MenuFlyoutItem Text="WebDAV (Nextcloud, Яндекс.Диск…)" Click="AddWebDav_Click" />
+                        <MenuFlyoutItem Text="Google Drive" Click="AddGDrive_Click" />
+                        <MenuFlyoutItem Text="Dropbox" Click="AddDropbox_Click" />
                     </MenuFlyout>
                 </Button.Flyout>
             </Button>
@@ -118,6 +120,40 @@
                             <TextBox x:Name="ShareUserBox"
                                      PlaceholderText="логин (например, nas\user или user)" />
                             <PasswordBox x:Name="SharePassBox" PlaceholderText="пароль" />
+                        </StackPanel>
+
+                        <!-- ===== Google Drive ===== -->
+                        <StackPanel x:Name="GDrivePanel" Spacing="10" Visibility="Collapsed">
+                            <TextBlock Text="Аккаунт Google" FontSize="12"
+                                       Foreground="{StaticResource EbTextDimBrush}" />
+                            <StackPanel Orientation="Horizontal" Spacing="12">
+                                <Button x:Name="GDriveLoginBtn" Content="Войти через браузер…"
+                                        CornerRadius="10" Click="GDriveLogin_Click" />
+                                <TextBlock x:Name="GDriveStatus" FontSize="12" VerticalAlignment="Center" />
+                            </StackPanel>
+                            <TextBlock Text="Папка на Диске" FontSize="12"
+                                       Foreground="{StaticResource EbTextDimBrush}" />
+                            <TextBox x:Name="GDriveFolderBox" PlaceholderText="eBackup" />
+                            <TextBlock Text="Приложение видит только собственные файлы (scope drive.file) — к остальному содержимому Диска доступа нет."
+                                       FontSize="11" TextWrapping="Wrap"
+                                       Foreground="{StaticResource EbTextDimBrush}" />
+                        </StackPanel>
+
+                        <!-- ===== Dropbox ===== -->
+                        <StackPanel x:Name="DropboxPanel" Spacing="10" Visibility="Collapsed">
+                            <TextBlock Text="Аккаунт Dropbox" FontSize="12"
+                                       Foreground="{StaticResource EbTextDimBrush}" />
+                            <StackPanel Orientation="Horizontal" Spacing="12">
+                                <Button x:Name="DropboxLoginBtn" Content="Войти через браузер…"
+                                        CornerRadius="10" Click="DropboxLogin_Click" />
+                                <TextBlock x:Name="DropboxStatus" FontSize="12" VerticalAlignment="Center" />
+                            </StackPanel>
+                            <TextBlock Text="Подпапка (внутри Apps/папки приложения)" FontSize="12"
+                                       Foreground="{StaticResource EbTextDimBrush}" />
+                            <TextBox x:Name="DropboxFolderBox" PlaceholderText="пусто — корень папки приложения" />
+                            <TextBlock Text="Доступ ограничен изолированной папкой Apps — остальной Dropbox приложению не виден."
+                                       FontSize="11" TextWrapping="Wrap"
+                                       Foreground="{StaticResource EbTextDimBrush}" />
                         </StackPanel>
 
                         <!-- ===== WebDAV ===== -->

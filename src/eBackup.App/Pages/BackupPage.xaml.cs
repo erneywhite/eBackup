@@ -96,6 +96,8 @@ public sealed partial class BackupPage : Page
         StorageKind.Ftp => $"{s.Name}  ({(s.UseFtps ? "ftps" : "ftp")} · {s.Username}@{s.Host}:{s.Port})",
         StorageKind.S3 => $"{s.Name}  (s3 · {s.Bucket})",
         StorageKind.WebDav => $"{s.Name}  (webdav · {s.ServiceUrl})",
+        StorageKind.GoogleDrive => $"{s.Name}  (Google Drive)",
+        StorageKind.Dropbox => $"{s.Name}  (Dropbox)",
         _ => s.Name
     };
 

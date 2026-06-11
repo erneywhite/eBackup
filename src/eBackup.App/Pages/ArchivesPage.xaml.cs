@@ -68,6 +68,10 @@ public sealed partial class ArchivesPage : Page
                         + (string.IsNullOrWhiteSpace(s.RemoteDirectory) ? "" : $"/{s.RemoteDirectory!.Trim('/')}"),
                     StorageKind.WebDav => $"{s.Name} — webdav · {s.ServiceUrl}"
                         + (string.IsNullOrWhiteSpace(s.RemoteDirectory) ? "" : $"/{s.RemoteDirectory!.Trim('/')}"),
+                    StorageKind.GoogleDrive =>
+                        $"{s.Name} — Google Drive, папка {(string.IsNullOrWhiteSpace(s.RemoteDirectory) ? "eBackup" : s.RemoteDirectory)}",
+                    StorageKind.Dropbox => $"{s.Name} — Dropbox, папка приложения"
+                        + (string.IsNullOrWhiteSpace(s.RemoteDirectory) ? "" : $"/{s.RemoteDirectory!.Trim('/')}"),
                     _ => s.Name
                 });
 

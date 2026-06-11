@@ -14,6 +14,8 @@ public static class StorageFactory
         StorageKind.Ftp => new FtpStorage(s, protector),
         StorageKind.S3 => new S3Storage(s, protector),
         StorageKind.WebDav => new WebDavStorage(s, protector),
+        StorageKind.GoogleDrive => new GoogleDriveStorage(s, protector),
+        StorageKind.Dropbox => new DropboxStorage(s, protector),
         _ => throw new NotSupportedException($"Тип хранилища {s.Kind} пока не поддерживается.")
     };
 

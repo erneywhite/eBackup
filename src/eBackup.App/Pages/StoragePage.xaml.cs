@@ -24,6 +24,9 @@ public sealed class StorageItem(SavedStorage storage) : INotifyPropertyChanged
         StorageKind.Ftp => $"{(Storage.UseFtps ? "ftps" : "ftp")} · {Storage.Username}@{Storage.Host}:{Storage.Port}",
         StorageKind.S3 => $"s3 · {Storage.Bucket}",
         StorageKind.WebDav => $"webdav · {Storage.ServiceUrl}",
+        StorageKind.GoogleDrive => $"gdrive · папка {(string.IsNullOrWhiteSpace(Storage.RemoteDirectory) ? "eBackup" : Storage.RemoteDirectory)}",
+        StorageKind.Dropbox => "dropbox · папка приложения" +
+            (string.IsNullOrWhiteSpace(Storage.RemoteDirectory) ? "" : $"/{Storage.RemoteDirectory!.Trim('/')}"),
         _ => Storage.Kind.ToString()
     };
 
@@ -51,6 +54,8 @@ public sealed partial class StoragePage : Page
     private List<StorageItem> _items = [];
     private SavedStorage? _editing;            // null — создаём новое
     private StorageKind _editorKind;           // тип редактируемого/создаваемого
+    private string? _pendingGDriveToken;       // refresh-токен после «Войти», ещё не сохранён
+    private string? _pendingDropboxToken;
     private SftpStorageProvider? _browseProvider;
     private bool _suppressSelection;
     private bool _selfTestRunning;
@@ -132,6 +137,8 @@ public sealed partial class StoragePage : Page
     private void AddFtp_Click(object sender, RoutedEventArgs e) => StartNew(StorageKind.Ftp);
     private void AddS3_Click(object sender, RoutedEventArgs e) => StartNew(StorageKind.S3);
     private void AddWebDav_Click(object sender, RoutedEventArgs e) => StartNew(StorageKind.WebDav);
+    private void AddGDrive_Click(object sender, RoutedEventArgs e) => StartNew(StorageKind.GoogleDrive);
+    private void AddDropbox_Click(object sender, RoutedEventArgs e) => StartNew(StorageKind.Dropbox);
 
     private void StartNew(StorageKind kind)
     {
@@ -157,15 +164,27 @@ public sealed partial class StoragePage : Page
             StorageKind.Ftp => "Новое FTP-подключение",
             StorageKind.S3 => "Новое S3-хранилище",
             StorageKind.WebDav => "Новое WebDAV-хранилище",
+            StorageKind.GoogleDrive => "Google Drive",
+            StorageKind.Dropbox => "Dropbox",
             _ => "Новое SFTP-подключение"
         };
         NameBox.Text = s?.Name ?? string.Empty;
+        _pendingGDriveToken = null;
+        _pendingDropboxToken = null;
 
         FolderPanel.Visibility = _editorKind == StorageKind.LocalFolder ? Visibility.Visible : Visibility.Collapsed;
         SftpPanel.Visibility = _editorKind == StorageKind.Sftp ? Visibility.Visible : Visibility.Collapsed;
         FtpPanel.Visibility = _editorKind == StorageKind.Ftp ? Visibility.Visible : Visibility.Collapsed;
         S3Panel.Visibility = _editorKind == StorageKind.S3 ? Visibility.Visible : Visibility.Collapsed;
         WebDavPanel.Visibility = _editorKind == StorageKind.WebDav ? Visibility.Visible : Visibility.Collapsed;
+        GDrivePanel.Visibility = _editorKind == StorageKind.GoogleDrive ? Visibility.Visible : Visibility.Collapsed;
+        DropboxPanel.Visibility = _editorKind == StorageKind.Dropbox ? Visibility.Visible : Visibility.Collapsed;
+
+        // OAuth-облака: статус подключения аккаунта
+        GDriveFolderBox.Text = s?.Kind == StorageKind.GoogleDrive ? s.RemoteDirectory ?? "" : "";
+        DropboxFolderBox.Text = s?.Kind == StorageKind.Dropbox ? s.RemoteDirectory ?? "" : "";
+        SetOAuthStatus(GDriveStatus, s?.Kind == StorageKind.GoogleDrive && s.ProtectedOAuthToken is not null);
+        SetOAuthStatus(DropboxStatus, s?.Kind == StorageKind.Dropbox && s.ProtectedOAuthToken is not null);
 
         // WebDAV
         WebDavUrlBox.Text = s?.Kind == StorageKind.WebDav ? s.ServiceUrl ?? "" : "";
@@ -237,6 +256,54 @@ public sealed partial class StoragePage : Page
         _browseProvider = null;
     }
 
+    private void SetOAuthStatus(TextBlock status, bool connected)
+    {
+        status.Text = connected ? "✓ аккаунт подключён" : "аккаунт не подключён";
+        status.Foreground = connected
+            ? (Brush)Resources["EbOkBrush"]
+            : (Brush)Application.Current.Resources["EbTextDimBrush"];
+    }
+
+    private async void GDriveLogin_Click(object sender, RoutedEventArgs e)
+    {
+        SetBusy(true);
+        SetStatus("Открываю браузер — подтверди вход в Google…", ok: true, dim: true);
+        try
+        {
+            _pendingGDriveToken = await GoogleDriveStorage.AuthorizeAsync();
+            SetOAuthStatus(GDriveStatus, connected: true);
+            SetStatus("✓ Вход выполнен — нажми «Сохранить».", ok: true);
+        }
+        catch (Exception ex)
+        {
+            SetStatus("✕ " + ex.Message, ok: false);
+        }
+        finally
+        {
+            SetBusy(false);
+        }
+    }
+
+    private async void DropboxLogin_Click(object sender, RoutedEventArgs e)
+    {
+        SetBusy(true);
+        SetStatus("Открываю браузер — подтверди вход в Dropbox…", ok: true, dim: true);
+        try
+        {
+            _pendingDropboxToken = await DropboxStorage.AuthorizeAsync();
+            SetOAuthStatus(DropboxStatus, connected: true);
+            SetStatus("✓ Вход выполнен — нажми «Сохранить».", ok: true);
+        }
+        catch (Exception ex)
+        {
+            SetStatus("✕ " + ex.Message, ok: false);
+        }
+        finally
+        {
+            SetBusy(false);
+        }
+    }
+
     private void AuthMode_Changed(object sender, RoutedEventArgs e)
     {
         if (PasswordPanel is null || KeyPanel is null)
@@ -294,6 +361,48 @@ public sealed partial class StoragePage : Page
                 Path = path,
                 ShareUsername = shareUser.Length == 0 ? null : shareUser,
                 ProtectedSharePassword = protectedPass
+            };
+        }
+
+        if (_editorKind == StorageKind.GoogleDrive)
+        {
+            var token = _pendingGDriveToken is not null
+                ? _store.Protect(_pendingGDriveToken)
+                : _editing?.Kind == StorageKind.GoogleDrive ? _editing.ProtectedOAuthToken : null;
+            if (token is null)
+            {
+                error = "Сначала войди в аккаунт Google.";
+                return null;
+            }
+
+            return new SavedStorage
+            {
+                Id = id,
+                Name = name,
+                Kind = StorageKind.GoogleDrive,
+                ProtectedOAuthToken = token,
+                RemoteDirectory = GDriveFolderBox.Text.Trim()
+            };
+        }
+
+        if (_editorKind == StorageKind.Dropbox)
+        {
+            var token = _pendingDropboxToken is not null
+                ? _store.Protect(_pendingDropboxToken)
+                : _editing?.Kind == StorageKind.Dropbox ? _editing.ProtectedOAuthToken : null;
+            if (token is null)
+            {
+                error = "Сначала войди в аккаунт Dropbox.";
+                return null;
+            }
+
+            return new SavedStorage
+            {
+                Id = id,
+                Name = name,
+                Kind = StorageKind.Dropbox,
+                ProtectedOAuthToken = token,
+                RemoteDirectory = DropboxFolderBox.Text.Trim()
             };
         }
 
@@ -533,6 +642,8 @@ public sealed partial class StoragePage : Page
                     StorageKind.Ftp => FtpHostBox.Text.Trim(),
                     StorageKind.S3 => S3BucketBox.Text.Trim(),
                     StorageKind.WebDav => WebDavUrlBox.Text.Trim(),
+                    StorageKind.GoogleDrive => "Google Drive",
+                    StorageKind.Dropbox => "Dropbox",
                     _ => HostBox.Text.Trim()
                 };
 
@@ -738,6 +849,8 @@ public sealed partial class StoragePage : Page
         DeleteBtn.IsEnabled = !busy;
         BrowseBtn.IsEnabled = !busy;
         BrowsePathBtn.IsEnabled = !busy;
+        GDriveLoginBtn.IsEnabled = !busy;
+        DropboxLoginBtn.IsEnabled = !busy;
         // Список и «добавить» тоже блокируем: иначе результат незавершённой операции
         // (тест/обзор) приземлится в редактор уже другого хранилища.
         StorageList.IsEnabled = !busy;

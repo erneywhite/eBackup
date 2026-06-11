@@ -11,7 +11,11 @@ public enum StorageKind
     /// <summary>S3-совместимое: AWS S3, MinIO, Backblaze B2, Cloudflare R2 и т.п.</summary>
     S3,
     /// <summary>WebDAV: Nextcloud, ownCloud, Яндекс.Диск и т.п. (базовый URL + логин/пароль).</summary>
-    WebDav
+    WebDav,
+    /// <summary>Google Drive (OAuth, scope drive.file — видит только свои файлы).</summary>
+    GoogleDrive,
+    /// <summary>Dropbox (OAuth, изолированная папка приложения Apps/…).</summary>
+    Dropbox
 }
 
 /// <summary>
@@ -61,4 +65,8 @@ public sealed record SavedStorage
 
     /// <summary>Path-style адресация (нужна MinIO и большинству S3-совместимых; для AWS можно выключить).</summary>
     public bool ForcePathStyle { get; init; } = true;
+
+    // ---- OAuth-облака (Google Drive, Dropbox) ----
+    /// <summary>Refresh-токен пользователя, зашифрован DPAPI.</summary>
+    public string? ProtectedOAuthToken { get; init; }
 }

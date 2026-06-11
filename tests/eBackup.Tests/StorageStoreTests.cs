@@ -126,7 +126,18 @@ public class StorageStoreTests
             new SavedStorage { Id = "d", Name = "d", Kind = StorageKind.S3, ServiceUrl = "https://s3.x", Bucket = "b" }, protector));
         Assert.IsType<WebDavStorage>(StorageFactory.Create(
             new SavedStorage { Id = "e", Name = "e", Kind = StorageKind.WebDav, ServiceUrl = "https://dav.x", Username = "u" }, protector));
+        Assert.IsType<GoogleDriveStorage>(StorageFactory.Create(
+            new SavedStorage { Id = "f", Name = "f", Kind = StorageKind.GoogleDrive }, protector));
+        Assert.IsType<DropboxStorage>(StorageFactory.Create(
+            new SavedStorage { Id = "g", Name = "g", Kind = StorageKind.Dropbox }, protector));
     }
+
+    [Theory]
+    [InlineData(null, "")]
+    [InlineData(".", "")]
+    [InlineData("/sub/dir/", "/sub/dir")]
+    public void Dropbox_Path_Is_Normalized(string? input, string expected)
+        => Assert.Equal(expected, DropboxStorage.NormalizePath(input));
 
     [Theory]
     [InlineData("https://webdav.yandex.ru", null, "https://webdav.yandex.ru/")]
