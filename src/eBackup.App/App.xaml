@@ -9,6 +9,31 @@
                 <XamlControlsResources xmlns="using:Microsoft.UI.Xaml.Controls" />
             </ResourceDictionary.MergedDictionaries>
 
+            <ResourceDictionary.ThemeDictionaries>
+                <!-- Тёмная тема (ключ Default). Системный акцент Windows (синий) →
+                     наш виолет: чекбоксы, тогглы, радио, слайдеры, ссылки,
+                     выделение текста. Перекрываем и цвета, и ключевые кисти —
+                     WinAppSDK местами берёт акцент напрямую из ОС. -->
+                <ResourceDictionary x:Key="Default">
+                    <Color x:Key="SystemAccentColor">#C97DF6</Color>
+                    <Color x:Key="SystemAccentColorLight1">#C97DF6</Color>
+                    <Color x:Key="SystemAccentColorLight2">#C97DF6</Color>
+                    <Color x:Key="SystemAccentColorLight3">#E3BDFB</Color>
+                    <Color x:Key="SystemAccentColorDark1">#A75BD0</Color>
+                    <Color x:Key="SystemAccentColorDark2">#9650BD</Color>
+                    <Color x:Key="SystemAccentColorDark3">#7E3FA0</Color>
+
+                    <SolidColorBrush x:Key="AccentFillColorDefaultBrush" Color="#C97DF6" />
+                    <SolidColorBrush x:Key="AccentFillColorSecondaryBrush" Color="#E6C97DF6" />
+                    <SolidColorBrush x:Key="AccentFillColorTertiaryBrush" Color="#CCC97DF6" />
+                    <SolidColorBrush x:Key="AccentFillColorSelectedTextBackgroundBrush" Color="#C97DF6" />
+                    <SolidColorBrush x:Key="AccentTextFillColorPrimaryBrush" Color="#E3BDFB" />
+                    <SolidColorBrush x:Key="AccentTextFillColorSecondaryBrush" Color="#E3BDFB" />
+                    <SolidColorBrush x:Key="AccentTextFillColorTertiaryBrush" Color="#C97DF6" />
+                    <SolidColorBrush x:Key="TextControlSelectionHighlightColor" Color="#99C97DF6" />
+                </ResourceDictionary>
+            </ResourceDictionary.ThemeDictionaries>
+
             <!-- Палитра eBackup (в стиле eCoda) -->
             <Color x:Key="EbBackgroundColor">#0E0A16</Color>
             <Color x:Key="EbAccent1">#C97DF6</Color>
