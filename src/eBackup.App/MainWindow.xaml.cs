@@ -46,6 +46,10 @@ public sealed partial class MainWindow : Window
     private double _fill;           // текущая доля заливки-прогресса нижней панели (0..1)
     private DispatcherTimer? _scheduleTimer;
     private bool _checkingSchedules;
+    // Кэш расписаний: файл перечитывается только при изменении (минутный тик
+    // стоит один stat метаданных + арифметику дат — фактически бесплатно).
+    private List<BackupSchedule>? _cachedSchedules;
+    private DateTime _schedulesStamp;
 
     public bool IsBusy => _operationRunning;
 
@@ -222,15 +226,36 @@ public sealed partial class MainWindow : Window
         try
         {
             var store = new ScheduleStore(new DpapiSecretProtector());
-            List<BackupSchedule> schedules;
+
+            // Перечитываем файл только если он менялся (правки на странице расписаний
+            // или отметка LastRunAt после запуска тоже меняют файл — кэш сам обновится).
+            DateTime stamp;
             try
             {
-                schedules = (await store.LoadAsync()).ToList();
+                var path = ScheduleStore.DefaultFilePath();
+                stamp = File.Exists(path) ? File.GetLastWriteTimeUtc(path) : DateTime.MinValue;
             }
             catch
             {
-                return; // битый файл расписаний не должен ронять приложение
+                stamp = DateTime.MinValue;
             }
+
+            if (_cachedSchedules is null || stamp != _schedulesStamp)
+            {
+                try
+                {
+                    _cachedSchedules = (await store.LoadAsync()).ToList();
+                    _schedulesStamp = stamp;
+                }
+                catch
+                {
+                    return; // битый файл расписаний не должен ронять приложение
+                }
+            }
+
+            var schedules = _cachedSchedules;
+            if (schedules.Count == 0)
+                return;
 
             var now = DateTime.Now;
             var idle = IdleDetector.GetIdleTime();
