@@ -48,7 +48,7 @@ public sealed partial class BackupPage : Page
         // Модули из реестра
         ModulesPanel.Children.Clear();
         _moduleChecks.Clear();
-        foreach (var d in _registry.Discover().Where(d => d.Problem is null && d.Instance is not null))
+        foreach (var d in _registry.Discover().Where(d => d.Problem is null && d.Instance is not null && d.Enabled))
         {
             var cb = new CheckBox { Content = d.DisplayName, IsChecked = true, Tag = d.Instance };
             _moduleChecks.Add(cb);

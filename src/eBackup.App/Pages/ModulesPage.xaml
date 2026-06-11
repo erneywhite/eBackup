@@ -60,6 +60,12 @@
                                    Foreground="{StaticResource EbTextDimBrush}" />
                         <TextBlock x:Name="DetailStatus" FontSize="12" TextWrapping="Wrap" />
 
+                        <!-- Выключатель участия в бэкапах (на восстановление не влияет) -->
+                        <ToggleSwitch x:Name="EnableToggle" Margin="0,4,0,0"
+                                      OnContent="участвует в бэкапах"
+                                      OffContent="выключен из бэкапов"
+                                      Toggled="EnableToggle_Toggled" />
+
                         <TextBlock Text="Что бэкапит" FontSize="12" Margin="0,8,0,0"
                                    Foreground="{StaticResource EbTextDimBrush}" />
                         <StackPanel x:Name="DetailEntries" Spacing="4" />

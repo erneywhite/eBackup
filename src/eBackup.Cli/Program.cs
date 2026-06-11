@@ -23,7 +23,9 @@ switch (command)
         Console.WriteLine("Модули:");
         foreach (var d in registry.Discover())
         {
-            var status = d.Problem is null ? d.Trust.ToString() : $"BLOCKED ({d.Problem})";
+            var status = d.Problem is not null ? $"ЗАБЛОКИРОВАН ({d.Problem})"
+                       : d.Enabled ? "включён"
+                       : "выключен";
             Console.WriteLine($"  {d.Id,-12} {d.DisplayName,-18} [{d.Source}] {status}");
         }
         break;
@@ -129,7 +131,7 @@ switch (command)
 
         await new BackupEngine().RestoreAsync(
             archive,
-            modules: modules,
+            modules: registry.LoadForRestore(), // выключатель модулей на восстановление не влияет
             conflictPolicy: conflict,
             destinationRootOverride: toDir,
             assetsDirectory: assetsDir,

@@ -1,3 +1,4 @@
+using System.Text.Json;
 using eBackup.Core.Abstractions;
 
 namespace eBackup.Core.Modules;
@@ -37,6 +38,12 @@ public sealed record ModuleDescriptor
     /// <summary>Готовый экземпляр (для встроенных и декларативных он создаётся сразу).</summary>
     public IBackupModule? Instance { get; init; }
 
+    /// <summary>
+    /// Пользовательский выключатель: false — модуль не участвует в бэкапах
+    /// (на восстановление НЕ влияет — restore-хуки работают всегда).
+    /// </summary>
+    public bool Enabled { get; init; } = true;
+
     public ModuleTrust Trust { get; init; } = ModuleTrust.Trusted;
 
     /// <summary>Требуемая версия контракта (используется DLL-источником позже).</summary>
@@ -56,11 +63,14 @@ public interface IModuleSource
 /// помечаются Blocked, но остаются видимыми. Де-дубликация — ДО движка, поэтому
 /// дубликат id не роняет восстановление.
 /// </summary>
-public sealed class ModuleRegistry(IReadOnlyList<IModuleSource> sources)
+public sealed class ModuleRegistry(IReadOnlyList<IModuleSource> sources, string? disabledConfigPath = null)
 {
+    private readonly string _disabledPath = disabledConfigPath ?? ModulePaths.DisabledModulesPath;
+
     /// <summary>Все модули, включая неактивные (с Problem) — для list-modules / GUI.</summary>
     public IReadOnlyList<ModuleDescriptor> Discover()
     {
+        var disabled = LoadDisabledIds();
         var result = new List<ModuleDescriptor>();
         var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
@@ -88,19 +98,65 @@ public sealed class ModuleRegistry(IReadOnlyList<IModuleSource> sources)
 
             foreach (var d in found)
             {
+                var withEnabled = d with { Enabled = !disabled.Contains(d.Id) };
                 result.Add(seen.Add(d.Id)
-                    ? d
-                    : d with { Trust = ModuleTrust.Blocked, Problem = $"id '{d.Id}' уже занят модулем с более высоким приоритетом" });
+                    ? withEnabled
+                    : withEnabled with { Trust = ModuleTrust.Blocked, Problem = $"id '{d.Id}' уже занят модулем с более высоким приоритетом" });
             }
         }
 
         return result;
     }
 
-    /// <summary>Готовые к работе модули (Trusted, без проблем) — для движка.</summary>
+    /// <summary>Модули для БЭКАПА: готовые к работе и включённые пользователем.</summary>
     public IReadOnlyList<IBackupModule> LoadEnabled()
+        => Discover()
+            .Where(d => d.Problem is null && d.Trust == ModuleTrust.Trusted && d.Instance is not null && d.Enabled)
+            .Select(d => d.Instance!)
+            .ToList();
+
+    /// <summary>
+    /// Модули для ВОССТАНОВЛЕНИЯ: выключатель не учитывается — restore-хуки
+    /// (например, раскладка ассетов OBS) должны отработать в любом случае.
+    /// </summary>
+    public IReadOnlyList<IBackupModule> LoadForRestore()
         => Discover()
             .Where(d => d.Problem is null && d.Trust == ModuleTrust.Trusted && d.Instance is not null)
             .Select(d => d.Instance!)
             .ToList();
+
+    /// <summary>Включить/выключить модуль (сохраняется между запусками; общий для GUI и CLI).</summary>
+    public void SetEnabled(string id, bool enabled)
+    {
+        var disabled = LoadDisabledIds();
+        if (enabled)
+            disabled.Remove(id);
+        else
+            disabled.Add(id);
+
+        var dir = Path.GetDirectoryName(_disabledPath);
+        if (!string.IsNullOrEmpty(dir))
+            Directory.CreateDirectory(dir);
+
+        var tmp = _disabledPath + ".tmp";
+        File.WriteAllText(tmp, JsonSerializer.Serialize(disabled.OrderBy(x => x, StringComparer.Ordinal).ToList()));
+        File.Move(tmp, _disabledPath, overwrite: true);
+    }
+
+    private HashSet<string> LoadDisabledIds()
+    {
+        try
+        {
+            if (File.Exists(_disabledPath))
+            {
+                var list = JsonSerializer.Deserialize<List<string>>(File.ReadAllText(_disabledPath)) ?? [];
+                return new HashSet<string>(list, StringComparer.OrdinalIgnoreCase);
+            }
+        }
+        catch
+        {
+            // повреждённый файл — считаем, что выключенных нет
+        }
+        return new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+    }
 }

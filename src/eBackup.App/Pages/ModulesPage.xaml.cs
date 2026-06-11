@@ -21,6 +21,7 @@ public sealed partial class ModulesPage : Page
     ]);
 
     private ModuleDescriptor? _selected;
+    private bool _suppressToggle;
 
     public ModulesPage()
     {
@@ -32,13 +33,16 @@ public sealed partial class ModulesPage : Page
 
     private void Refresh()
     {
-        CardsPanel.Children.Clear();
+        RefreshCards();
         _selected = null;
         Detail.Visibility = Visibility.Collapsed;
         EmptyHint.Visibility = Visibility.Visible;
+    }
 
-        var descriptors = _registry.Discover();
-        foreach (var d in descriptors)
+    private void RefreshCards()
+    {
+        CardsPanel.Children.Clear();
+        foreach (var d in _registry.Discover())
             CardsPanel.Children.Add(MakeCard(d));
 
         HintText.Text = "Декларативные модули подключаются файлом *.module.json — кнопкой «Импорт» "
@@ -67,11 +71,16 @@ public sealed partial class ModulesPage : Page
             FontSize = 12,
             Foreground = (Brush)appRes["EbTextDimBrush"]
         });
+        var (statusText, statusBrush) = d.Problem is not null
+            ? ("✕ заблокирован", (Brush)Resources["EbErrBrush"])
+            : d.Enabled
+                ? ("✓ включён", (Brush)Resources["EbOkBrush"])
+                : ("⏸ выключен", (Brush)appRes["EbTextDimBrush"]);
         panel.Children.Add(new TextBlock
         {
-            Text = d.Problem is null ? "✓ включён" : "✕ заблокирован",
+            Text = statusText,
             FontSize = 12,
-            Foreground = (Brush)Resources[d.Problem is null ? "EbOkBrush" : "EbErrBrush"]
+            Foreground = statusBrush
         });
 
         var card = new Button
@@ -105,8 +114,14 @@ public sealed partial class ModulesPage : Page
         DetailMeta.Text = $"id: {d.Id} · {(d.Source == ModuleSource.BuiltIn ? "встроенный" : "декларативный")}"
             + (d.Origin is not null && d.Source == ModuleSource.Declarative ? $"\n{d.Origin}" : "");
 
-        DetailStatus.Text = d.Problem is null ? "✓ включён" : "✕ заблокирован: " + d.Problem;
+        DetailStatus.Text = d.Problem is null ? "✓ готов к работе" : "✕ заблокирован: " + d.Problem;
         DetailStatus.Foreground = (Brush)Resources[d.Problem is null ? "EbOkBrush" : "EbErrBrush"];
+
+        // Выключатель — только для рабочих модулей (заблокированные включать нечем).
+        _suppressToggle = true;
+        EnableToggle.Visibility = d.Problem is null ? Visibility.Visible : Visibility.Collapsed;
+        EnableToggle.IsOn = d.Enabled;
+        _suppressToggle = false;
 
         DeleteModuleBtn.Visibility = d.Source == ModuleSource.Declarative && d.Origin is not null
             ? Visibility.Visible
@@ -166,6 +181,26 @@ public sealed partial class ModulesPage : Page
         if (dim)
             tb.Foreground = (Brush)Application.Current.Resources["EbTextDimBrush"];
         DetailEntries.Children.Add(tb);
+    }
+
+    private async void EnableToggle_Toggled(object sender, RoutedEventArgs e)
+    {
+        if (_suppressToggle || _selected is null)
+            return;
+
+        try
+        {
+            _registry.SetEnabled(_selected.Id, EnableToggle.IsOn);
+        }
+        catch (Exception ex)
+        {
+            await ShowErrorAsync("Не удалось сохранить состояние: " + ex.Message);
+            return;
+        }
+
+        // Обновляем карточки (статусы ✓/⏸), деталь оставляем открытой.
+        RefreshCards();
+        _selected = _registry.Discover().FirstOrDefault(x => x.Id == _selected.Id) ?? _selected;
     }
 
     // ---------- импорт / удаление ----------
