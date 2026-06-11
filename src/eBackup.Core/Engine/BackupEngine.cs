@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.IO.Compression;
 using System.Security.Cryptography;
 using System.Text.Json;
@@ -21,6 +22,9 @@ public sealed class BackupEngine
     /// <summary>
     /// Создать архив из набора модулей. Возвращает путь к готовому .ebk.
     /// </summary>
+    /// <param name="progress">Крупные фазы — для статус-строки UI.</param>
+    /// <param name="log">Детальный лог: каждый файл, размеры, пропуски, тайминги.
+    /// Может вызываться с рабочего потока — получатель должен быть потокобезопасен.</param>
     public async Task<string> CreateBackupAsync(
         IEnumerable<IBackupModule> modules,
         string outputDirectory,
@@ -28,6 +32,7 @@ public sealed class BackupEngine
         string? passphrase = null,
         IProgress<string>? progress = null,
         CompressionLevel compression = CompressionLevel.Optimal,
+        Action<string>? log = null,
         CancellationToken ct = default)
     {
         Directory.CreateDirectory(outputDirectory);
@@ -45,6 +50,8 @@ public sealed class BackupEngine
                 OsVersion = Environment.OSVersion.VersionString
             }
         };
+
+        log?.Invoke($"Сборка ZIP: {buildPath} · сжатие: {DescribeCompression(compression)}");
 
         using (var zip = ZipFile.Open(buildPath, ZipArchiveMode.Create))
         {
@@ -67,8 +74,13 @@ public sealed class BackupEngine
                 catch (Exception ex)
                 {
                     Console.Error.WriteLine($"[eBackup] модуль '{module.Id}' пропущен (ошибка обнаружения): {ex.Message}");
+                    log?.Invoke($"✕ Модуль «{module.Id}» пропущен (ошибка обнаружения): {ex.Message}");
                     continue;
                 }
+
+                log?.Invoke($"Модуль «{module.DisplayName}» ({module.Id}): {entries.Count} записей для сбора");
+                var moduleWatch = Stopwatch.StartNew();
+                long moduleBytes = 0;
 
                 var moduleEntry = new ModuleEntry
                 {
@@ -86,7 +98,12 @@ public sealed class BackupEngine
                     {
                         var archiveEntryPath = "data/" + entry.ArchivePath.Replace('\\', '/');
                         zip.CreateEntryFromFile(source, archiveEntryPath, compression);
-                        moduleEntry.Entries.Add(entry with { Sha256 = await Sha256OfFileAsync(source, ct).ConfigureAwait(false) });
+                        var length = new FileInfo(source).Length;
+                        moduleBytes += length;
+                        fileCount++;
+                        var sha = await Sha256OfFileAsync(source, ct).ConfigureAwait(false);
+                        log?.Invoke($"  + {archiveEntryPath} ({FormatSize(length)}) · sha256 {sha[..12]}…");
+                        moduleEntry.Entries.Add(entry with { Sha256 = sha });
                     }
                     else if (entry.Type == PathEntryType.Directory && Directory.Exists(source))
                     {
@@ -98,38 +115,81 @@ public sealed class BackupEngine
                         foreach (var glob in entry.ExcludeGlobs)
                             matcher.AddExclude(glob);
 
+                        log?.Invoke($"  Папка {entry.TokenPath} → {source}"
+                            + (entry.ExcludeGlobs.Count > 0 ? $" · масок-исключений: {entry.ExcludeGlobs.Count}" : ""));
+
+                        var dirFiles = 0;
                         foreach (var file in matcher.GetResultsInFullPath(source))
                         {
                             ct.ThrowIfCancellationRequested();
                             var rel = Path.GetRelativePath(source, file).Replace('\\', '/');
                             zip.CreateEntryFromFile(file, basePrefix + "/" + rel, compression);
+                            long length = 0;
+                            try { length = new FileInfo(file).Length; } catch { }
+                            moduleBytes += length;
+                            dirFiles++;
+                            log?.Invoke($"  + {basePrefix}/{rel} ({FormatSize(length)})");
                             if (++fileCount % 250 == 0)
                                 progress?.Report($"{module.DisplayName}: {fileCount} файлов…");
                         }
+                        log?.Invoke($"  Папка {entry.TokenPath}: {dirFiles} файлов");
                         moduleEntry.Entries.Add(entry);
                     }
-                    // TODO(v1+): RegistryKey — экспорт/импорт ветки реестра.
+                    else
+                    {
+                        // TODO(v1+): RegistryKey — экспорт/импорт ветки реестра.
+                        log?.Invoke($"  – Пропуск: {entry.TokenPath} ({entry.Type switch
+                        {
+                            PathEntryType.File => "файла нет",
+                            PathEntryType.Directory => "папки нет",
+                            _ => "тип пока не поддерживается"
+                        }})");
+                    }
                 }
 
+                log?.Invoke($"Модуль «{module.DisplayName}»: итого {fileCount} файлов · "
+                    + $"{FormatSize(moduleBytes)} · {moduleWatch.ElapsedMilliseconds} мс");
                 manifest.Modules.Add(moduleEntry);
             }
 
             // Манифест в корень архива.
             progress?.Report("Записываю манифест…");
+            log?.Invoke($"Манифест: {manifest.Modules.Count} модулей, "
+                + $"{manifest.Modules.Sum(m => m.Entries.Count)} записей");
             var manifestEntry = zip.CreateEntry("manifest.json");
             using var ms = manifestEntry.Open();
             await JsonSerializer.SerializeAsync(ms, manifest, ManifestJson.Options, ct).ConfigureAwait(false);
         }
 
+        log?.Invoke($"ZIP готов: {FormatSize(new FileInfo(buildPath).Length)}");
+
         if (passphrase is not null)
         {
             progress?.Report("Шифрую архив (AES-256-GCM)…");
+            var encryptWatch = Stopwatch.StartNew();
             await ArchiveCipher.EncryptAsync(buildPath, archivePath, passphrase, ct).ConfigureAwait(false);
             File.Delete(buildPath);
+            log?.Invoke($"Зашифровано (Argon2id + AES-256-GCM) за {encryptWatch.ElapsedMilliseconds} мс → "
+                + FormatSize(new FileInfo(archivePath).Length));
         }
 
         return archivePath;
     }
+
+    private static string FormatSize(long bytes) => bytes switch
+    {
+        >= 1L << 30 => $"{bytes / 1024.0 / 1024 / 1024:0.##} ГБ",
+        >= 1L << 20 => $"{bytes / 1024.0 / 1024:0.##} МБ",
+        _ => $"{Math.Max(1, bytes / 1024)} КБ"
+    };
+
+    private static string DescribeCompression(CompressionLevel level) => level switch
+    {
+        CompressionLevel.Fastest => "быстрое",
+        CompressionLevel.SmallestSize => "максимальное",
+        CompressionLevel.NoCompression => "без сжатия",
+        _ => "обычное"
+    };
 
     /// <summary>
     /// Распаковать архив .ebk и разложить файлы по местам согласно манифесту.

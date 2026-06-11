@@ -379,6 +379,12 @@ public sealed partial class MainWindow : Window
         Log("Цели: " + string.Join(", ", run.Targets));
         if (request.Passphrase is not null)
             Log("Шифрование: включено (AES-256-GCM, ключ из парольной фразы)");
+        var startSettings = AppSettings.Load();
+        Log($"Настройки: сжатие — {startSettings.CompressionMode switch
+        {
+            0 => "быстрое", 2 => "максимальное", _ => "обычное"
+        }} · retention — {(startSettings.RetentionCount > 0 ? $"последних {startSettings.RetentionCount}" : "хранить все")}"
+            + $" · имя ПК в имени архива — {(startSettings.IncludeMachineNameInArchive ? "да" : "нет")}");
         await history.SaveRunAsync(run);
 
         // Сборка архива занимает 0..70% заливки; каждое сообщение двигает её вперёд.
@@ -401,7 +407,7 @@ public sealed partial class MainWindow : Window
             var engine = new BackupEngine();
             var archive = await Task.Run(() =>
                 engine.CreateBackupAsync(request.Modules, buildDir, name, request.Passphrase,
-                    progress, settings.CompressionLevel));
+                    progress, settings.CompressionLevel, Log));
             SetFill(0.70);
 
             run.ArchiveName = Path.GetFileName(archive);
@@ -418,9 +424,12 @@ public sealed partial class MainWindow : Window
                 try
                 {
                     var storage = StorageFactory.Create(target, _storages.Protector);
+                    var uploadWatch = System.Diagnostics.Stopwatch.StartNew();
                     await storage.UploadAsync(archive, Path.GetFileName(archive));
                     done.Add(target.Name);
-                    Log($"«{target.Name}»: ✓ сохранено");
+                    var seconds = Math.Max(0.1, uploadWatch.Elapsed.TotalSeconds);
+                    Log($"«{target.Name}»: ✓ сохранено за {seconds:0.#} с"
+                        + (run.SizeBytes > 0 ? $" ({run.SizeBytes / 1024.0 / 1024.0 / seconds:0.#} МБ/с)" : ""));
 
                     // Хранение версий: одинаково для папок, SFTP и будущих облаков.
                     if (settings.RetentionCount > 0)

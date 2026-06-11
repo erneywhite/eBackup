@@ -13,6 +13,7 @@ public sealed class HistoryStore
     public const int MaxRuns = 300;
 
     private static readonly JsonSerializerOptions Json = new() { WriteIndented = true };
+    private readonly object _logLock = new(); // лог пишут и UI-поток, и рабочий поток движка
     private readonly string _dir;
 
     public HistoryStore(string? directory = null) => _dir = directory ?? DefaultDirectory;
@@ -70,9 +71,13 @@ public sealed class HistoryStore
     {
         try
         {
-            var path = LogPath(runId);
-            Directory.CreateDirectory(Path.GetDirectoryName(path)!);
-            File.AppendAllText(path, $"[{DateTime.Now:HH:mm:ss.fff}] {message}{Environment.NewLine}");
+            var line = $"[{DateTime.Now:HH:mm:ss.fff}] {message}{Environment.NewLine}";
+            lock (_logLock)
+            {
+                var path = LogPath(runId);
+                Directory.CreateDirectory(Path.GetDirectoryName(path)!);
+                File.AppendAllText(path, line);
+            }
         }
         catch
         {
