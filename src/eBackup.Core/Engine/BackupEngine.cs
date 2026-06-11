@@ -163,6 +163,11 @@ public sealed class BackupEngine
 
         log?.Invoke($"ZIP готов: {FormatSize(new FileInfo(buildPath).Length)}");
 
+        // Верификация до того, как архив уйдёт из временной папки: битые данные
+        // не должны добраться ни до одного хранилища.
+        progress?.Report("Проверяю архив…");
+        await VerifyArchiveAsync(buildPath, manifest, log, ct).ConfigureAwait(false);
+
         if (passphrase is not null)
         {
             progress?.Report("Шифрую архив (AES-256-GCM)…");
@@ -174,6 +179,54 @@ public sealed class BackupEngine
         }
 
         return archivePath;
+    }
+
+    /// <summary>
+    /// Полная проверка свежесобранного ZIP: каждая запись распаковывается до конца
+    /// (это проверяет её CRC32), а одиночные файлы дополнительно сверяются по SHA-256
+    /// с манифестом. Любой брак — исключение, бэкап считается неудавшимся.
+    /// </summary>
+    private static async Task VerifyArchiveAsync(
+        string zipPath, Manifest manifest, Action<string>? log, CancellationToken ct)
+    {
+        var watch = Stopwatch.StartNew();
+        var expected = manifest.Modules
+            .SelectMany(m => m.Entries)
+            .Where(e => e.Sha256 is not null)
+            .ToDictionary(
+                e => "data/" + e.ArchivePath.Replace('\\', '/'),
+                e => e.Sha256!,
+                StringComparer.OrdinalIgnoreCase);
+
+        var entriesCount = 0;
+        long bytes = 0;
+        var hashesChecked = 0;
+
+        using var zip = ZipFile.OpenRead(zipPath);
+        foreach (var entry in zip.Entries)
+        {
+            ct.ThrowIfCancellationRequested();
+            await using var stream = entry.Open();
+            if (expected.TryGetValue(entry.FullName, out var sha))
+            {
+                using var sha256 = SHA256.Create();
+                var actual = Convert.ToHexString(
+                    await sha256.ComputeHashAsync(stream, ct).ConfigureAwait(false));
+                if (!actual.Equals(sha, StringComparison.OrdinalIgnoreCase))
+                    throw new IOException(
+                        $"Верификация провалена: {entry.FullName} — SHA-256 не совпал с манифестом.");
+                hashesChecked++;
+            }
+            else
+            {
+                await stream.CopyToAsync(Stream.Null, ct).ConfigureAwait(false);
+            }
+            entriesCount++;
+            bytes += entry.Length;
+        }
+
+        log?.Invoke($"Верификация ✓: {entriesCount} записей · {FormatSize(bytes)} распаковано (CRC32 ок) · "
+            + $"SHA-256 сверено: {hashesChecked} · {watch.ElapsedMilliseconds} мс");
     }
 
     private static string FormatSize(long bytes) => bytes switch

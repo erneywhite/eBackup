@@ -416,6 +416,8 @@ public sealed partial class MainWindow : Window
 
             var done = new List<string>();
             var failed = new List<string>();
+            var archiveSize = new FileInfo(archive).Length; // финальный .ebk (после шифрования)
+            string? localSha = null; // SHA-256 финального архива — считается один раз, по требованию
             for (var i = 0; i < request.Targets.Count; i++)
             {
                 var target = request.Targets[i];
@@ -426,16 +428,43 @@ public sealed partial class MainWindow : Window
                     var storage = StorageFactory.Create(target, _storages.Protector);
                     var uploadWatch = System.Diagnostics.Stopwatch.StartNew();
                     await storage.UploadAsync(archive, Path.GetFileName(archive));
-                    done.Add(target.Name);
                     var seconds = Math.Max(0.1, uploadWatch.Elapsed.TotalSeconds);
-                    Log($"«{target.Name}»: ✓ сохранено за {seconds:0.#} с"
-                        + (run.SizeBytes > 0 ? $" ({run.SizeBytes / 1024.0 / 1024.0 / seconds:0.#} МБ/с)" : ""));
+                    Log($"«{target.Name}»: сохранено за {seconds:0.#} с"
+                        + (archiveSize > 0 ? $" ({archiveSize / 1024.0 / 1024.0 / seconds:0.#} МБ/с)" : ""));
 
-                    // Хранение версий: одинаково для папок, SFTP и будущих облаков.
+                    // Верификация на цели: файл должен появиться в листинге с верным
+                    // размером; для папочных хранилищ — ещё и полная сверка SHA-256.
+                    StatusSub.Text = $"{target.Name}: проверяю…";
+                    var files = await storage.ListDetailedAsync();
+                    var remote = files.FirstOrDefault(f => f.Name == Path.GetFileName(archive));
+                    if (remote is null)
+                        throw new IOException("верификация: файл не появился в листинге после заливки");
+                    if (remote.Length > 0 && remote.Length != archiveSize)
+                        throw new IOException(
+                            $"верификация: размер не совпал (локально {archiveSize} Б, в хранилище {remote.Length} Б)");
+
+                    if (storage is FolderStorage folder)
+                    {
+                        localSha ??= await Task.Run(() => Sha256Of(archive));
+                        var copyPath = folder.GetLocalPath(Path.GetFileName(archive));
+                        var remoteSha = await Task.Run(() => Sha256Of(copyPath));
+                        if (!remoteSha.Equals(localSha, StringComparison.OrdinalIgnoreCase))
+                            throw new IOException("верификация: SHA-256 копии не совпал с архивом");
+                        Log($"«{target.Name}»: верификация ✓ SHA-256 копии совпадает");
+                    }
+                    else
+                    {
+                        Log(remote.Length > 0
+                            ? $"«{target.Name}»: верификация ✓ размер в хранилище совпадает ({remote.Length / 1024.0 / 1024.0:0.#} МБ)"
+                            : $"«{target.Name}»: верификация — хранилище не сообщает размер, сверка пропущена");
+                    }
+
+                    done.Add(target.Name);
+
+                    // Хранение версий — на уже полученном листинге.
                     if (settings.RetentionCount > 0)
                     {
                         StatusSub.Text = $"{target.Name}: убираю старые архивы…";
-                        var files = await storage.ListDetailedAsync();
                         foreach (var old in files.Skip(settings.RetentionCount))
                         {
                             await storage.DeleteAsync(old.Name);
@@ -482,6 +511,12 @@ public sealed partial class MainWindow : Window
             BackupCompleted?.Invoke();
             await FadeOutFillAsync();
         }
+    }
+
+    private static string Sha256Of(string path)
+    {
+        using var stream = File.OpenRead(path);
+        return Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(stream));
     }
 
     // ---------- расписания (работают, пока приложение запущено) ----------
