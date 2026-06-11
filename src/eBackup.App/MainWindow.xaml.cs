@@ -582,24 +582,24 @@ public sealed partial class MainWindow : Window
 
     // Вся вода — на правом крае-фронте. Мениск — пружинная модель ВДОЛЬ ВЫСОТЫ
     // панели: узел = горизонтальное отклонение фронта на своей высоте; узлы тянутся
-    // к ровной кромке, обмениваются энергией с соседями, трение гасит. Плюс капли,
-    // брызгающие вперёд при доливе (баллистика с гравитацией).
+    // к ровной кромке, обмениваются энергией с соседями, трение гасит. Внутри
+    // жидкости всплывают пузырьки (подъёмная сила + покачивание).
     private double[] _waveH = [];   // горизонтальное отклонение фронта, px
     private double[] _waveV = [];   // скорость узла
     private double _fillCur;        // текущая ширина заливки, px (догоняет цель плавно)
     private double _simTime;
     private bool _simRunning;
-    private readonly List<Drop> _drops = [];
+    private readonly List<Bubble> _bubbles = [];
     private readonly Random _rng = new();
     private const double NodeStep = 6;       // шаг узлов мениска по вертикали, px
-    private const double Spring = 0.03;      // жёсткость пружины к ровной кромке
-    private const double Damping = 0.94;     // трение
+    private const double Spring = 0.024;     // жёсткость пружины к ровной кромке
+    private const double Damping = 0.955;    // трение (выше — колебания живут дольше)
     private const double Spread = 0.18;      // передача энергии соседям
-    private const double MaxSwing = 16;      // предел колебания мениска, px
+    private const double MaxSwing = 20;      // предел колебания мениска, px
 
-    private sealed class Drop
+    private sealed class Bubble
     {
-        public double X, Y, Vx, Vy, Life;
+        public double BaseX, Y, Vy, Phase, Size;
         public required Microsoft.UI.Xaml.Shapes.Ellipse Visual;
     }
 
@@ -640,8 +640,8 @@ public sealed partial class MainWindow : Window
         _fillCur = 0;
         Array.Clear(_waveH);
         Array.Clear(_waveV);
-        _drops.Clear();
-        DropsLayer.Children.Clear();
+        _bubbles.Clear();
+        BubblesLayer.Children.Clear();
         if (_simRunning)
         {
             _simRunning = false;
@@ -665,28 +665,26 @@ public sealed partial class MainWindow : Window
             _waveV = new double[nodes];
         }
 
-        // Заливка догоняет цель; при доливе мениск получает толчок и брызжет каплями.
+        // Заливка догоняет цель; при доливе мениск получает толчок,
+        // а вся кромка по инерции подаётся вперёд.
         var target = _fill * width;
         var advance = (target - _fillCur) * 0.055;
         _fillCur += advance;
         if (advance > 0.05)
         {
             var node = _rng.Next(0, nodes);
-            _waveV[node] += advance * 0.6;
-            if (node > 0) _waveV[node - 1] += advance * 0.3;
-            if (node + 1 < nodes) _waveV[node + 1] += advance * 0.3;
-
-            if (advance > 0.25 && _rng.NextDouble() < 0.5)
-                SpawnDrop(width, height, advance);
-            if (advance > 1.2 && _rng.NextDouble() < 0.6)
-                SpawnDrop(width, height, advance);
+            _waveV[node] += advance * 1.0;
+            if (node > 0) _waveV[node - 1] += advance * 0.5;
+            if (node + 1 < nodes) _waveV[node + 1] += advance * 0.5;
+            for (var i = 0; i < nodes; i++)
+                _waveV[i] += advance * 0.06; // инерция всей массы
         }
 
         // Лёгкое фоновое колыхание мениска, чтобы он не застывал линейкой.
         _simTime += 1 / 60.0;
         for (var i = 0; i < nodes; i++)
-            _waveV[i] += 0.016 * Math.Sin(_simTime * 2.1 + i * 0.9)
-                       + 0.011 * Math.Sin(_simTime * 1.3 - i * 0.6);
+            _waveV[i] += 0.026 * Math.Sin(_simTime * 2.1 + i * 0.9)
+                       + 0.018 * Math.Sin(_simTime * 1.3 - i * 0.6);
 
         // Пружины + трение.
         for (var i = 0; i < nodes; i++)
@@ -721,7 +719,11 @@ public sealed partial class MainWindow : Window
         WaterFront.Data = BuildWater(0, 1.0, height);
         WaterBack.Data = BuildWater(4, -0.7, height);
 
-        UpdateDrops(width, height);
+        // Пузырьки рождаются всегда, при активном доливе — охотнее.
+        if (_bubbles.Count < 12 && _fillCur > 40 &&
+            _rng.NextDouble() < 0.06 + Math.Min(advance, 3) * 0.12)
+            SpawnBubble(height);
+        UpdateBubbles(height);
     }
 
     /// <summary>Заливка во всю высоту от левого края до волнистого фронта-мениска.</summary>
@@ -760,58 +762,57 @@ public sealed partial class MainWindow : Window
         return geometry;
     }
 
-    /// <summary>Капля срывается с мениска и летит вперёд по баллистике.</summary>
-    private void SpawnDrop(double width, double height, double advance)
+    /// <summary>Пузырёк рождается у дна внутри жидкости и всплывает, покачиваясь.</summary>
+    private void SpawnBubble(double height)
     {
-        if (_drops.Count >= 14 || _fillCur > width - 14)
-            return;
-
-        var size = 3 + _rng.NextDouble() * 4;
+        var size = 2.5 + _rng.NextDouble() * 3.5;
         var visual = new Microsoft.UI.Xaml.Shapes.Ellipse
         {
             Width = size,
             Height = size,
             Fill = new Microsoft.UI.Xaml.Media.SolidColorBrush(
-                Microsoft.UI.ColorHelper.FromArgb(0xFF, 0xE3, 0xBD, 0xFB)),
-            Opacity = 0.7
+                Microsoft.UI.ColorHelper.FromArgb(0xFF, 0xFF, 0xFF, 0xFF)),
+            Opacity = 0
         };
-        var drop = new Drop
+        var bubble = new Bubble
         {
-            X = _fillCur + 2,
-            Y = _rng.NextDouble() * height * 0.6,
-            Vx = 0.9 + Math.Min(advance, 4) * 0.7 + _rng.NextDouble() * 1.4,
-            Vy = -0.8 + _rng.NextDouble() * 1.4,
-            Life = 0.8 + _rng.NextDouble() * 0.5,
+            // Внутри заливки, ближе к фронту — там жидкость «свежая» и бурлит.
+            BaseX = Math.Max(14, _fillCur * (0.45 + _rng.NextDouble() * 0.45)),
+            Y = height - 6,
+            Vy = -(0.25 + _rng.NextDouble() * 0.45),
+            Phase = _rng.NextDouble() * Math.Tau,
+            Size = size,
             Visual = visual
         };
-        Microsoft.UI.Xaml.Controls.Canvas.SetLeft(visual, drop.X);
-        Microsoft.UI.Xaml.Controls.Canvas.SetTop(visual, drop.Y);
-        DropsLayer.Children.Add(visual);
-        _drops.Add(drop);
+        Microsoft.UI.Xaml.Controls.Canvas.SetLeft(visual, bubble.BaseX);
+        Microsoft.UI.Xaml.Controls.Canvas.SetTop(visual, bubble.Y);
+        BubblesLayer.Children.Add(visual);
+        _bubbles.Add(bubble);
     }
 
-    private void UpdateDrops(double width, double height)
+    private void UpdateBubbles(double height)
     {
-        for (var i = _drops.Count - 1; i >= 0; i--)
+        for (var i = _bubbles.Count - 1; i >= 0; i--)
         {
-            var d = _drops[i];
-            d.X += d.Vx;
-            d.Y += d.Vy;
-            d.Vy += 0.16;   // гравитация
-            d.Vx *= 0.992;  // сопротивление воздуха
-            d.Life -= 1 / 60.0;
+            var b = _bubbles[i];
+            b.Y += b.Vy;
+            b.Vy = Math.Max(b.Vy - 0.006, -1.0); // подъёмная сила разгоняет, но не бесконечно
+            var x = b.BaseX + 2.2 * Math.Sin(_simTime * 3.0 + b.Phase);
 
-            // Капля умирает: впиталась во фронт, упала на дно, улетела или иссякла.
-            if (d.Life <= 0 || d.X <= _fillCur - 4 || d.X >= width - 2 || d.Y >= height - 2)
+            // Лопается у поверхности; исчезает, если фронт ушёл левее (вода «утекла»).
+            if (b.Y <= 5 || x >= _fillCur - b.Size - 2)
             {
-                DropsLayer.Children.Remove(d.Visual);
-                _drops.RemoveAt(i);
+                BubblesLayer.Children.Remove(b.Visual);
+                _bubbles.RemoveAt(i);
                 continue;
             }
 
-            d.Visual.Opacity = Math.Min(0.7, d.Life * 1.6);
-            Microsoft.UI.Xaml.Controls.Canvas.SetLeft(d.Visual, d.X);
-            Microsoft.UI.Xaml.Controls.Canvas.SetTop(d.Visual, d.Y);
+            // Плавное появление у дна и растворение у поверхности.
+            var fadeIn = Math.Clamp((height - 6 - b.Y) / 10.0, 0, 1);
+            var fadeOut = Math.Clamp((b.Y - 5) / 14.0, 0, 1);
+            b.Visual.Opacity = 0.38 * fadeIn * fadeOut;
+            Microsoft.UI.Xaml.Controls.Canvas.SetLeft(b.Visual, x);
+            Microsoft.UI.Xaml.Controls.Canvas.SetTop(b.Visual, b.Y);
         }
     }
 }

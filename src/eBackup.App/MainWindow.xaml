@@ -177,15 +177,15 @@
                 Background="{StaticResource EbCardBrush}"
                 BorderBrush="{StaticResource EbCardBorderBrush}" BorderThickness="1">
             <Grid x:Name="BarRoot">
-                <!-- «Жидкий» прогресс: заливка во всю высоту, вся «вода» — на правом
+                <!-- «Жидкий» прогресс: заливка во всю высоту, «вода» — на правом
                      краю-фронте: колышущийся мениск (пружинная модель по вертикали,
-                     60 fps) и капли, брызгающие вперёд с гравитацией. Геометрия и капли
-                     обновляются кодом каждый кадр; скруглённый Composition-клип (в коде)
-                     прячет всё в углах панели. -->
+                     60 fps) и пузырьки, всплывающие ВНУТРИ жидкости. Геометрия и
+                     пузырьки обновляются кодом каждый кадр; скруглённый
+                     Composition-клип (в коде) прячет всё в углах панели. -->
                 <Grid x:Name="LiquidFill" Opacity="0" IsHitTestVisible="False">
                     <Path x:Name="WaterBack" Fill="#FF6DC8" Opacity="0.10" />
                     <Path x:Name="WaterFront" Fill="{StaticResource EbAccentGradient}" Opacity="0.22" />
-                    <Canvas x:Name="DropsLayer" />
+                    <Canvas x:Name="BubblesLayer" />
                 </Grid>
 
                 <Grid VerticalAlignment="Center" Margin="20,0">
