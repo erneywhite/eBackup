@@ -87,8 +87,9 @@ public static class OAuthLoopback
             var error = context.Request.QueryString["error"];
 
             await RespondAsync(context, code is null
-                ? "Вход не выполнен. Вкладку можно закрыть."
-                : "Готово! Возвращайся в eBackup — вкладку можно закрыть.").ConfigureAwait(false);
+                    ? "Вход не выполнен. Вкладку можно закрыть."
+                    : "Готово! Возвращайся в eBackup — вкладку можно закрыть.",
+                tryCloseTab: true).ConfigureAwait(false);
 
             if (code is null)
                 throw new InvalidOperationException("Авторизация отклонена: " + (error ?? "код не получен"));
@@ -101,12 +102,19 @@ public static class OAuthLoopback
         }
     }
 
-    private static async Task RespondAsync(HttpListenerContext context, string message)
+    private static async Task RespondAsync(HttpListenerContext context, string message, bool tryCloseTab = false)
     {
         try
         {
+            // Попытка закрыть вкладку сама по себе: браузер может и отказать
+            // (скриптам не всегда позволено закрывать чужие вкладки) — тогда
+            // остаётся текст с просьбой закрыть вручную.
+            var script = tryCloseTab
+                ? "<script>window.open('','_self');window.close();" +
+                  "setTimeout(function(){window.close()},300);</script>"
+                : "";
             var html = Encoding.UTF8.GetBytes(
-                $"<html><meta charset=\"utf-8\"><body style=\"font-family:sans-serif\">{message}</body></html>");
+                $"<html><meta charset=\"utf-8\"><body style=\"font-family:sans-serif\">{message}{script}</body></html>");
             context.Response.ContentType = "text/html; charset=utf-8";
             await context.Response.OutputStream.WriteAsync(html, CancellationToken.None).ConfigureAwait(false);
             context.Response.Close();
