@@ -61,11 +61,14 @@
                     <TextBlock Text="Поведение" FontSize="12"
                                Foreground="{StaticResource EbTextDimBrush}" />
                     <ToggleSwitch x:Name="TrayToggle"
-                                  OnContent="закрытие окна сворачивает в трей (расписания работают дальше)"
-                                  OffContent="закрытие окна завершает приложение" />
+                                  OnContent="Сворачивать в трей при закрытии окна"
+                                  OffContent="Сворачивать в трей при закрытии окна" />
                     <ToggleSwitch x:Name="AutostartToggle"
-                                  OnContent="запускается вместе с Windows (свёрнуто, в трее)"
-                                  OffContent="не запускается вместе с Windows" />
+                                  OnContent="Запускать вместе с Windows (свёрнуто, в трее)"
+                                  OffContent="Запускать вместе с Windows (свёрнуто, в трее)" />
+                    <TextBlock Text="В трее расписания продолжают работать; полный выход — через меню иконки в трее."
+                               FontSize="11" TextWrapping="Wrap"
+                               Foreground="{StaticResource EbTextDimBrush}" />
                 </StackPanel>
             </Border>
 
