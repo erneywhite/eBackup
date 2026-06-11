@@ -18,6 +18,8 @@ public sealed partial class OverviewPage : Page
     ]);
     private readonly SftpConnectionStore _store = new(new DpapiSecretProtector());
     private bool _refreshing;
+    private int _refreshGen;          // защита от «опоздавших» результатов прошлого обновления
+    private string _archivesBaseText = string.Empty;
 
     public OverviewPage()
     {
@@ -71,10 +73,11 @@ public sealed partial class OverviewPage : Page
             }
 
             var totalMb = archives.Sum(f => f.Length) / 1024.0 / 1024.0;
-            ArchivesTileText.Text = archives.Length == 0
-                ? "локально пока пусто"
-                : $"{archives.Length} шт · {totalMb:0.#} МБ локально"
-                  + (settings.RetentionCount > 0 ? $"\nхранится последних: {settings.RetentionCount}" : "");
+            _archivesBaseText = (archives.Length == 0
+                    ? "локально пока пусто"
+                    : $"локально: {archives.Length} шт · {totalMb:0.#} МБ")
+                + (settings.RetentionCount > 0 ? $"\nхранится последних: {settings.RetentionCount}" : "");
+            ArchivesTileText.Text = _archivesBaseText;
 
             // ---- модули
             var descriptors = _registry.Discover();
@@ -108,7 +111,9 @@ public sealed partial class OverviewPage : Page
             }
             else
             {
-                var checks = new List<Task>();
+                ArchivesTileText.Text = _archivesBaseText + "\nна серверах: считаю…";
+                var gen = ++_refreshGen;
+                var checks = new List<Task<(string Name, IReadOnlyList<RemoteFileInfo>? Files)>>();
                 foreach (var conn in connections)
                 {
                     var badge = new TextBlock
@@ -136,10 +141,10 @@ public sealed partial class OverviewPage : Page
                     row.Children.Add(badge);
                     StorageRows.Children.Add(row);
 
-                    checks.Add(TestOneAsync(conn, badge));
+                    checks.Add(CheckOneAsync(conn, badge));
                 }
 
-                _ = Task.WhenAll(checks); // бейджи обновятся по мере прихода результатов
+                _ = FinishRemoteCountsAsync(checks, gen); // бейджи и счётчики — по мере прихода
             }
         }
         finally
@@ -148,20 +153,40 @@ public sealed partial class OverviewPage : Page
         }
     }
 
-    /// <summary>Проверка одного подключения; результат — в бейдж. Никогда не бросает.</summary>
-    private async Task TestOneAsync(SavedSftpConnection conn, TextBlock badge)
+    /// <summary>
+    /// Одно подключение = один запрос: листинг архивов и как проверка доступности (бейдж),
+    /// и как источник счётчика для плитки «Архивы». Никогда не бросает.
+    /// </summary>
+    private async Task<(string Name, IReadOnlyList<RemoteFileInfo>? Files)> CheckOneAsync(
+        SavedSftpConnection conn, TextBlock badge)
     {
         try
         {
-            var result = await new SftpStorageProvider(_store.Unprotect(conn)).TestConnectionAsync();
-            badge.Text = result.Success ? "✓" : "✕";
-            badge.Foreground = (Brush)Resources[result.Success ? "EbOkBrush" : "EbErrBrush"];
+            var files = await new SftpStorageProvider(_store.Unprotect(conn)).ListDetailedAsync();
+            badge.Text = "✓";
+            badge.Foreground = (Brush)Resources["EbOkBrush"];
+            return (conn.Name, files);
         }
         catch
         {
             badge.Text = "✕";
             badge.Foreground = (Brush)Resources["EbErrBrush"];
+            return (conn.Name, null);
         }
+    }
+
+    /// <summary>Дописывает серверные счётчики в плитку «Архивы», когда все ответы собраны.</summary>
+    private async Task FinishRemoteCountsAsync(
+        List<Task<(string Name, IReadOnlyList<RemoteFileInfo>? Files)>> checks, int gen)
+    {
+        var results = await Task.WhenAll(checks);
+        if (gen != _refreshGen)
+            return; // страница успела обновиться заново — эти данные устарели
+
+        var lines = results.Select(r => r.Files is null
+            ? $"{r.Name}: недоступен"
+            : $"{r.Name}: {r.Files.Count} шт · {r.Files.Sum(f => f.Length) / 1024.0 / 1024.0:0.#} МБ");
+        ArchivesTileText.Text = _archivesBaseText + "\n" + string.Join("\n", lines);
     }
 
     // ---------- навигация с плиток ----------
