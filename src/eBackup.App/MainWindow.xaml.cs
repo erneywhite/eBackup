@@ -166,6 +166,63 @@ public sealed partial class MainWindow : Window
         {
             _syncingNav = false;
         }
+
+        AnimatePageEntrance(e.SourcePageType);
+    }
+
+    // ---------- направленный слайд между вкладками ----------
+
+    private int _navIndex; // позиция текущей вкладки в сайдбаре
+
+    private static int NavIndexOf(Type page)
+        => page == typeof(OverviewPage) ? 0
+         : page == typeof(ModulesPage) ? 1
+         : page == typeof(StoragePage) ? 2
+         : page == typeof(ArchivesPage) ? 3
+         : page == typeof(SchedulePage) ? 4
+         : page == typeof(SettingsPage) ? 5
+         : -1; // Бэкап/Восстановление и пр. — вне списка вкладок
+
+    /// <summary>
+    /// Контент въезжает с той стороны, куда движемся по списку вкладок:
+    /// вниз по списку — снизу, вверх — сверху. Страницы вне списка — снизу.
+    /// </summary>
+    private void AnimatePageEntrance(Type pageType)
+    {
+        var index = NavIndexOf(pageType);
+        var fromBelow = index < 0 || index >= _navIndex;
+        if (index >= 0)
+            _navIndex = index;
+
+        if (ContentFrame.Content is not UIElement page)
+            return;
+
+        var transform = new Microsoft.UI.Xaml.Media.TranslateTransform { Y = fromBelow ? 34 : -34 };
+        page.RenderTransform = transform;
+        page.Opacity = 0;
+
+        var slide = new DoubleAnimation
+        {
+            To = 0,
+            Duration = new Duration(TimeSpan.FromMilliseconds(300)),
+            EasingFunction = new CubicEase { EasingMode = EasingMode.EaseOut }
+        };
+        Storyboard.SetTarget(slide, transform);
+        Storyboard.SetTargetProperty(slide, "Y");
+
+        var fade = new DoubleAnimation
+        {
+            From = 0,
+            To = 1,
+            Duration = new Duration(TimeSpan.FromMilliseconds(240))
+        };
+        Storyboard.SetTarget(fade, page);
+        Storyboard.SetTargetProperty(fade, "Opacity");
+
+        var sb = new Storyboard();
+        sb.Children.Add(slide);
+        sb.Children.Add(fade);
+        sb.Begin();
     }
 
     /// <summary>При первом запуске создаёт хранилище «Локальная папка» (один раз).</summary>

@@ -155,8 +155,20 @@
                 </Button>
             </Grid>
 
-            <!-- Рабочая область: страницы (Обзор/Модули/Хранилища/Архивы) -->
-            <Frame x:Name="ContentFrame" Grid.Column="1" Margin="8,36,24,8" />
+            <!-- Рабочая область: страницы (Обзор/Модули/Хранилища/Архивы).
+                 Встроенный переход выключен — направленный слайд делается кодом
+                 в OnFrameNavigated (вниз по списку вкладок → контент снизу, вверх → сверху). -->
+            <Frame x:Name="ContentFrame" Grid.Column="1" Margin="8,36,24,8">
+                <Frame.ContentTransitions>
+                    <TransitionCollection>
+                        <NavigationThemeTransition>
+                            <NavigationThemeTransition.DefaultNavigationTransitionInfo>
+                                <SuppressNavigationTransitionInfo />
+                            </NavigationThemeTransition.DefaultNavigationTransitionInfo>
+                        </NavigationThemeTransition>
+                    </TransitionCollection>
+                </Frame.ContentTransitions>
+            </Frame>
 
             <!-- Глобальная «назад» (Alt+←, Browser Back, боковая кнопка мыши) -->
             <Button x:Name="GlobalBackBtn" Grid.Column="1" Width="36" Height="30"
