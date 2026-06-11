@@ -1,6 +1,9 @@
 using eBackup.App.Pages;
 using eBackup.Core.Abstractions;
 using eBackup.Core.Engine;
+using eBackup.Core.Modules;
+using eBackup.Core.Scheduling;
+using eBackup.Modules.Obs;
 using eBackup.Security;
 using eBackup.Storage.Sftp;
 using Microsoft.UI.Xaml;
@@ -34,8 +37,15 @@ public sealed partial class MainWindow : Window
     public static event Action? BackupCompleted;
 
     private readonly SftpConnectionStore _store = new(new DpapiSecretProtector());
+    private readonly ModuleRegistry _modulesRegistry = new(
+    [
+        new BuiltInModuleSource([new ObsBackupModule()]),
+        new DeclarativeModuleSource(),
+    ]);
     private bool _operationRunning; // бэкап или восстановление — одновременно только одно
     private double _fill;           // текущая доля заливки-прогресса нижней панели (0..1)
+    private DispatcherTimer? _scheduleTimer;
+    private bool _checkingSchedules;
 
     public bool IsBusy => _operationRunning;
 
@@ -52,6 +62,12 @@ public sealed partial class MainWindow : Window
         AppWindow.Resize(new Windows.Graphics.SizeInt32(1180, 760));
 
         ContentFrame.Navigate(typeof(OverviewPage));
+
+        // Проверка расписаний: раз в минуту + сразу после запуска (догон пропущенных).
+        _scheduleTimer = new DispatcherTimer { Interval = TimeSpan.FromMinutes(1) };
+        _scheduleTimer.Tick += async (_, _) => await CheckSchedulesAsync();
+        _scheduleTimer.Start();
+        _ = CheckSchedulesAsync();
     }
 
     private void Nav_SelectionChanged(object sender, SelectionChangedEventArgs e)
@@ -65,6 +81,7 @@ public sealed partial class MainWindow : Window
             "modules" => typeof(ModulesPage),
             "storage" => typeof(StoragePage),
             "archives" => typeof(ArchivesPage),
+            "schedule" => typeof(SchedulePage),
             _ => typeof(OverviewPage)
         };
 
@@ -192,6 +209,98 @@ public sealed partial class MainWindow : Window
             BackupCompleted?.Invoke();
             await FadeOutFillAsync();
         }
+    }
+
+    // ---------- расписания (работают, пока приложение запущено) ----------
+
+    private async Task CheckSchedulesAsync()
+    {
+        if (_checkingSchedules || _operationRunning)
+            return;
+
+        _checkingSchedules = true;
+        try
+        {
+            var store = new ScheduleStore(new DpapiSecretProtector());
+            List<BackupSchedule> schedules;
+            try
+            {
+                schedules = (await store.LoadAsync()).ToList();
+            }
+            catch
+            {
+                return; // битый файл расписаний не должен ронять приложение
+            }
+
+            var now = DateTime.Now;
+            var due = schedules.FirstOrDefault(s => ScheduleTiming.IsDue(s, now));
+            if (due is null)
+                return;
+
+            // Отмечаем запуск ДО выполнения: упавший бэкап не будет лупиться каждую минуту.
+            await store.SaveAllAsync(schedules.Select(s => s.Id == due.Id ? s with { LastRunAt = now } : s));
+
+            var request = await BuildRequestFromScheduleAsync(due, store);
+            if (request is null)
+            {
+                StatusTitle.Text = "Расписание пропущено";
+                StatusSub.Text = $"«{due.Name}»: нет модулей/целей или не расшифровалась парольная фраза";
+                return;
+            }
+
+            StatusSub.Text = $"по расписанию «{due.Name}»…";
+            await StartBackupAsync(request);
+        }
+        finally
+        {
+            _checkingSchedules = false;
+        }
+    }
+
+    /// <summary>Собрать параметры бэкапа из расписания (свой набор настроек, глобальный тумблер не важен).</summary>
+    private async Task<BackupRequest?> BuildRequestFromScheduleAsync(BackupSchedule s, ScheduleStore store)
+    {
+        var all = _modulesRegistry.LoadForRestore(); // все рабочие модули
+        var modules = all
+            .Where(m => s.ModuleIds.Contains(m.Id, StringComparer.OrdinalIgnoreCase))
+            .ToList();
+
+        if (s.IncludeCustomFolders &&
+            Core.Modules.CustomFolders.Build(CustomFolderConfig.Load()) is { } foldersModule)
+            modules.Add(foldersModule);
+
+        if (modules.Count == 0)
+            return null;
+
+        List<SavedSftpConnection> targets;
+        try
+        {
+            targets = (await _store.LoadAsync())
+                .Where(c => s.TargetConnectionIds.Contains(c.Id, StringComparer.OrdinalIgnoreCase))
+                .ToList();
+        }
+        catch
+        {
+            targets = [];
+        }
+
+        if (!s.KeepLocal && targets.Count == 0)
+            return null;
+
+        string? passphrase = null;
+        if (s.ProtectedPassphrase is not null)
+        {
+            try
+            {
+                passphrase = store.UnprotectPassphrase(s.ProtectedPassphrase);
+            }
+            catch
+            {
+                return null; // фраза не расшифровалась (конфиг с другого ПК) — не бэкапим в открытую
+            }
+        }
+
+        return new BackupRequest(modules, s.KeepLocal, targets, passphrase);
     }
 
     private static void ApplyLocalRetention(string dir, int keep)

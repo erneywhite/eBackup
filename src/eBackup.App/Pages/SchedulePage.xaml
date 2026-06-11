@@ -1,0 +1,145 @@
+<Page
+    x:Class="eBackup.App.Pages.SchedulePage"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:pages="using:eBackup.App.Pages">
+
+    <Page.Resources>
+        <SolidColorBrush x:Key="EbOkBrush" Color="#7CE3A8" />
+        <SolidColorBrush x:Key="EbErrBrush" Color="#FF8A9C" />
+    </Page.Resources>
+
+    <Grid ColumnSpacing="18">
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="300" />
+            <ColumnDefinition Width="*" />
+        </Grid.ColumnDefinitions>
+
+        <!-- ===== Левая панель: список расписаний ===== -->
+        <Grid Grid.Column="0">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="*" />
+                <RowDefinition Height="Auto" />
+            </Grid.RowDefinitions>
+
+            <TextBlock Grid.Row="0" Text="Расписание" FontSize="26" FontWeight="SemiBold"
+                       Margin="0,0,0,12" />
+
+            <ListView x:Name="ScheduleList" Grid.Row="1" SelectionMode="Single"
+                      SelectionChanged="ScheduleList_SelectionChanged"
+                      ItemContainerStyle="{StaticResource EbNavItemStyle}">
+                <ListView.ItemTemplate>
+                    <DataTemplate x:DataType="pages:ScheduleItem">
+                        <StackPanel Spacing="2" Margin="0,8">
+                            <TextBlock Text="{x:Bind Title}" FontWeight="SemiBold" />
+                            <TextBlock Text="{x:Bind Subtitle}" FontSize="11" TextWrapping="Wrap"
+                                       Foreground="{StaticResource EbTextDimBrush}" />
+                        </StackPanel>
+                    </DataTemplate>
+                </ListView.ItemTemplate>
+            </ListView>
+
+            <Button x:Name="AddBtn" Grid.Row="2" HorizontalAlignment="Stretch"
+                    Margin="0,10,0,0" CornerRadius="12" Click="AddBtn_Click">
+                <TextBlock Text="+ Новое расписание" />
+            </Button>
+        </Grid>
+
+        <!-- ===== Правая панель: редактор ===== -->
+        <Grid Grid.Column="1">
+            <StackPanel x:Name="EmptyHintPanel" HorizontalAlignment="Center" VerticalAlignment="Center"
+                        Spacing="6">
+                <TextBlock Text="Выбери расписание слева или создай новое"
+                           Foreground="{StaticResource EbTextDimBrush}" HorizontalAlignment="Center" />
+                <TextBlock Text="Расписания срабатывают, пока приложение запущено"
+                           FontSize="12" Foreground="{StaticResource EbTextDimBrush}"
+                           HorizontalAlignment="Center" />
+            </StackPanel>
+
+            <Border x:Name="Editor" Visibility="Collapsed" CornerRadius="16"
+                    Background="{StaticResource EbCardBrush}"
+                    BorderBrush="{StaticResource EbCardBorderBrush}" BorderThickness="1"
+                    Padding="20" VerticalAlignment="Top">
+                <ScrollViewer MaxHeight="580" VerticalScrollBarVisibility="Auto">
+                    <StackPanel Spacing="10">
+                        <TextBlock x:Name="EditorTitle" Text="Новое расписание"
+                                   FontSize="18" FontWeight="SemiBold" />
+
+                        <TextBlock Text="Название" FontSize="12"
+                                   Foreground="{StaticResource EbTextDimBrush}" />
+                        <TextBox x:Name="NameBox" PlaceholderText="например: ночной бэкап OBS" />
+
+                        <TextBlock Text="Что бэкапим" FontSize="12" Margin="0,6,0,0"
+                                   Foreground="{StaticResource EbTextDimBrush}" />
+                        <StackPanel x:Name="ModulesPanel" Spacing="6" />
+                        <CheckBox x:Name="FoldersCheck" Content="Свои папки (как настроены на странице «Бэкап»)" />
+
+                        <TextBlock Text="Куда" FontSize="12" Margin="0,6,0,0"
+                                   Foreground="{StaticResource EbTextDimBrush}" />
+                        <CheckBox x:Name="LocalCheck" Content="Локальная папка" IsChecked="True" />
+                        <StackPanel x:Name="SftpPanel" Spacing="6" />
+
+                        <TextBlock Text="Шифрование" FontSize="12" Margin="0,6,0,0"
+                                   Foreground="{StaticResource EbTextDimBrush}" />
+                        <CheckBox x:Name="EncryptCheck" Content="Зашифровать архив (AES-256)"
+                                  Checked="EncryptCheck_Changed" Unchecked="EncryptCheck_Changed" />
+                        <PasswordBox x:Name="Pass1" PlaceholderText="парольная фраза"
+                                     Visibility="Collapsed" MaxWidth="360" HorizontalAlignment="Left" />
+                        <PasswordBox x:Name="Pass2" PlaceholderText="повтори фразу"
+                                     Visibility="Collapsed" MaxWidth="360" HorizontalAlignment="Left" />
+
+                        <TextBlock Text="Когда" FontSize="12" Margin="0,6,0,0"
+                                   Foreground="{StaticResource EbTextDimBrush}" />
+                        <StackPanel Orientation="Horizontal" Spacing="16">
+                            <RadioButton x:Name="DailyRadio" Content="Ежедневно" GroupName="kind"
+                                         IsChecked="True" Checked="Kind_Changed" />
+                            <RadioButton x:Name="WeeklyRadio" Content="Еженедельно" GroupName="kind"
+                                         Checked="Kind_Changed" />
+                            <RadioButton x:Name="EveryRadio" Content="Каждые N часов" GroupName="kind"
+                                         Checked="Kind_Changed" />
+                        </StackPanel>
+
+                        <StackPanel x:Name="DayRow" Orientation="Horizontal" Spacing="10"
+                                    Visibility="Collapsed">
+                            <TextBlock Text="День недели" VerticalAlignment="Center" FontSize="12"
+                                       Foreground="{StaticResource EbTextDimBrush}" />
+                            <ComboBox x:Name="DayCombo" Width="160" />
+                        </StackPanel>
+
+                        <StackPanel x:Name="TimeRow" Orientation="Horizontal" Spacing="10">
+                            <TextBlock Text="Время" VerticalAlignment="Center" FontSize="12"
+                                       Foreground="{StaticResource EbTextDimBrush}" />
+                            <TimePicker x:Name="TimeBox" ClockIdentifier="24HourClock" />
+                        </StackPanel>
+
+                        <StackPanel x:Name="EveryRow" Orientation="Horizontal" Spacing="10"
+                                    Visibility="Collapsed">
+                            <TextBlock Text="Каждые" VerticalAlignment="Center" FontSize="12"
+                                       Foreground="{StaticResource EbTextDimBrush}" />
+                            <TextBox x:Name="EveryBox" Width="70" Text="6" />
+                            <TextBlock Text="часов" VerticalAlignment="Center" FontSize="12"
+                                       Foreground="{StaticResource EbTextDimBrush}" />
+                        </StackPanel>
+
+                        <ToggleSwitch x:Name="EnabledToggle" Margin="0,4,0,0" IsOn="True"
+                                      OnContent="расписание активно" OffContent="приостановлено" />
+
+                        <StackPanel Orientation="Horizontal" Spacing="10" Margin="0,8,0,0">
+                            <Button x:Name="SaveBtn" CornerRadius="12" Padding="22,8"
+                                    Background="{StaticResource EbAccentGradient}" BorderThickness="0"
+                                    Click="SaveBtn_Click">
+                                <TextBlock Text="Сохранить" FontWeight="SemiBold" Foreground="#1A0F22" />
+                            </Button>
+                            <Button x:Name="DeleteBtn" Content="Удалить" CornerRadius="12"
+                                    Padding="22,8" Foreground="{StaticResource EbErrBrush}"
+                                    Visibility="Collapsed" Click="DeleteBtn_Click" />
+                        </StackPanel>
+
+                        <TextBlock x:Name="StatusText" TextWrapping="Wrap" FontSize="12" />
+                    </StackPanel>
+                </ScrollViewer>
+            </Border>
+        </Grid>
+    </Grid>
+</Page>

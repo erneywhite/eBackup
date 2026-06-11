@@ -30,10 +30,6 @@ public sealed partial class BackupPage : Page
     private readonly List<CheckBox> _sftpChecks = [];
     private List<string> _folders = [];
 
-    private static string FoldersConfigPath => Path.Combine(
-        Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
-        "eBackup", "custom-folders.json");
-
     public BackupPage()
     {
         InitializeComponent();
@@ -81,36 +77,11 @@ public sealed partial class BackupPage : Page
         LaunchBtn.IsEnabled = MainWindow.Instance?.IsBusy != true;
     }
 
-    // ---------- свои папки ----------
+    // ---------- свои папки (общий конфиг — расписания тоже его читают) ----------
 
-    private static List<string> LoadFolders()
-    {
-        try
-        {
-            if (File.Exists(FoldersConfigPath))
-                return JsonSerializer.Deserialize<List<string>>(File.ReadAllText(FoldersConfigPath)) ?? [];
-        }
-        catch
-        {
-            // повреждённый конфиг папок — просто начнём с пустого списка
-        }
-        return [];
-    }
+    private static List<string> LoadFolders() => CustomFolderConfig.Load();
 
-    private void SaveFolders()
-    {
-        try
-        {
-            var dir = Path.GetDirectoryName(FoldersConfigPath);
-            if (!string.IsNullOrEmpty(dir))
-                Directory.CreateDirectory(dir);
-            File.WriteAllText(FoldersConfigPath, JsonSerializer.Serialize(_folders));
-        }
-        catch
-        {
-            // несохранённый список не критичен для текущего запуска
-        }
-    }
+    private void SaveFolders() => CustomFolderConfig.Save(_folders);
 
     private void RenderFolders()
     {
