@@ -170,6 +170,31 @@
 
         </Grid>
 
+        <!-- Ненавязчивый баннер обновления (проверка GitHub Releases) -->
+        <Border x:Name="UpdateBanner" Grid.Row="1" Margin="12,0,12,84" CornerRadius="12"
+                VerticalAlignment="Bottom" Visibility="Collapsed"
+                Background="{StaticResource EbDialogBrush}"
+                BorderBrush="{StaticResource EbCardBorderBrush}" BorderThickness="1"
+                Padding="14,9">
+            <Grid ColumnSpacing="12">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+                <TextBlock x:Name="UpdateText" Grid.Column="0" VerticalAlignment="Center"
+                           TextWrapping="Wrap" FontSize="13" />
+                <Button x:Name="UpdateGetBtn" Grid.Column="1" Content="Скачать"
+                        CornerRadius="10" Padding="16,6" Click="UpdateGet_Click"
+                        Style="{StaticResource EbAccentButtonStyle}" />
+                <Button Grid.Column="2" CornerRadius="10" Padding="8,6" Click="UpdateDismiss_Click"
+                        Background="Transparent" BorderThickness="0"
+                        ToolTipService.ToolTip="Скрыть">
+                    <FontIcon Glyph="&#xE711;" FontSize="12" />
+                </Button>
+            </Grid>
+        </Border>
+
         <!-- ===== Нижняя панель-статус (аналог плеера eCoda) =====
              Во время бэкапа сама панель работает прогрессбаром: градиентная
              заливка плавно заполняет её по фазам и тает по завершении. -->

@@ -74,6 +74,9 @@ public sealed partial class MainWindow : Window
 
         InitLiquidProgress();
 
+        // Проверка обновлений (GitHub Releases) — раз в сутки, тихо, в фоне.
+        _ = CheckForUpdatesAsync();
+
         // Хвосты браузера архивов (browse-*): при закрытии окна WinUI не гарантирует
         // Unloaded страницы, так что подчищаем при старте — свежий процесс ничего
         // из этого не держит. Занятые файлы (вторая копия приложения) пропускаются.
@@ -574,6 +577,54 @@ public sealed partial class MainWindow : Window
     {
         using var stream = File.OpenRead(path);
         return Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(stream));
+    }
+
+    // ---------- проверка обновлений (GitHub Releases) ----------
+
+    private UpdateInfo? _pendingUpdate;
+
+    private async Task CheckForUpdatesAsync()
+    {
+        var settings = AppSettings.Load();
+        if (!settings.CheckForUpdates)
+            return;
+        // Не чаще раза в сутки, чтобы не дёргать API на каждый запуск.
+        if (settings.LastUpdateCheck is { } last && (DateTimeOffset.Now - last).TotalHours < 24)
+            return;
+
+        var update = await UpdateChecker.CheckAsync();
+
+        // Отметку «проверяли» пишем независимо от исхода (свежие настройки с диска).
+        var fresh = AppSettings.Load();
+        fresh.LastUpdateCheck = DateTimeOffset.Now;
+        fresh.Save();
+
+        if (update is null || update.Version == fresh.DismissedUpdateVersion)
+            return;
+
+        _pendingUpdate = update;
+        UpdateText.Text = $"Доступна новая версия eBackup {update.Version} "
+            + $"(у вас {UpdateChecker.AppVersion()}).";
+        UpdateBanner.Visibility = Visibility.Visible;
+    }
+
+    private async void UpdateGet_Click(object sender, RoutedEventArgs e)
+    {
+        if (_pendingUpdate is not null)
+            await Windows.System.Launcher.LaunchUriAsync(new Uri(_pendingUpdate.Url));
+        UpdateBanner.Visibility = Visibility.Collapsed;
+    }
+
+    private void UpdateDismiss_Click(object sender, RoutedEventArgs e)
+    {
+        // Скрыть и не напоминать именно про эту версию (следующая — снова покажем).
+        if (_pendingUpdate is not null)
+        {
+            var settings = AppSettings.Load();
+            settings.DismissedUpdateVersion = _pendingUpdate.Version;
+            settings.Save();
+        }
+        UpdateBanner.Visibility = Visibility.Collapsed;
     }
 
     private static string FormatBytes(long bytes) => bytes switch

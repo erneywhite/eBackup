@@ -83,6 +83,9 @@
                     <ToggleSwitch x:Name="NotifyToggle"
                                   OnContent="Уведомлять о результатах бэкапов"
                                   OffContent="Уведомлять о результатах бэкапов" />
+                    <ToggleSwitch x:Name="UpdateToggle"
+                                  OnContent="Проверять обновления (раз в сутки)"
+                                  OffContent="Проверять обновления (раз в сутки)" />
                     <StackPanel Orientation="Horizontal" Spacing="10">
                         <TextBlock Text="Проверять хранилища каждые" VerticalAlignment="Center" />
                         <TextBox x:Name="SelfTestBox" Width="60" Text="5" />
