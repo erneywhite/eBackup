@@ -77,11 +77,12 @@
                 </StackPanel>
             </Border>
 
-            <!-- Ассеты -->
-            <Border Style="{StaticResource EbSectionCard}">
+            <!-- Ассеты (видно, только если в архиве есть управляемые модулями файлы) -->
+            <Border x:Name="AssetsCard" Style="{StaticResource EbSectionCard}">
                 <StackPanel Spacing="8">
-                    <TextBlock Text="Папка для ассетов модулей (например, медиа сцен OBS)"
-                               FontSize="12" Foreground="{StaticResource EbTextDimBrush}" />
+                    <TextBlock Text="Папка для внешних ассетов модулей — сюда лягут файлы, которые модули выносили из своих приложений; пути в настройках будут переписаны"
+                               FontSize="12" TextWrapping="Wrap"
+                               Foreground="{StaticResource EbTextDimBrush}" />
                     <Grid ColumnSpacing="8">
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="*" />

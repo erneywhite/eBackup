@@ -102,7 +102,7 @@ switch (command)
         }
 
         var assetsDir = GetOption(args, "--assets-dir")
-            ?? Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments), "eBackup", "OBS-Assets");
+            ?? Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments), "eBackup", "Assets");
 
         // Режим разрешения конфликтов: replace (с .bak) / overwrite / add-missing.
         var conflict = (GetOption(args, "--conflict") ?? "backup").ToLowerInvariant() switch
@@ -220,7 +220,7 @@ switch (command)
               restore --sftp <id> --name <имя.ebk> [--to <папка>]                  Скачать с SFTP и распаковать
                   (--encrypt: AES-256-GCM, ключ из парольной фразы через Argon2id; restore спросит фразу сам)
                   (неинтерактивно фразу можно задать через переменную окружения EBACKUP_PASSPHRASE)
-                  (--assets-dir: куда класть ассеты OBS; по умолчанию Documents\eBackup\OBS-Assets)
+                  (--assets-dir: куда раскладывать внешние ассеты модулей; по умолчанию Documents\eBackup\Assets)
                   (--conflict: backup [по умолч., с .bak] | overwrite | add-missing)
                   (восстановление плагинов в Program Files требует запуска от администратора)
 

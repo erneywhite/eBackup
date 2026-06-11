@@ -1,6 +1,9 @@
+using System.IO.Compression;
+using System.Text.Json;
 using eBackup.Core.Abstractions;
 using eBackup.Core.Crypto;
 using eBackup.Core.Engine;
+using eBackup.Core.Model;
 using eBackup.Core.Modules;
 using eBackup.Modules.Obs;
 using Microsoft.UI.Xaml;
@@ -26,9 +29,11 @@ public sealed partial class RestorePage : Page
     public RestorePage()
     {
         InitializeComponent();
-        AssetsDirBox.Text = Path.Combine(
-            Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments), "eBackup", "OBS-Assets");
+        AssetsDirBox.Text = DefaultAssetsDir();
     }
+
+    private static string DefaultAssetsDir() => Path.Combine(
+        Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments), "eBackup", "Assets");
 
     protected override void OnNavigatedTo(NavigationEventArgs e)
     {
@@ -58,6 +63,8 @@ public sealed partial class RestorePage : Page
                 ? "Архив зашифрован — для восстановления нужна парольная фраза."
                 : "Архив не зашифрован — фраза не нужна.";
             PassBox.Visibility = _knownEncrypted ? Visibility.Visible : Visibility.Collapsed;
+
+            UpdateAssetsCardVisibility();
         }
         else
         {
@@ -65,6 +72,36 @@ public sealed partial class RestorePage : Page
             ArchiveSourceText.Text = "с сервера (скачается во временную папку перед распаковкой)";
             PassHint.Text = "Если архив зашифрован — введи парольную фразу (узнаем после скачивания).";
             PassBox.Visibility = Visibility.Visible;
+        }
+    }
+
+    /// <summary>
+    /// Поле ассетов показываем по СОДЕРЖИМОМУ архива: только если внутри есть записи,
+    /// управляемые модулями (внешние ассеты). Для зашифрованных/серверных архивов
+    /// заранее не узнать — поле остаётся видимым.
+    /// </summary>
+    private void UpdateAssetsCardVisibility()
+    {
+        if (_source?.LocalPath is null || _knownEncrypted)
+            return;
+
+        try
+        {
+            using var zip = ZipFile.OpenRead(_source.LocalPath);
+            var entry = zip.GetEntry("manifest.json");
+            if (entry is null)
+                return;
+
+            using var stream = entry.Open();
+            var manifest = JsonSerializer.Deserialize<Manifest>(stream, ManifestJson.Options);
+            var hasManagedAssets = manifest?.Modules
+                .Any(m => m.Entries.Any(en => en.ManagedByModule)) == true;
+
+            AssetsCard.Visibility = hasManagedAssets ? Visibility.Visible : Visibility.Collapsed;
+        }
+        catch
+        {
+            // не смогли заглянуть в архив — оставляем поле на месте
         }
     }
 
@@ -135,8 +172,7 @@ public sealed partial class RestorePage : Page
 
         var assetsDir = AssetsDirBox.Text.Trim();
         if (assetsDir.Length == 0)
-            assetsDir = Path.Combine(
-                Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments), "eBackup", "OBS-Assets");
+            assetsDir = DefaultAssetsDir();
 
         var request = new RestoreRequest(
             _source,
