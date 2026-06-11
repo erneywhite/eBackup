@@ -135,8 +135,6 @@ public sealed partial class MainWindow : Window
         return true;
     }
 
-    private void GlobalBack_Click(object sender, RoutedEventArgs e) => TryGoBack();
-
     private void BackAccel_Invoked(Microsoft.UI.Xaml.Input.KeyboardAccelerator sender,
         Microsoft.UI.Xaml.Input.KeyboardAcceleratorInvokedEventArgs args)
         => args.Handled = TryGoBack();
@@ -150,7 +148,8 @@ public sealed partial class MainWindow : Window
 
     private void OnFrameNavigated(object sender, Microsoft.UI.Xaml.Navigation.NavigationEventArgs e)
     {
-        GlobalBackBtn.Visibility = ContentFrame.CanGoBack ? Visibility.Visible : Visibility.Collapsed;
+        // Кнопки «назад» в UI нет (решение пользователя) — только хоткеи:
+        // Alt+←, клавиша Browser Back и боковая кнопка мыши (XButton1).
 
         // Подсветка таба следует за фактической страницей (важно при переходах «назад»).
         var tag = e.SourcePageType == typeof(OverviewPage) ? "overview"
@@ -880,6 +879,17 @@ public sealed partial class MainWindow : Window
         sizeExpr.SetReferenceParameter("host", visual);
         clipGeometry.StartAnimation("Size", sizeExpr);
         visual.Clip = compositor.CreateGeometricClip(clipGeometry);
+    }
+
+    // Доступ страниц к заливке (браузер архива и др. операции вне Start*Async).
+    public void ProgressStart(double fraction) => SetFill(fraction);
+    public void ProgressBump(double stageEnd) => BumpFill(stageEnd);
+
+    public async Task ProgressFinishAsync(bool complete = true)
+    {
+        if (complete)
+            SetFill(1.0);
+        await FadeOutFillAsync();
     }
 
     /// <summary>Довести воду до доли <paramref name="fraction"/> (0..1) — дольётся с всплеском.</summary>

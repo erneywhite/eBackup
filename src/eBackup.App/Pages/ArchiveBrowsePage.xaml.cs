@@ -338,11 +338,19 @@ public sealed partial class ArchiveBrowsePage : Page
 
         _busy = true;
         RestoreBtn.IsEnabled = DownloadBtn.IsEnabled = false;
+        var window = MainWindow.Instance;
+        var succeeded = false;
         try
         {
             SetStatus(destinationRoot is null
                 ? $"Восстанавливаю {selected.Count} файлов по исходным путям…"
                 : $"Скачиваю {selected.Count} файлов в {destinationRoot}…", dim: true);
+            window?.ProgressStart(0.12);
+            var progress = new Progress<string>(s =>
+            {
+                SetStatus(s, dim: true);
+                window?.ProgressBump(0.9);
+            });
 
             var zipPath = _zipPath;
             var remote = _remoteStream;
@@ -352,13 +360,16 @@ public sealed partial class ArchiveBrowsePage : Page
                     remote,
                     conflictPolicy: ConflictPolicy.BackupExisting,
                     destinationRootOverride: destinationRoot,
+                    progress: progress,
                     entryFilter: selected.Contains)
                 : engine.RestoreAsync(
                     zipPath!,
                     conflictPolicy: ConflictPolicy.BackupExisting,
                     destinationRootOverride: destinationRoot,
+                    progress: progress,
                     entryFilter: selected.Contains));
 
+            succeeded = true;
             SetStatus(destinationRoot is null
                 ? $"✓ Восстановлено файлов: {selected.Count} (существовавшие сохранены как .bak)"
                 : $"✓ Скачано файлов: {selected.Count} → {destinationRoot}", dim: false, ok: true);
@@ -371,6 +382,8 @@ public sealed partial class ArchiveBrowsePage : Page
         {
             _busy = false;
             RestoreBtn.IsEnabled = DownloadBtn.IsEnabled = true;
+            if (window is not null)
+                await window.ProgressFinishAsync(succeeded);
         }
     }
 

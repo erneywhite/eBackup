@@ -16,14 +16,12 @@
         </Grid.RowDefinitions>
 
         <!-- Иконка в трее: живёт, пока работает приложение (в т.ч. со скрытым окном) -->
+        <!-- Временное лого (ico — png-источник трей не переваривает); заменим на финальное -->
         <tb:TaskbarIcon x:Name="TrayIcon"
+                        IconSource="ms-appx:///Assets/app.ico"
                         ToolTipText="eBackup"
                         NoLeftClickDelay="True"
                         ContextMenuMode="SecondWindow">
-            <!-- Временное лого; заменим на финальное от художницы -->
-            <tb:TaskbarIcon.IconSource>
-                <BitmapImage UriSource="ms-appx:///Assets/logo.png" />
-            </tb:TaskbarIcon.IconSource>
             <tb:TaskbarIcon.ContextFlyout>
                 <MenuFlyout>
                     <MenuFlyoutItem Text="Открыть eBackup" Click="TrayOpen_Click" />
@@ -83,25 +81,25 @@
                     <RowDefinition Height="Auto" />
                 </Grid.RowDefinitions>
 
-                <!-- Брендинг (как в eCoda — верх сайдбара).
-                     LogoSlot 44×44: временное лого (me_dev.png), заменим на финальное. -->
-                <StackPanel Grid.Row="0" Orientation="Horizontal" Spacing="11" Margin="6,2,6,16"
-                            IsHitTestVisible="False">
-                    <Border x:Name="LogoSlot" Width="44" Height="44" CornerRadius="12"
+                <!-- Брендинг: крупное лого (временное, me_dev.png), вордмарк и слоган;
+                     табы — ниже. Заменим картинку, когда художница дорисует. -->
+                <StackPanel Grid.Row="0" Spacing="8" Margin="6,10,6,18"
+                            IsHitTestVisible="False" HorizontalAlignment="Center">
+                    <Border Width="96" Height="96" CornerRadius="22"
                             BorderBrush="{StaticResource EbCardBorderBrush}" BorderThickness="1"
-                            VerticalAlignment="Center">
+                            HorizontalAlignment="Center">
                         <Border.Background>
                             <ImageBrush Stretch="UniformToFill"
                                         ImageSource="ms-appx:///Assets/logo.png" />
                         </Border.Background>
                     </Border>
-                    <StackPanel VerticalAlignment="Center" Spacing="1" MaxWidth="130">
-                        <TextBlock Text="eBackup" FontSize="18" FontWeight="Bold"
-                                   Foreground="{StaticResource EbAccentGradient}" />
-                        <TextBlock Text="бэкапы, которые переезжают с тобой" FontSize="10"
-                                   TextWrapping="Wrap"
-                                   Foreground="{StaticResource EbTextDimBrush}" />
-                    </StackPanel>
+                    <TextBlock Text="eBackup" FontSize="20" FontWeight="Bold"
+                               HorizontalAlignment="Center"
+                               Foreground="{StaticResource EbAccentGradient}" />
+                    <TextBlock Text="бэкапы, которые переезжают с тобой" FontSize="10.5"
+                               TextWrapping="Wrap" TextAlignment="Center" MaxWidth="150"
+                               HorizontalAlignment="Center" Margin="0,-4,0,0"
+                               Foreground="{StaticResource EbTextDimBrush}" />
                 </StackPanel>
 
                 <ListView x:Name="Nav" Grid.Row="1" SelectionMode="Single"
@@ -172,16 +170,6 @@
                 </Frame.ContentTransitions>
             </Frame>
 
-            <!-- Глобальная «назад» (Alt+←, Browser Back, боковая кнопка мыши) -->
-            <Button x:Name="GlobalBackBtn" Grid.Column="1" Width="36" Height="30"
-                    HorizontalAlignment="Left" VerticalAlignment="Top" Margin="8,4,0,0"
-                    CornerRadius="10" Padding="0" Visibility="Collapsed"
-                    Background="{StaticResource EbCardBrush}"
-                    BorderBrush="{StaticResource EbCardBorderBrush}" BorderThickness="1"
-                    Click="GlobalBack_Click"
-                    ToolTipService.ToolTip="Назад (Alt+← или боковая кнопка мыши)">
-                <FontIcon Glyph="&#xE72B;" FontSize="12" />
-            </Button>
         </Grid>
 
         <!-- ===== Нижняя панель-статус (аналог плеера eCoda) =====
