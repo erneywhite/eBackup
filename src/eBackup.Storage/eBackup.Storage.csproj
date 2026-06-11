@@ -1,0 +1,19 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <ItemGroup>
+    <ProjectReference Include="..\eBackup.Abstractions\eBackup.Abstractions.csproj" />
+    <ProjectReference Include="..\eBackup.Storage.Local\eBackup.Storage.Local.csproj" />
+    <ProjectReference Include="..\eBackup.Storage.Sftp\eBackup.Storage.Sftp.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="eBackup.Tests" />
+  </ItemGroup>
+
+  <PropertyGroup>
+    <TargetFramework>net9.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+
+</Project>
