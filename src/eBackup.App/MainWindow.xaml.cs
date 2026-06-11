@@ -86,6 +86,15 @@ public sealed partial class MainWindow : Window
         RootGrid.AddHandler(UIElement.PointerPressedEvent,
             new Microsoft.UI.Xaml.Input.PointerEventHandler(OnRootPointerPressed),
             handledEventsToo: true);
+
+        // Клавиша Browser Back (VK_BROWSER_BACK = 166): в enum VirtualKey имени нет,
+        // поэтому только из кода через числовой код.
+        var browserBack = new Microsoft.UI.Xaml.Input.KeyboardAccelerator
+        {
+            Key = (Windows.System.VirtualKey)166
+        };
+        browserBack.Invoked += BackAccel_Invoked;
+        RootGrid.KeyboardAccelerators.Add(browserBack);
     }
 
     // ---------- глобальная «назад» ----------
