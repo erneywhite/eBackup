@@ -5,18 +5,17 @@ using eBackup.Core.Modules;
 using eBackup.Core.Scheduling;
 using eBackup.Modules.Obs;
 using eBackup.Security;
-using eBackup.Storage.Sftp;
+using eBackup.Storage;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Media.Animation;
 
 namespace eBackup.App;
 
-/// <summary>Параметры запуска бэкапа, собранные страницей «Бэкап».</summary>
+/// <summary>Параметры запуска бэкапа, собранные страницей «Бэкап» или расписанием.</summary>
 public sealed record BackupRequest(
     IReadOnlyList<IBackupModule> Modules,
-    bool KeepLocal,
-    IReadOnlyList<SavedSftpConnection> Targets,
+    IReadOnlyList<SavedStorage> Targets,
     string? Passphrase);
 
 /// <summary>Параметры восстановления, собранные страницей «Восстановление».</summary>
@@ -36,7 +35,7 @@ public sealed partial class MainWindow : Window
     /// <summary>Срабатывает по завершении бэкапа — страницы (напр. «Архивы») обновляются сами.</summary>
     public static event Action? BackupCompleted;
 
-    private readonly SftpConnectionStore _store = new(new DpapiSecretProtector());
+    private readonly StorageStore _storages = new(new DpapiSecretProtector());
     private readonly ModuleRegistry _modulesRegistry = new(
     [
         new BuiltInModuleSource([new ObsBackupModule()]),
@@ -67,6 +66,9 @@ public sealed partial class MainWindow : Window
 
         ContentFrame.Navigate(typeof(OverviewPage));
 
+        // Одноразово: хранилище «Локальная папка» по умолчанию.
+        _ = EnsureDefaultStorageAsync();
+
         // Проверка расписаний: раз в минуту + сразу после запуска (догон пропущенных).
         _scheduleTimer = new DispatcherTimer { Interval = TimeSpan.FromMinutes(1) };
         _scheduleTimer.Tick += async (_, _) => await CheckSchedulesAsync();
@@ -78,6 +80,37 @@ public sealed partial class MainWindow : Window
         TrayIcon.ForceCreate();
         AppWindow.Closing += OnAppWindowClosing;
         Closed += (_, _) => TrayIcon.Dispose();
+    }
+
+    /// <summary>При первом запуске создаёт хранилище «Локальная папка» (один раз).</summary>
+    private async Task EnsureDefaultStorageAsync()
+    {
+        try
+        {
+            var settings = AppSettings.Load();
+            if (settings.DefaultStorageCreated)
+                return;
+
+            var list = (await _storages.LoadAsync()).ToList();
+            if (!list.Any(s => s.Kind == StorageKind.LocalFolder))
+            {
+                list.Add(new SavedStorage
+                {
+                    Id = "local",
+                    Name = "Локальная папка",
+                    Kind = StorageKind.LocalFolder,
+                    Path = settings.LocalBackupDir
+                });
+                await _storages.SaveAllAsync(list);
+            }
+
+            settings.DefaultStorageCreated = true;
+            settings.Save();
+        }
+        catch
+        {
+            // не критично — пользователь добавит хранилище руками
+        }
     }
 
     // ---------- трей ----------
@@ -120,6 +153,8 @@ public sealed partial class MainWindow : Window
         Close();
     }
 
+    // ---------- навигация ----------
+
     private void Nav_SelectionChanged(object sender, SelectionChangedEventArgs e)
     {
         // Событие может прилететь во время InitializeComponent, когда Frame ещё не создан.
@@ -147,6 +182,13 @@ public sealed partial class MainWindow : Window
             ContentFrame.Navigate(typeof(BackupPage));
     }
 
+    private void SettingsBtn_Click(object sender, RoutedEventArgs e)
+    {
+        Nav.SelectedItem = null;
+        if (ContentFrame.CurrentSourcePageType != typeof(SettingsPage))
+            ContentFrame.Navigate(typeof(SettingsPage));
+    }
+
     /// <summary>Перейти на страницу из навигации с подсветкой её таба (для плиток дашборда).</summary>
     public void SelectNav(string tag)
     {
@@ -160,18 +202,11 @@ public sealed partial class MainWindow : Window
         }
     }
 
-    private void SettingsBtn_Click(object sender, RoutedEventArgs e)
-    {
-        Nav.SelectedItem = null;
-        if (ContentFrame.CurrentSourcePageType != typeof(SettingsPage))
-            ContentFrame.Navigate(typeof(SettingsPage));
-    }
-
-    // ---------- запуск бэкапа (вызывается страницей «Бэкап») ----------
+    // ---------- запуск бэкапа (страница «Бэкап» или расписание) ----------
 
     public async Task StartBackupAsync(BackupRequest request)
     {
-        if (_operationRunning)
+        if (_operationRunning || request.Targets.Count == 0)
             return;
 
         _operationRunning = true;
@@ -190,61 +225,47 @@ public sealed partial class MainWindow : Window
         var settings = AppSettings.Load();
         try
         {
-            // Если локально хранить не нужно — собираем во временной папке и удалим после заливки.
-            var outDir = request.KeepLocal
-                ? settings.LocalBackupDir
-                : Path.Combine(Path.GetTempPath(), "eBackup");
+            // Архив собирается во временной папке и раскладывается по всем целям одинаково.
+            var buildDir = Path.Combine(Path.GetTempPath(), "eBackup");
             var name = BackupNaming.DefaultName(request.Modules);
 
             var engine = new BackupEngine();
             var archive = await Task.Run(() =>
-                engine.CreateBackupAsync(request.Modules, outDir, name, request.Passphrase, progress));
-            SetFill(request.Targets.Count == 0 ? 1.0 : 0.75); // архив готов
+                engine.CreateBackupAsync(request.Modules, buildDir, name, request.Passphrase, progress));
+            SetFill(0.70);
 
-            var uploaded = new List<string>();
+            var done = new List<string>();
             var failed = new List<string>();
             for (var i = 0; i < request.Targets.Count; i++)
             {
-                var conn = request.Targets[i];
-                StatusSub.Text = $"Загружаю на {conn.Name}…";
+                var target = request.Targets[i];
+                StatusSub.Text = $"Сохраняю в «{target.Name}»…";
                 try
                 {
-                    var provider = new SftpStorageProvider(_store.Unprotect(conn));
-                    await provider.UploadAsync(archive, Path.GetFileName(archive));
-                    uploaded.Add(conn.Name);
+                    var storage = StorageFactory.Create(target, _storages.Protector);
+                    await storage.UploadAsync(archive, Path.GetFileName(archive));
+                    done.Add(target.Name);
 
-                    // Хранение версий на сервере: оставляем последних N архивов.
+                    // Хранение версий: одинаково для папок, SFTP и будущих облаков.
                     if (settings.RetentionCount > 0)
                     {
-                        StatusSub.Text = $"{conn.Name}: убираю старые архивы…";
-                        var remote = await provider.ListDetailedAsync(); // уже отсортированы: свежие первыми
-                        foreach (var old in remote.Skip(settings.RetentionCount))
-                            await provider.DeleteAsync(old.Name);
+                        StatusSub.Text = $"{target.Name}: убираю старые архивы…";
+                        var files = await storage.ListDetailedAsync();
+                        foreach (var old in files.Skip(settings.RetentionCount))
+                            await storage.DeleteAsync(old.Name);
                     }
                 }
                 catch (Exception ex)
                 {
-                    failed.Add($"{conn.Name}: {ex.Message}");
+                    failed.Add($"{target.Name}: {ex.Message}");
                 }
-                SetFill(0.75 + 0.25 * (i + 1) / request.Targets.Count); // заливка по целям
+                SetFill(0.70 + 0.30 * (i + 1) / request.Targets.Count);
             }
 
-            if (!request.KeepLocal)
-            {
-                try { File.Delete(archive); } catch { /* мусор в temp не критичен */ }
-            }
-            else if (settings.RetentionCount > 0)
-            {
-                // Хранение версий локально.
-                ApplyLocalRetention(outDir, settings.RetentionCount);
-            }
-
-            var parts = new List<string>();
-            if (request.KeepLocal) parts.Add(archive);
-            if (uploaded.Count > 0) parts.Add("→ " + string.Join(", ", uploaded));
+            try { File.Delete(archive); } catch { /* temp */ }
 
             StatusTitle.Text = failed.Count == 0 ? "Готов к работе" : "Бэкап завершён с ошибками";
-            StatusSub.Text = $"последний бэкап: {DateTime.Now:HH:mm}  {string.Join("  ", parts)}"
+            StatusSub.Text = $"последний бэкап: {DateTime.Now:HH:mm}  → {string.Join(", ", done)}"
                 + (failed.Count > 0 ? $"  ✕ {string.Join("; ", failed)}" : string.Empty);
         }
         catch (Exception ex)
@@ -353,19 +374,29 @@ public sealed partial class MainWindow : Window
         if (modules.Count == 0)
             return null;
 
-        List<SavedSftpConnection> targets;
+        List<SavedStorage> targets;
         try
         {
-            targets = (await _store.LoadAsync())
-                .Where(c => s.TargetConnectionIds.Contains(c.Id, StringComparer.OrdinalIgnoreCase))
+            var storages = (await _storages.LoadAsync()).ToList();
+            targets = storages
+                .Where(st => s.TargetConnectionIds.Contains(st.Id, StringComparer.OrdinalIgnoreCase))
                 .ToList();
+
+            // Legacy: старые расписания с «локальной папкой» отдельным флагом.
+            if (s.KeepLocal)
+            {
+                var local = storages.FirstOrDefault(st => st.Id == "local")
+                    ?? storages.FirstOrDefault(st => st.Kind == StorageKind.LocalFolder);
+                if (local is not null && targets.All(t => t.Id != local.Id))
+                    targets.Add(local);
+            }
         }
         catch
         {
             targets = [];
         }
 
-        if (!s.KeepLocal && targets.Count == 0)
+        if (targets.Count == 0)
             return null;
 
         string? passphrase = null;
@@ -381,26 +412,7 @@ public sealed partial class MainWindow : Window
             }
         }
 
-        return new BackupRequest(modules, s.KeepLocal, targets, passphrase);
-    }
-
-    private static void ApplyLocalRetention(string dir, int keep)
-    {
-        try
-        {
-            var old = Directory.GetFiles(dir, "*.ebk")
-                .Select(f => new FileInfo(f))
-                .OrderByDescending(f => f.LastWriteTime)
-                .Skip(keep);
-            foreach (var f in old)
-            {
-                try { f.Delete(); } catch { /* занятый файл пропустим — удалится в следующий раз */ }
-            }
-        }
-        catch
-        {
-            // чистка не должна ронять успешный бэкап
-        }
+        return new BackupRequest(modules, targets, passphrase);
     }
 
     // ---------- восстановление (вызывается страницей «Восстановление») ----------
@@ -419,7 +431,7 @@ public sealed partial class MainWindow : Window
         string? tempDownloaded = null;
         try
         {
-            // Источник: локальный файл либо скачивание с сервера во временную папку.
+            // Источник: прямой путь (хранилище-папка) либо скачивание из хранилища в temp.
             string archive;
             if (request.Source.LocalPath is not null)
             {
@@ -427,13 +439,13 @@ public sealed partial class MainWindow : Window
             }
             else
             {
-                var conns = await _store.LoadAsync();
-                var conn = conns.FirstOrDefault(c => c.Id == request.Source.ConnectionId)
-                    ?? throw new InvalidOperationException("Подключение-источник не найдено.");
-                StatusSub.Text = $"Скачиваю {request.Source.RemoteName} с {conn.Name}…";
-                var provider = new SftpStorageProvider(_store.Unprotect(conn));
+                var storages = await _storages.LoadAsync();
+                var saved = storages.FirstOrDefault(s => s.Id == request.Source.StorageId)
+                    ?? throw new InvalidOperationException("Хранилище-источник не найдено.");
+                StatusSub.Text = $"Скачиваю {request.Source.RemoteName} из «{saved.Name}»…";
+                var storage = StorageFactory.Create(saved, _storages.Protector);
                 tempDownloaded = Path.Combine(Path.GetTempPath(), "eBackup", request.Source.RemoteName!);
-                await provider.DownloadAsync(request.Source.RemoteName!, tempDownloaded);
+                await storage.DownloadAsync(request.Source.RemoteName!, tempDownloaded);
                 archive = tempDownloaded;
                 SetFill(0.25);
             }

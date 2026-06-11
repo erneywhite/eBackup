@@ -5,7 +5,7 @@ using eBackup.Core.Engine;
 using eBackup.Core.Modules;
 using eBackup.Modules.Obs;
 using eBackup.Security;
-using eBackup.Storage.Sftp;
+using eBackup.Storage;
 
 // Реестр модулей: встроенные (OBS, приоритетнее) + декларативные drop-in + (позже) DLL.
 var registry = new ModuleRegistry(
@@ -56,48 +56,45 @@ switch (command)
         }
 
         var path = await new BackupEngine().CreateBackupAsync(chosen, outDir, name, passphrase, new ConsoleProgress());
-        Console.WriteLine(passphrase is null
-            ? $"Готово (локально): {path}"
-            : $"Готово (локально, зашифровано): {path}");
+        Console.WriteLine($"Готово (локально): {path}");
 
-        var sftpId = GetOption(args, "--sftp");
-        if (sftpId is not null)
+        var storageId = GetOption(args, "--storage") ?? GetOption(args, "--sftp");
+        if (storageId is not null)
         {
-            var provider = await ResolveSftpAsync(sftpId);
-            if (provider is null) return 1;
-            var remoteName = Path.GetFileName(path);
-            Console.WriteLine($"Загружаю на {provider.Name} ...");
-            await provider.UploadAsync(path, remoteName);
-            Console.WriteLine($"Загружено на сервер: {remoteName}");
+            var storage = await ResolveStorageAsync(storageId);
+            if (storage is null) return 1;
+            Console.WriteLine($"Сохраняю в «{storage.Name}» ...");
+            await storage.UploadAsync(path, Path.GetFileName(path));
+            Console.WriteLine($"Сохранено: {Path.GetFileName(path)}");
         }
         break;
     }
 
     case "restore":
     {
-        var sftpId = GetOption(args, "--sftp");
+        var storageId = GetOption(args, "--storage") ?? GetOption(args, "--sftp");
         var toDir = GetOption(args, "--to");
         var archive = GetOption(args, "--archive");
 
-        if (sftpId is not null)
+        if (storageId is not null)
         {
             var remoteName = GetOption(args, "--name") ?? archive;
             if (remoteName is null)
             {
-                Console.Error.WriteLine("Для restore по SFTP укажите --name <имя.ebk> (см. sftp-ls).");
+                Console.Error.WriteLine("Для restore из хранилища укажите --name <имя.ebk> (см. storage-ls).");
                 return 1;
             }
-            var provider = await ResolveSftpAsync(sftpId);
-            if (provider is null) return 1;
+            var storage = await ResolveStorageAsync(storageId);
+            if (storage is null) return 1;
             var tmp = Path.Combine(Path.GetTempPath(), Path.GetFileName(remoteName));
-            Console.WriteLine($"Скачиваю {remoteName} с {provider.Name} ...");
-            await provider.DownloadAsync(remoteName, tmp);
+            Console.WriteLine($"Скачиваю {remoteName} из «{storage.Name}» ...");
+            await storage.DownloadAsync(remoteName, tmp);
             archive = tmp;
         }
 
         if (archive is null)
         {
-            Console.Error.WriteLine("Укажите --archive <путь.ebk> либо --sftp <id> --name <имя.ebk>.");
+            Console.Error.WriteLine("Укажите --archive <путь.ebk> либо --storage <id> --name <имя.ebk>.");
             return 1;
         }
 
@@ -148,41 +145,49 @@ switch (command)
         await SftpAddAsync();
         break;
 
+    case "storage-list":
     case "sftp-list":
-        await SftpListAsync();
+        await StorageListAsync();
         break;
 
+    case "storage-test":
     case "sftp-test":
     {
         var id = args.Length > 1 ? args[1] : GetOption(args, "--id");
         if (id is null)
         {
-            Console.Error.WriteLine("Укажите id: ebackup sftp-test <id>");
+            Console.Error.WriteLine("Укажите id: ebackup storage-test <id>");
             return 1;
         }
-        return await SftpTestAsync(id) ? 0 : 1;
+        var storage = await ResolveStorageAsync(id);
+        if (storage is null) return 1;
+        Console.WriteLine($"Проверяю «{storage.Name}» ...");
+        var result = await storage.TestAsync();
+        Console.WriteLine((result.Success ? "OK: " : "ОШИБКА: ") + result.Message);
+        return result.Success ? 0 : 1;
     }
 
+    case "storage-ls":
     case "sftp-ls":
     {
         var id = args.Length > 1 ? args[1] : GetOption(args, "--id");
         if (id is null)
         {
-            Console.Error.WriteLine("Укажите id: ebackup sftp-ls <id>");
+            Console.Error.WriteLine("Укажите id: ebackup storage-ls <id>");
             return 1;
         }
-        var provider = await ResolveSftpAsync(id);
-        if (provider is null) return 1;
-        var files = await provider.ListAsync();
+        var storage = await ResolveStorageAsync(id);
+        if (storage is null) return 1;
+        var files = await storage.ListDetailedAsync();
         if (files.Count == 0)
         {
-            Console.WriteLine("На сервере нет архивов .ebk в целевой папке.");
+            Console.WriteLine("Архивов нет.");
         }
         else
         {
-            Console.WriteLine("Архивы на сервере:");
+            Console.WriteLine($"Архивы в «{storage.Name}»:");
             foreach (var f in files)
-                Console.WriteLine("  " + f);
+                Console.WriteLine($"  {f.Name,-50} {f.Length / 1024.0 / 1024.0,8:0.#} МБ  {f.LastWriteTime:dd.MM.yyyy HH:mm}");
         }
         break;
     }
@@ -211,24 +216,24 @@ switch (command)
     default:
         Console.WriteLine(
             """
-            eBackup CLI (v1, черновик)
+            eBackup CLI
 
             Бэкап / восстановление:
               list-modules                                         Список доступных модулей
-              backup  --out <dir> [--name <имя>] [--modules id,..] [--sftp <id>] [--encrypt]   Создать .ebk
+              backup  --out <dir> [--name <имя>] [--modules id,..] [--storage <id>] [--encrypt]   Создать .ebk
               restore --archive <путь.ebk> [--to <папка>] [--assets-dir <папка>]   Распаковать
-              restore --sftp <id> --name <имя.ebk> [--to <папка>]                  Скачать с SFTP и распаковать
+              restore --storage <id> --name <имя.ebk> [--to <папка>]               Скачать из хранилища и распаковать
                   (--encrypt: AES-256-GCM, ключ из парольной фразы через Argon2id; restore спросит фразу сам)
                   (неинтерактивно фразу можно задать через переменную окружения EBACKUP_PASSPHRASE)
                   (--assets-dir: куда раскладывать внешние ассеты модулей; по умолчанию Documents\eBackup\Assets)
                   (--conflict: backup [по умолч., с .bak] | overwrite | add-missing)
                   (восстановление плагинов в Program Files требует запуска от администратора)
 
-            SFTP-подключения (учётки шифруются через Windows DPAPI):
-              sftp-add                                Добавить/обновить подключение (интерактивно)
-              sftp-list                               Список сохранённых подключений
-              sftp-test <id>                          Проверить связь
-              sftp-ls   <id>                          Список архивов .ebk на сервере
+            Хранилища (единый конфиг с GUI; секреты шифруются через Windows DPAPI):
+              sftp-add                                Добавить/обновить SFTP-хранилище (интерактивно)
+              storage-list                            Список хранилищ
+              storage-test <id>                       Проверить доступность
+              storage-ls   <id>                       Список архивов .ebk в хранилище
 
             Модули (%APPDATA%\eBackup\modules):
               module-add <файл.module.json>           Импортировать декларативный модуль (drop-in)
@@ -246,7 +251,19 @@ static string? GetOption(string[] args, string name)
     return i >= 0 && i + 1 < args.Length ? args[i + 1] : null;
 }
 
-static SftpConnectionStore Store() => new(new DpapiSecretProtector());
+static StorageStore Store() => new(new DpapiSecretProtector());
+
+static async Task<IArchiveStorage?> ResolveStorageAsync(string id)
+{
+    var store = Store();
+    var saved = (await store.LoadAsync()).FirstOrDefault(s => string.Equals(s.Id, id, StringComparison.OrdinalIgnoreCase));
+    if (saved is null)
+    {
+        Console.Error.WriteLine($"Хранилище с id «{id}» не найдено. Список: ebackup storage-list");
+        return null;
+    }
+    return StorageFactory.Create(saved, store.Protector);
+}
 
 static string Prompt(string label, string? def = null)
 {
@@ -294,11 +311,11 @@ static string? ReadNewPassphrase()
     return first;
 }
 
-// ---------- команды SFTP ----------
+// ---------- команды хранилищ ----------
 
 static async Task SftpAddAsync()
 {
-    Console.WriteLine("Новое SFTP-подключение (Enter — значение по умолчанию):");
+    Console.WriteLine("Новое SFTP-хранилище (Enter — значение по умолчанию):");
 
     var id = Prompt("Идентификатор (напр. nas)");
     if (string.IsNullOrWhiteSpace(id))
@@ -340,66 +357,48 @@ static async Task SftpAddAsync()
 
     var remoteDir = Prompt("Удалённая папка", ".");
 
-    var options = new SftpConnectionOptions
+    var store = Store();
+    var saved = new SavedStorage
     {
+        Id = id,
+        Name = name,
+        Kind = StorageKind.Sftp,
         Host = host,
         Port = port,
         Username = user,
-        Password = password,
-        PrivateKeyPem = keyPem,
-        PrivateKeyPassphrase = keyPassphrase,
+        ProtectedPassword = password is null ? null : store.Protect(password),
+        ProtectedPrivateKey = keyPem is null ? null : store.Protect(keyPem),
+        ProtectedKeyPassphrase = keyPassphrase is null ? null : store.Protect(keyPassphrase),
         RemoteDirectory = remoteDir
     };
 
-    var store = Store();
-    var saved = store.Protect(id, name, options);
-    var all = (await store.LoadAsync()).Where(c => c.Id != id).ToList();
-    all.Add(saved);
+    var all = (await store.LoadAsync()).Where(s => s.Id != id).Append(saved).ToList();
     await store.SaveAllAsync(all);
 
-    Console.WriteLine($"Сохранено: «{name}» (id: {id}). Файл: {SftpConnectionStore.DefaultFilePath()}");
-    Console.WriteLine($"Проверить связь: ebackup sftp-test {id}");
+    Console.WriteLine($"Сохранено: «{name}» (id: {id}). Файл: {StorageStore.DefaultFilePath()}");
+    Console.WriteLine($"Проверить: ebackup storage-test {id}");
 }
 
-static async Task SftpListAsync()
+static async Task StorageListAsync()
 {
     var all = await Store().LoadAsync();
     if (all.Count == 0)
     {
-        Console.WriteLine("Сохранённых подключений нет. Добавить: ebackup sftp-add");
+        Console.WriteLine("Хранилищ нет. Добавить SFTP: ebackup sftp-add (папки — в GUI).");
         return;
     }
 
-    Console.WriteLine("Сохранённые SFTP-подключения:");
-    foreach (var c in all)
+    Console.WriteLine("Хранилища:");
+    foreach (var s in all)
     {
-        var auth = c.ProtectedPassword is not null ? "пароль"
-                 : c.ProtectedPrivateKey is not null ? "ключ"
-                 : "—";
-        Console.WriteLine($"  {c.Id,-12} {c.Name,-20} {c.Username}@{c.Host}:{c.Port}  папка={c.RemoteDirectory}  вход={auth}");
+        var details = s.Kind switch
+        {
+            StorageKind.LocalFolder => s.Path,
+            StorageKind.Sftp => $"{s.Username}@{s.Host}:{s.Port}  папка={s.RemoteDirectory}",
+            _ => ""
+        };
+        Console.WriteLine($"  {s.Id,-12} {s.Name,-20} [{s.Kind}] {details}");
     }
-}
-
-static async Task<SftpStorageProvider?> ResolveSftpAsync(string id)
-{
-    var conn = (await Store().LoadAsync()).FirstOrDefault(c => c.Id == id);
-    if (conn is null)
-    {
-        Console.Error.WriteLine($"Подключение с id «{id}» не найдено. Список: ebackup sftp-list");
-        return null;
-    }
-    return new SftpStorageProvider(Store().Unprotect(conn));
-}
-
-static async Task<bool> SftpTestAsync(string id)
-{
-    var provider = await ResolveSftpAsync(id);
-    if (provider is null) return false;
-
-    Console.WriteLine($"Проверяю {provider.Name} ...");
-    var result = await provider.TestConnectionAsync();
-    Console.WriteLine((result.Success ? "OK: " : "ОШИБКА: ") + result.Message);
-    return result.Success;
 }
 
 /// <summary>Прогресс бэкапа в консоль.</summary>

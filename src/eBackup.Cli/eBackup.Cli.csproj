@@ -6,6 +6,7 @@
     <ProjectReference Include="..\eBackup.Storage.Local\eBackup.Storage.Local.csproj" />
     <ProjectReference Include="..\eBackup.Storage.Sftp\eBackup.Storage.Sftp.csproj" />
     <ProjectReference Include="..\eBackup.Modules.Obs\eBackup.Modules.Obs.csproj" />
+    <ProjectReference Include="..\eBackup.Storage\eBackup.Storage.csproj" />
   </ItemGroup>
 
   <PropertyGroup>

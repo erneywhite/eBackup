@@ -2,7 +2,7 @@ using eBackup.Core.Modules;
 using eBackup.Core.Scheduling;
 using eBackup.Modules.Obs;
 using eBackup.Security;
-using eBackup.Storage.Sftp;
+using eBackup.Storage;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Media;
@@ -44,7 +44,7 @@ public sealed partial class SchedulePage : Page
     private static int IndexFromDay(DayOfWeek d) => ((int)d + 6) % 7;
 
     private readonly ScheduleStore _scheduleStore = new(new DpapiSecretProtector());
-    private readonly SftpConnectionStore _connStore = new(new DpapiSecretProtector());
+    private readonly StorageStore _storageStore = new(new DpapiSecretProtector());
     private readonly ModuleRegistry _registry = new(
     [
         new BuiltInModuleSource([new ObsBackupModule()]),
@@ -55,7 +55,7 @@ public sealed partial class SchedulePage : Page
     private BackupSchedule? _editing;   // null — создаём новое
     private bool _suppressSelection;
     private readonly List<CheckBox> _moduleChecks = [];
-    private readonly List<CheckBox> _sftpChecks = [];
+    private readonly List<CheckBox> _storageChecks = [];
     private List<string> _schedFolders = [];   // свои папки ЭТОГО расписания
     private readonly List<CheckBox> _dayChecks = [];
 
@@ -165,29 +165,48 @@ public sealed partial class SchedulePage : Page
         _schedFolders = s?.CustomFolders.ToList() ?? [];
         RenderSchedFolders();
 
-        // Цели
-        LocalCheck.IsChecked = s?.KeepLocal ?? true;
-        SftpPanel.Children.Clear();
-        _sftpChecks.Clear();
-        List<SavedSftpConnection> connections;
+        // Цели: единый список хранилищ. Legacy-флаг KeepLocal старых расписаний
+        // отмечает дефолтное локальное хранилище.
+        StoragesPanel.Children.Clear();
+        _storageChecks.Clear();
+        List<SavedStorage> storages;
         try
         {
-            connections = (await _connStore.LoadAsync()).ToList();
+            storages = (await _storageStore.LoadAsync()).ToList();
         }
         catch
         {
-            connections = [];
+            storages = [];
         }
-        foreach (var c in connections)
+
+        if (storages.Count == 0)
         {
-            var cb = new CheckBox
+            StoragesPanel.Children.Add(new TextBlock
             {
-                Content = $"{c.Name}  ({c.Username}@{c.Host}:{c.Port})",
-                Tag = c.Id,
-                IsChecked = s?.TargetConnectionIds.Contains(c.Id, StringComparer.OrdinalIgnoreCase) ?? false
-            };
-            _sftpChecks.Add(cb);
-            SftpPanel.Children.Add(cb);
+                Text = "хранилищ нет — добавь на странице «Хранилища»",
+                FontSize = 12,
+                Foreground = (Brush)Application.Current.Resources["EbTextDimBrush"]
+            });
+        }
+        else
+        {
+            foreach (var st in storages)
+            {
+                var isChecked = s is null
+                    ? st.Kind == StorageKind.LocalFolder
+                    : s.TargetConnectionIds.Contains(st.Id, StringComparer.OrdinalIgnoreCase)
+                      || (s.KeepLocal && (st.Id == "local" ||
+                          (st.Kind == StorageKind.LocalFolder && storages.All(x => x.Id != "local") &&
+                           ReferenceEquals(st, storages.First(x => x.Kind == StorageKind.LocalFolder)))));
+                var cb = new CheckBox
+                {
+                    Content = BackupPage.DescribeStorage(st),
+                    Tag = st.Id,
+                    IsChecked = isChecked
+                };
+                _storageChecks.Add(cb);
+                StoragesPanel.Children.Add(cb);
+            }
         }
 
         // Шифрование: фразу не показываем; пусто при редактировании = оставить прежнюю
@@ -323,10 +342,9 @@ public sealed partial class SchedulePage : Page
             return;
         }
 
-        var keepLocal = LocalCheck.IsChecked == true;
-        var targetIds = _sftpChecks.Where(cb => cb.IsChecked == true)
+        var targetIds = _storageChecks.Where(cb => cb.IsChecked == true)
             .Select(cb => (string)cb.Tag).ToList();
-        if (!keepLocal && targetIds.Count == 0)
+        if (targetIds.Count == 0)
         {
             SetStatus("Выбери хотя бы одно хранилище.", ok: false);
             return;
@@ -395,7 +413,7 @@ public sealed partial class SchedulePage : Page
             Name = name,
             ModuleIds = moduleIds,
             CustomFolders = _schedFolders.ToList(),
-            KeepLocal = keepLocal,
+            KeepLocal = false, // legacy-флаг: новые расписания целиком на единых хранилищах
             TargetConnectionIds = targetIds,
             ProtectedPassphrase = protectedPassphrase,
             Kind = kind,

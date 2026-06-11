@@ -11,11 +11,11 @@
 
     <Grid ColumnSpacing="18">
         <Grid.ColumnDefinitions>
-            <ColumnDefinition Width="270" />
+            <ColumnDefinition Width="280" />
             <ColumnDefinition Width="*" />
         </Grid.ColumnDefinitions>
 
-        <!-- ===== Левая панель: список подключений ===== -->
+        <!-- ===== Левая панель: список хранилищ ===== -->
         <Grid Grid.Column="0">
             <Grid.RowDefinitions>
                 <RowDefinition Height="Auto" />
@@ -36,19 +36,20 @@
                 </Button>
             </Grid>
 
-            <ListView x:Name="ConnList" Grid.Row="1" SelectionMode="Single"
-                      SelectionChanged="ConnList_SelectionChanged"
+            <ListView x:Name="StorageList" Grid.Row="1" SelectionMode="Single"
+                      SelectionChanged="StorageList_SelectionChanged"
                       ItemContainerStyle="{StaticResource EbNavItemStyle}">
                 <ListView.ItemTemplate>
-                    <DataTemplate x:DataType="pages:ConnItem">
+                    <DataTemplate x:DataType="pages:StorageItem">
                         <Grid Margin="0,8" ColumnSpacing="8">
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="*" />
                                 <ColumnDefinition Width="Auto" />
                             </Grid.ColumnDefinitions>
                             <StackPanel Grid.Column="0" Spacing="2">
-                                <TextBlock Text="{x:Bind Name}" FontWeight="SemiBold" />
-                                <TextBlock Text="{x:Bind Endpoint}" FontSize="11"
+                                <TextBlock Text="{x:Bind Title}" FontWeight="SemiBold" />
+                                <TextBlock Text="{x:Bind Subtitle}" FontSize="11"
+                                           TextTrimming="CharacterEllipsis"
                                            Foreground="{StaticResource EbTextDimBrush}" />
                             </StackPanel>
                             <!-- Селф-тест: ✓ доступно / ✕ недоступно / … проверяется -->
@@ -62,15 +63,21 @@
             </ListView>
 
             <Button x:Name="AddBtn" Grid.Row="2" HorizontalAlignment="Stretch"
-                    Margin="0,10,0,0" CornerRadius="12" Click="AddBtn_Click">
-                <TextBlock Text="+ Добавить SFTP" />
+                    Margin="0,10,0,0" CornerRadius="12">
+                <TextBlock Text="+ Добавить хранилище" />
+                <Button.Flyout>
+                    <MenuFlyout>
+                        <MenuFlyoutItem Text="Папка или сетевой диск" Click="AddFolder_Click" />
+                        <MenuFlyoutItem Text="SFTP-сервер" Click="AddSftp_Click" />
+                    </MenuFlyout>
+                </Button.Flyout>
             </Button>
         </Grid>
 
         <!-- ===== Правая панель: редактор ===== -->
         <Grid Grid.Column="1">
             <TextBlock x:Name="EmptyHint"
-                       Text="Выбери подключение слева или добавь новое"
+                       Text="Выбери хранилище слева или добавь новое"
                        Foreground="{StaticResource EbTextDimBrush}"
                        HorizontalAlignment="Center" VerticalAlignment="Center" />
 
@@ -78,81 +85,105 @@
                     Background="{StaticResource EbCardBrush}"
                     BorderBrush="{StaticResource EbCardBorderBrush}" BorderThickness="1"
                     Padding="20" VerticalAlignment="Top">
-                <ScrollViewer MaxHeight="560" VerticalScrollBarVisibility="Auto">
+                <ScrollViewer MaxHeight="580" VerticalScrollBarVisibility="Auto">
                     <StackPanel Spacing="10">
-                        <TextBlock x:Name="EditorTitle" Text="Новое подключение"
-                                   FontSize="18" FontWeight="SemiBold" Margin="0,0,0,4" />
+                        <TextBlock x:Name="EditorTitle" Text="Новое хранилище"
+                                   FontSize="18" FontWeight="SemiBold" />
 
                         <TextBlock Text="Название" FontSize="12"
                                    Foreground="{StaticResource EbTextDimBrush}" />
-                        <TextBox x:Name="NameBox" PlaceholderText="имя подключения — как будет показано в списке" />
+                        <TextBox x:Name="NameBox" PlaceholderText="имя хранилища — как будет показано в списке" />
 
-                        <Grid ColumnSpacing="10">
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="*" />
-                                <ColumnDefinition Width="110" />
-                            </Grid.ColumnDefinitions>
-                            <StackPanel Grid.Column="0" Spacing="10">
-                                <TextBlock Text="Хост / IP" FontSize="12"
-                                           Foreground="{StaticResource EbTextDimBrush}" />
-                                <TextBox x:Name="HostBox" PlaceholderText="адрес сервера (домен или IP)" />
+                        <!-- ===== Папка / сетевой диск ===== -->
+                        <StackPanel x:Name="FolderPanel" Spacing="10" Visibility="Collapsed">
+                            <TextBlock Text="Путь к папке" FontSize="12"
+                                       Foreground="{StaticResource EbTextDimBrush}" />
+                            <Grid ColumnSpacing="8">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="Auto" />
+                                </Grid.ColumnDefinitions>
+                                <TextBox x:Name="PathBox"
+                                         PlaceholderText="D:\Backups, Z:\… или \\nas\share\backups" />
+                                <Button x:Name="BrowsePathBtn" Grid.Column="1" Content="Обзор…"
+                                        CornerRadius="10" Click="BrowsePathBtn_Click" />
+                            </Grid>
+
+                            <TextBlock Text="Авторизация для сетевой папки (если требуется; подключение временное — в системе не сохраняется)"
+                                       FontSize="12" TextWrapping="Wrap"
+                                       Foreground="{StaticResource EbTextDimBrush}" Margin="0,4,0,0" />
+                            <TextBox x:Name="ShareUserBox"
+                                     PlaceholderText="логин (например, nas\user или user)" />
+                            <PasswordBox x:Name="SharePassBox" PlaceholderText="пароль" />
+                        </StackPanel>
+
+                        <!-- ===== SFTP ===== -->
+                        <StackPanel x:Name="SftpPanel" Spacing="10" Visibility="Collapsed">
+                            <Grid ColumnSpacing="10">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="110" />
+                                </Grid.ColumnDefinitions>
+                                <StackPanel Grid.Column="0" Spacing="10">
+                                    <TextBlock Text="Хост / IP" FontSize="12"
+                                               Foreground="{StaticResource EbTextDimBrush}" />
+                                    <TextBox x:Name="HostBox" PlaceholderText="адрес сервера (домен или IP)" />
+                                </StackPanel>
+                                <StackPanel Grid.Column="1" Spacing="10">
+                                    <TextBlock Text="Порт" FontSize="12"
+                                               Foreground="{StaticResource EbTextDimBrush}" />
+                                    <TextBox x:Name="PortBox" Text="22" />
+                                </StackPanel>
+                            </Grid>
+
+                            <TextBlock Text="Логин" FontSize="12"
+                                       Foreground="{StaticResource EbTextDimBrush}" />
+                            <TextBox x:Name="UserBox" PlaceholderText="имя пользователя на сервере" />
+
+                            <TextBlock Text="Аутентификация" FontSize="12"
+                                       Foreground="{StaticResource EbTextDimBrush}" Margin="0,4,0,0" />
+                            <StackPanel Orientation="Horizontal" Spacing="18">
+                                <RadioButton x:Name="AuthPassword" Content="Пароль" GroupName="auth"
+                                             IsChecked="True" Checked="AuthMode_Changed" />
+                                <RadioButton x:Name="AuthKey" Content="SSH-ключ" GroupName="auth"
+                                             Checked="AuthMode_Changed" />
                             </StackPanel>
-                            <StackPanel Grid.Column="1" Spacing="10">
-                                <TextBlock Text="Порт" FontSize="12"
-                                           Foreground="{StaticResource EbTextDimBrush}" />
-                                <TextBox x:Name="PortBox" Text="22" />
+
+                            <StackPanel x:Name="PasswordPanel" Spacing="10">
+                                <PasswordBox x:Name="PassBox" PlaceholderText="пароль" />
                             </StackPanel>
-                        </Grid>
 
-                        <TextBlock Text="Логин" FontSize="12"
-                                   Foreground="{StaticResource EbTextDimBrush}" />
-                        <TextBox x:Name="UserBox" PlaceholderText="имя пользователя на сервере" />
+                            <StackPanel x:Name="KeyPanel" Spacing="10" Visibility="Collapsed">
+                                <TextBox x:Name="KeyPemBox" AcceptsReturn="True" Height="110"
+                                         TextWrapping="Wrap" FontFamily="Consolas" FontSize="12"
+                                         ScrollViewer.VerticalScrollBarVisibility="Auto"
+                                         PlaceholderText="-----BEGIN OPENSSH PRIVATE KEY-----  (вставь содержимое приватного ключа)" />
+                                <PasswordBox x:Name="KeyPassBox"
+                                             PlaceholderText="парольная фраза ключа (если есть)" />
+                            </StackPanel>
 
-                        <TextBlock Text="Аутентификация" FontSize="12"
-                                   Foreground="{StaticResource EbTextDimBrush}" Margin="0,4,0,0" />
-                        <StackPanel Orientation="Horizontal" Spacing="18">
-                            <RadioButton x:Name="AuthPassword" Content="Пароль" GroupName="auth"
-                                         IsChecked="True" Checked="AuthMode_Changed" />
-                            <RadioButton x:Name="AuthKey" Content="SSH-ключ" GroupName="auth"
-                                         Checked="AuthMode_Changed" />
+                            <TextBlock Text="Удалённая папка для архивов" FontSize="12"
+                                       Foreground="{StaticResource EbTextDimBrush}" Margin="0,4,0,0" />
+                            <Grid ColumnSpacing="10">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="Auto" />
+                                </Grid.ColumnDefinitions>
+                                <TextBox x:Name="RemoteDirBox" Grid.Column="0" Text="." />
+                                <Button x:Name="BrowseBtn" Grid.Column="1" Content="Обзор…"
+                                        CornerRadius="10" Click="BrowseBtn_Click" />
+                            </Grid>
+
+                            <!-- Дерево удалённых папок (ленивая подгрузка по раскрытию узла) -->
+                            <Border x:Name="TreePanel" Visibility="Collapsed" CornerRadius="12"
+                                    Background="#0DFFFFFF"
+                                    BorderBrush="{StaticResource EbCardBorderBrush}" BorderThickness="1"
+                                    Padding="6">
+                                <TreeView x:Name="FolderTree" MaxHeight="220"
+                                          SelectionMode="None" CanDragItems="False"
+                                          CanReorderItems="False" />
+                            </Border>
                         </StackPanel>
-
-                        <StackPanel x:Name="PasswordPanel" Spacing="10">
-                            <PasswordBox x:Name="PassBox" PlaceholderText="пароль" />
-                        </StackPanel>
-
-                        <StackPanel x:Name="KeyPanel" Spacing="10" Visibility="Collapsed">
-                            <!-- Содержимое ключа вставляется прямо сюда и хранится зашифрованным
-                                 (DPAPI) — файл ключа не обязан оставаться на диске. -->
-                            <TextBox x:Name="KeyPemBox" AcceptsReturn="True" Height="110"
-                                     TextWrapping="Wrap" FontFamily="Consolas" FontSize="12"
-                                     ScrollViewer.VerticalScrollBarVisibility="Auto"
-                                     PlaceholderText="-----BEGIN OPENSSH PRIVATE KEY-----  (вставь содержимое приватного ключа)" />
-                            <PasswordBox x:Name="KeyPassBox"
-                                         PlaceholderText="парольная фраза ключа (если есть)" />
-                        </StackPanel>
-
-                        <TextBlock Text="Удалённая папка для архивов" FontSize="12"
-                                   Foreground="{StaticResource EbTextDimBrush}" Margin="0,4,0,0" />
-                        <Grid ColumnSpacing="10">
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="*" />
-                                <ColumnDefinition Width="Auto" />
-                            </Grid.ColumnDefinitions>
-                            <TextBox x:Name="RemoteDirBox" Grid.Column="0" Text="." />
-                            <Button x:Name="BrowseBtn" Grid.Column="1" Content="Обзор…"
-                                    CornerRadius="10" Click="BrowseBtn_Click" />
-                        </Grid>
-
-                        <!-- Дерево удалённых папок (ленивая подгрузка по раскрытию узла) -->
-                        <Border x:Name="TreePanel" Visibility="Collapsed" CornerRadius="12"
-                                Background="#0DFFFFFF"
-                                BorderBrush="{StaticResource EbCardBorderBrush}" BorderThickness="1"
-                                Padding="6">
-                            <TreeView x:Name="FolderTree" MaxHeight="220"
-                                      SelectionMode="None" CanDragItems="False"
-                                      CanReorderItems="False" />
-                        </Border>
 
                         <StackPanel Orientation="Horizontal" Spacing="10" Margin="0,8,0,0">
                             <Button x:Name="TestBtn" Content="Тест" CornerRadius="12"

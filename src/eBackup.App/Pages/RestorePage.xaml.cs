@@ -12,8 +12,8 @@ using Microsoft.UI.Xaml.Navigation;
 
 namespace eBackup.App.Pages;
 
-/// <summary>Откуда брать архив: локальный путь либо имя файла на сохранённом подключении.</summary>
-public sealed record RestoreSource(string? LocalPath, string? ConnectionId, string? RemoteName);
+/// <summary>Откуда брать архив: прямой локальный путь либо файл в сохранённом хранилище.</summary>
+public sealed record RestoreSource(string? LocalPath, string? StorageId, string? RemoteName);
 
 public sealed partial class RestorePage : Page
 {
@@ -69,7 +69,7 @@ public sealed partial class RestorePage : Page
         else
         {
             ArchiveName.Text = _source.RemoteName ?? "?";
-            ArchiveSourceText.Text = "с сервера (скачается во временную папку перед распаковкой)";
+            ArchiveSourceText.Text = "из хранилища (скачается во временную папку перед распаковкой)";
             PassHint.Text = "Если архив зашифрован — введи парольную фразу (узнаем после скачивания).";
             PassBox.Visibility = Visibility.Visible;
         }

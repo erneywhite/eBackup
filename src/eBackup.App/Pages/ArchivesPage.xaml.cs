@@ -1,6 +1,6 @@
 using eBackup.Core.Crypto;
 using eBackup.Security;
-using eBackup.Storage.Sftp;
+using eBackup.Storage;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Media;
@@ -9,7 +9,7 @@ namespace eBackup.App.Pages;
 
 public sealed partial class ArchivesPage : Page
 {
-    private readonly SftpConnectionStore _store = new(new DpapiSecretProtector());
+    private readonly StorageStore _store = new(new DpapiSecretProtector());
     private bool _refreshing;
 
     public ArchivesPage()
@@ -26,8 +26,6 @@ public sealed partial class ArchivesPage : Page
 
     private async void OnBackupCompleted() => await RefreshAsync();
 
-    private static string LocalBackupDir() => AppSettings.Load().LocalBackupDir;
-
     private async void RefreshBtn_Click(object sender, RoutedEventArgs e) => await RefreshAsync();
 
     private async Task RefreshAsync()
@@ -41,40 +39,68 @@ public sealed partial class ArchivesPage : Page
         {
             Sections.Children.Clear();
 
-            // ---- локальные архивы
-            var localDir = LocalBackupDir();
-            AddHeader($"Локально — {localDir}");
+            List<SavedStorage> storages;
             try
             {
-                var files = Directory.Exists(localDir)
-                    ? Directory.GetFiles(localDir, "*.ebk")
-                        .Select(f => new FileInfo(f))
-                        .OrderByDescending(f => f.LastWriteTime)
-                        .ToList()
-                    : [];
+                storages = (await _store.LoadAsync()).ToList();
+            }
+            catch (Exception ex)
+            {
+                AddDim("не удалось прочитать конфиг хранилищ: " + ex.Message);
+                return;
+            }
 
-                if (files.Count == 0)
+            if (storages.Count == 0)
+            {
+                AddDim("хранилищ нет — добавь на странице «Хранилища», и архивы появятся здесь");
+                return;
+            }
+
+            // Единый код для папок, SFTP и будущих облаков.
+            foreach (var s in storages)
+            {
+                AddHeader(s.Kind switch
                 {
-                    AddDim("архивов пока нет — сделай первый бэкап кнопкой внизу");
-                }
-                else
+                    StorageKind.LocalFolder => $"{s.Name} — {s.Path}",
+                    StorageKind.Sftp => $"{s.Name} — {s.Username}@{s.Host}:{s.Port}, папка {s.RemoteDirectory}",
+                    _ => s.Name
+                });
+
+                try
                 {
+                    var storage = StorageFactory.Create(s, _store.Protector);
+                    var files = await storage.ListDetailedAsync();
+                    if (files.Count == 0)
+                    {
+                        AddDim("архивов нет");
+                        continue;
+                    }
+
                     foreach (var f in files)
                     {
                         var encrypted = false;
-                        try { encrypted = ArchiveCipher.IsEncrypted(f.FullName); } catch { }
-                        var path = f.FullName;
+                        string? directPath = null;
+                        if (storage is FolderStorage folder)
+                        {
+                            directPath = folder.GetLocalPath(f.Name);
+                            try { encrypted = ArchiveCipher.IsEncrypted(directPath); } catch { }
+                        }
+
+                        var source = directPath is not null
+                            ? new RestoreSource(directPath, null, null)
+                            : new RestoreSource(null, s.Id, f.Name);
+
                         AddRow(f.Name,
                             $"{f.Length / 1024.0 / 1024.0:0.#} МБ · {f.LastWriteTime:dd.MM.yyyy HH:mm}"
                             + (encrypted ? " · 🔒 зашифрован" : ""),
-                            () => OpenRestore(new RestoreSource(path, null, null)),
+                            () => OpenRestore(source),
                             async () =>
                             {
-                                if (!await ConfirmDeleteAsync(f.Name, "из локальной папки"))
+                                if (!await ConfirmDeleteAsync(f.Name, $"из «{s.Name}»"))
                                     return;
                                 try
                                 {
-                                    File.Delete(path);
+                                    await storage.DeleteAsync(f.Name);
                                 }
                                 catch (Exception ex)
                                 {
@@ -84,56 +110,9 @@ public sealed partial class ArchivesPage : Page
                             });
                     }
                 }
-            }
-            catch (Exception ex)
-            {
-                AddDim("не удалось прочитать папку: " + ex.Message);
-            }
-
-            // ---- архивы на SFTP-серверах
-            List<SavedSftpConnection> connections;
-            try
-            {
-                connections = (await _store.LoadAsync()).ToList();
-            }
-            catch
-            {
-                connections = [];
-            }
-
-            foreach (var conn in connections)
-            {
-                AddHeader($"{conn.Name} — {conn.Username}@{conn.Host}:{conn.Port}, папка {conn.RemoteDirectory}");
-                try
-                {
-                    var provider = new SftpStorageProvider(_store.Unprotect(conn));
-                    var files = await provider.ListDetailedAsync();
-                    if (files.Count == 0)
-                        AddDim("архивов нет");
-                    else
-                        foreach (var f in files)
-                            AddRow(f.Name,
-                                $"{f.Length / 1024.0 / 1024.0:0.#} МБ · {f.LastWriteTime:dd.MM.yyyy HH:mm} · на сервере",
-                                () => OpenRestore(new RestoreSource(null, conn.Id, f.Name)),
-                                async () =>
-                                {
-                                    if (!await ConfirmDeleteAsync(f.Name, $"с сервера «{conn.Name}»"))
-                                        return;
-                                    try
-                                    {
-                                        var p = new SftpStorageProvider(_store.Unprotect(conn));
-                                        await p.DeleteAsync(f.Name);
-                                    }
-                                    catch (Exception ex)
-                                    {
-                                        await ShowErrorAsync("Не удалось удалить: " + ex.Message);
-                                    }
-                                    await RefreshAsync();
-                                });
-                }
                 catch (Exception ex)
                 {
-                    AddDim("✕ сервер недоступен: " + ex.Message);
+                    AddDim("✕ недоступно: " + ex.Message);
                 }
             }
         }

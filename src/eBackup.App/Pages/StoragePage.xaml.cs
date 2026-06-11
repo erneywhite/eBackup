@@ -1,5 +1,6 @@
 using System.ComponentModel;
 using eBackup.Security;
+using eBackup.Storage;
 using eBackup.Storage.Sftp;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
@@ -8,14 +9,20 @@ using Microsoft.UI.Xaml.Media;
 namespace eBackup.App.Pages;
 
 /// <summary>
-/// Элемент списка подключений. INotifyPropertyChanged — чтобы значок селф-теста
+/// Элемент списка хранилищ. INotifyPropertyChanged — чтобы значок селф-теста
 /// (✓/✕/…) обновлялся в списке по мере прихода результатов.
 /// </summary>
-public sealed class ConnItem(SavedSftpConnection connection) : INotifyPropertyChanged
+public sealed class StorageItem(SavedStorage storage) : INotifyPropertyChanged
 {
-    public SavedSftpConnection Connection { get; } = connection;
-    public string Name => Connection.Name;
-    public string Endpoint => $"{Connection.Username}@{Connection.Host}:{Connection.Port}";
+    public SavedStorage Storage { get; } = storage;
+    public string Title => Storage.Name;
+
+    public string Subtitle => Storage.Kind switch
+    {
+        StorageKind.LocalFolder => Storage.Path ?? "",
+        StorageKind.Sftp => $"{Storage.Username}@{Storage.Host}:{Storage.Port}",
+        _ => Storage.Kind.ToString()
+    };
 
     private string _statusGlyph = string.Empty;
     public string StatusGlyph
@@ -34,29 +41,14 @@ public sealed class ConnItem(SavedSftpConnection connection) : INotifyPropertyCh
     public event PropertyChangedEventHandler? PropertyChanged;
 }
 
-/// <summary>Узел дерева удалённых папок (текст узла = последний сегмент пути).</summary>
-public sealed class DirNode(string path)
-{
-    public string Path { get; } = path;
-
-    public override string ToString()
-    {
-        var trimmed = Path.TrimEnd('/');
-        var idx = trimmed.LastIndexOf('/');
-        var name = idx >= 0 ? trimmed[(idx + 1)..] : trimmed;
-        return name.Length > 0 ? name : Path;
-    }
-}
-
 public sealed partial class StoragePage : Page
 {
-    private const string DefaultEmptyHint = "Выбери подключение слева или добавь новое";
-
-    private readonly SftpConnectionStore _store = new(new DpapiSecretProtector());
-    private List<SavedSftpConnection> _connections = [];
-    private List<ConnItem> _items = [];
-    private SavedSftpConnection? _editing;          // null — создаём новое подключение
-    private SftpStorageProvider? _browseProvider;   // провайдер текущей сессии обзора папок
+    private readonly StorageStore _store = new(new DpapiSecretProtector());
+    private List<SavedStorage> _storages = [];
+    private List<StorageItem> _items = [];
+    private SavedStorage? _editing;            // null — создаём новое
+    private StorageKind _editorKind;           // тип редактируемого/создаваемого
+    private SftpStorageProvider? _browseProvider;
     private bool _suppressSelection;
     private bool _selfTestRunning;
     private DispatcherTimer? _selfTestTimer;
@@ -82,116 +74,114 @@ public sealed partial class StoragePage : Page
 
     // ---------- список ----------
 
-    /// <summary>Перечитывает конфиг с диска. Ошибки чтения показывает, а не роняет приложение.</summary>
     private async Task ReloadAsync(string? selectId)
     {
-        List<SavedSftpConnection> loaded;
+        List<SavedStorage> loaded;
         try
         {
             loaded = (await _store.LoadAsync()).ToList();
         }
         catch (Exception ex)
         {
-            _connections = [];
+            _storages = [];
             _items = [];
-            ConnList.ItemsSource = null;
+            StorageList.ItemsSource = null;
             Editor.Visibility = Visibility.Collapsed;
-            EmptyHint.Text = "Не удалось прочитать конфиг подключений:\n" + ex.Message;
+            EmptyHint.Text = "Не удалось прочитать конфиг хранилищ:\n" + ex.Message;
             EmptyHint.Visibility = Visibility.Visible;
             return;
         }
 
-        _connections = loaded
-            .OrderBy(c => c.Name, StringComparer.CurrentCultureIgnoreCase)
+        _storages = loaded
+            .OrderBy(s => s.Name, StringComparer.CurrentCultureIgnoreCase)
             .ToList();
-        _items = _connections.Select(c => new ConnItem(c)).ToList();
+        _items = _storages.Select(s => new StorageItem(s)).ToList();
 
         _suppressSelection = true;
-        ConnList.ItemsSource = _items;
+        StorageList.ItemsSource = _items;
         _suppressSelection = false;
 
-        var toSelect = selectId is null ? null : _items.FirstOrDefault(i => i.Connection.Id == selectId);
+        var toSelect = selectId is null ? null : _items.FirstOrDefault(i => i.Storage.Id == selectId);
         if (toSelect is not null)
         {
-            ConnList.SelectedItem = toSelect; // вызовет SelectionChanged → заполнит форму
+            StorageList.SelectedItem = toSelect;
         }
         else
         {
             Editor.Visibility = Visibility.Collapsed;
-            EmptyHint.Text = DefaultEmptyHint;
+            EmptyHint.Text = "Выбери хранилище слева или добавь новое";
             EmptyHint.Visibility = Visibility.Visible;
         }
     }
 
-    private void ConnList_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    private void StorageList_SelectionChanged(object sender, SelectionChangedEventArgs e)
     {
-        if (_suppressSelection || ConnList.SelectedItem is not ConnItem item)
+        if (_suppressSelection || StorageList.SelectedItem is not StorageItem item)
             return;
 
-        _editing = item.Connection;
-        ShowEditor();
-
-        EditorTitle.Text = item.Name;
-        NameBox.Text = item.Connection.Name;
-        HostBox.Text = item.Connection.Host;
-        PortBox.Text = item.Connection.Port.ToString();
-        UserBox.Text = item.Connection.Username;
-        RemoteDirBox.Text = item.Connection.RemoteDirectory;
-
-        var keyAuth = item.Connection.ProtectedPrivateKey is not null;
-        AuthKey.IsChecked = keyAuth;
-        AuthPassword.IsChecked = !keyAuth;
-
-        // Секреты не отображаем: пустое поле = «оставить как было».
-        PassBox.Password = string.Empty;
-        KeyPemBox.Text = string.Empty;
-        KeyPassBox.Password = string.Empty;
-        PassBox.PlaceholderText = item.Connection.ProtectedPassword is null
-            ? "пароль"
-            : "пусто — оставить прежний";
-        KeyPemBox.PlaceholderText = item.Connection.ProtectedPrivateKey is null
-            ? "-----BEGIN OPENSSH PRIVATE KEY-----  (вставь содержимое приватного ключа)"
-            : "пусто — оставить прежний ключ";
-        KeyPassBox.PlaceholderText = item.Connection.ProtectedKeyPassphrase is null
-            ? "парольная фраза ключа (если есть)"
-            : "пусто — оставить прежнюю";
-
-        DeleteBtn.Visibility = Visibility.Visible;
-        ResetTransientUi();
+        _editing = item.Storage;
+        _editorKind = item.Storage.Kind;
+        ShowEditorFor(item.Storage);
     }
 
-    private void AddBtn_Click(object sender, RoutedEventArgs e)
+    private void AddFolder_Click(object sender, RoutedEventArgs e) => StartNew(StorageKind.LocalFolder);
+    private void AddSftp_Click(object sender, RoutedEventArgs e) => StartNew(StorageKind.Sftp);
+
+    private void StartNew(StorageKind kind)
     {
         _suppressSelection = true;
-        ConnList.SelectedItem = null;
+        StorageList.SelectedItem = null;
         _suppressSelection = false;
 
         _editing = null;
-        ShowEditor();
-
-        EditorTitle.Text = "Новое подключение";
-        NameBox.Text = string.Empty;
-        HostBox.Text = string.Empty;
-        PortBox.Text = "22";
-        UserBox.Text = string.Empty;
-        RemoteDirBox.Text = ".";
-        AuthPassword.IsChecked = true;
-        AuthKey.IsChecked = false;
-        PassBox.Password = string.Empty;
-        KeyPemBox.Text = string.Empty;
-        KeyPassBox.Password = string.Empty;
-        PassBox.PlaceholderText = "пароль";
-        KeyPemBox.PlaceholderText = "-----BEGIN OPENSSH PRIVATE KEY-----  (вставь содержимое приватного ключа)";
-        KeyPassBox.PlaceholderText = "парольная фраза ключа (если есть)";
-
-        DeleteBtn.Visibility = Visibility.Collapsed;
-        ResetTransientUi();
+        _editorKind = kind;
+        ShowEditorFor(null);
     }
 
-    private void ShowEditor()
+    // ---------- редактор ----------
+
+    private void ShowEditorFor(SavedStorage? s)
     {
         EmptyHint.Visibility = Visibility.Collapsed;
         Editor.Visibility = Visibility.Visible;
+
+        EditorTitle.Text = s?.Name ?? (_editorKind == StorageKind.LocalFolder
+            ? "Новая папка / сетевой диск"
+            : "Новое SFTP-подключение");
+        NameBox.Text = s?.Name ?? string.Empty;
+
+        FolderPanel.Visibility = _editorKind == StorageKind.LocalFolder ? Visibility.Visible : Visibility.Collapsed;
+        SftpPanel.Visibility = _editorKind == StorageKind.Sftp ? Visibility.Visible : Visibility.Collapsed;
+
+        // Папка / сетевой диск
+        PathBox.Text = s?.Path ?? string.Empty;
+        ShareUserBox.Text = s?.ShareUsername ?? string.Empty;
+        SharePassBox.Password = string.Empty;
+        SharePassBox.PlaceholderText = s?.ProtectedSharePassword is null
+            ? "пароль"
+            : "пусто — оставить прежний";
+
+        // SFTP
+        HostBox.Text = s?.Host ?? string.Empty;
+        PortBox.Text = (s?.Port ?? 22).ToString();
+        UserBox.Text = s?.Username ?? string.Empty;
+        RemoteDirBox.Text = s?.RemoteDirectory ?? ".";
+        var keyAuth = s?.ProtectedPrivateKey is not null;
+        AuthKey.IsChecked = keyAuth;
+        AuthPassword.IsChecked = !keyAuth;
+        PassBox.Password = string.Empty;
+        KeyPemBox.Text = string.Empty;
+        KeyPassBox.Password = string.Empty;
+        PassBox.PlaceholderText = s?.ProtectedPassword is null ? "пароль" : "пусто — оставить прежний";
+        KeyPemBox.PlaceholderText = s?.ProtectedPrivateKey is null
+            ? "-----BEGIN OPENSSH PRIVATE KEY-----  (вставь содержимое приватного ключа)"
+            : "пусто — оставить прежний ключ";
+        KeyPassBox.PlaceholderText = s?.ProtectedKeyPassphrase is null
+            ? "парольная фраза ключа (если есть)"
+            : "пусто — оставить прежнюю";
+
+        DeleteBtn.Visibility = s is null ? Visibility.Collapsed : Visibility.Visible;
+        ResetTransientUi();
     }
 
     private void ResetTransientUi()
@@ -212,6 +202,240 @@ public sealed partial class StoragePage : Page
         KeyPanel.Visibility = keyAuth ? Visibility.Visible : Visibility.Collapsed;
     }
 
+    private async void BrowsePathBtn_Click(object sender, RoutedEventArgs e)
+    {
+        if (MainWindow.Instance is null)
+            return;
+        var picker = new Windows.Storage.Pickers.FolderPicker();
+        picker.FileTypeFilter.Add("*");
+        var hwnd = WinRT.Interop.WindowNative.GetWindowHandle(MainWindow.Instance);
+        WinRT.Interop.InitializeWithWindow.Initialize(picker, hwnd);
+        var folder = await picker.PickSingleFolderAsync();
+        if (folder is not null)
+            PathBox.Text = folder.Path;
+    }
+
+    // ---------- сбор записи из формы ----------
+
+    /// <summary>
+    /// Собирает запись хранилища из формы. Пустые поля секретов при редактировании
+    /// означают «оставить прежний» (Protected*-блоб переносится как есть).
+    /// </summary>
+    private SavedStorage? BuildFromForm(string id, string name, out string? error)
+    {
+        error = null;
+
+        if (_editorKind == StorageKind.LocalFolder)
+        {
+            var path = PathBox.Text.Trim();
+            if (path.Length == 0)
+            {
+                error = "Укажи путь к папке.";
+                return null;
+            }
+
+            string? protectedPass = null;
+            if (SharePassBox.Password.Length > 0)
+                protectedPass = _store.Protect(SharePassBox.Password);
+            else if (_editing?.ProtectedSharePassword is not null)
+                protectedPass = _editing.ProtectedSharePassword;
+
+            var shareUser = ShareUserBox.Text.Trim();
+            return new SavedStorage
+            {
+                Id = id,
+                Name = name,
+                Kind = StorageKind.LocalFolder,
+                Path = path,
+                ShareUsername = shareUser.Length == 0 ? null : shareUser,
+                ProtectedSharePassword = protectedPass
+            };
+        }
+
+        // SFTP
+        var host = HostBox.Text.Trim();
+        var user = UserBox.Text.Trim();
+        if (host.Length == 0 || user.Length == 0)
+        {
+            error = "Укажи хост и логин.";
+            return null;
+        }
+
+        int port;
+        var portText = PortBox.Text.Trim();
+        if (portText.Length == 0)
+        {
+            port = 22;
+        }
+        else if (!int.TryParse(portText, out port) || port is <= 0 or > 65535)
+        {
+            error = "Порт должен быть числом от 1 до 65535.";
+            return null;
+        }
+
+        string? protectedPassword = null, protectedKey = null, protectedKeyPass = null;
+        if (AuthKey.IsChecked == true)
+        {
+            if (KeyPemBox.Text.Trim().Length > 0)
+                protectedKey = _store.Protect(KeyPemBox.Text);
+            else if (_editing?.ProtectedPrivateKey is not null)
+                protectedKey = _editing.ProtectedPrivateKey;
+
+            if (protectedKey is null)
+            {
+                error = "Вставь содержимое приватного ключа.";
+                return null;
+            }
+
+            if (KeyPassBox.Password.Length > 0)
+                protectedKeyPass = _store.Protect(KeyPassBox.Password);
+            else if (_editing?.ProtectedKeyPassphrase is not null)
+                protectedKeyPass = _editing.ProtectedKeyPassphrase;
+        }
+        else
+        {
+            if (PassBox.Password.Length > 0)
+                protectedPassword = _store.Protect(PassBox.Password);
+            else if (_editing?.ProtectedPassword is not null)
+                protectedPassword = _editing.ProtectedPassword;
+
+            if (protectedPassword is null)
+            {
+                error = "Введи пароль.";
+                return null;
+            }
+        }
+
+        // Нормализация пути: SFTP не разворачивает «~», пути относительны домашней папки.
+        var dir = RemoteDirBox.Text.Trim().Replace('\\', '/');
+        if (dir == "~")
+            dir = ".";
+        else if (dir.StartsWith("~/", StringComparison.Ordinal))
+            dir = dir[2..];
+
+        return new SavedStorage
+        {
+            Id = id,
+            Name = name,
+            Kind = StorageKind.Sftp,
+            Host = host,
+            Port = port,
+            Username = user,
+            ProtectedPassword = protectedPassword,
+            ProtectedPrivateKey = protectedKey,
+            ProtectedKeyPassphrase = protectedKeyPass,
+            RemoteDirectory = dir.Length == 0 ? "." : dir
+        };
+    }
+
+    // ---------- действия ----------
+
+    private async void TestBtn_Click(object sender, RoutedEventArgs e)
+    {
+        SetBusy(true);
+        try
+        {
+            var built = BuildFromForm(_editing?.Id ?? "test", NameBox.Text.Trim(), out var error);
+            if (built is null)
+            {
+                SetStatus(error!, ok: false);
+                return;
+            }
+
+            SetStatus("Проверяю…", ok: true, dim: true);
+            var result = await StorageFactory.Create(built, _store.Protector).TestAsync();
+            SetStatus(result.Success ? "✓ " + result.Message : "✕ " + result.Message, result.Success);
+        }
+        catch (Exception ex)
+        {
+            SetStatus("✕ " + ex.Message, ok: false);
+        }
+        finally
+        {
+            SetBusy(false);
+        }
+    }
+
+    private async void SaveBtn_Click(object sender, RoutedEventArgs e)
+    {
+        SetBusy(true);
+        try
+        {
+            var name = NameBox.Text.Trim();
+            if (name.Length == 0)
+                name = _editorKind == StorageKind.LocalFolder ? PathBox.Text.Trim() : HostBox.Text.Trim();
+
+            // Сливаемся со СВЕЖИМ состоянием диска (параллельные правки не затираются).
+            var fresh = (await _store.LoadAsync()).ToList();
+            var id = _editing?.Id ?? MakeId(name, fresh);
+
+            var built = BuildFromForm(id, name, out var error);
+            if (built is null)
+            {
+                SetStatus(error!, ok: false);
+                return;
+            }
+
+            await _store.SaveAllAsync(fresh.Where(s => s.Id != id).Append(built).ToList());
+            await ReloadAsync(selectId: id);
+            SetStatus("✓ Сохранено (секреты зашифрованы через DPAPI)", ok: true);
+
+            var item = _items.FirstOrDefault(i => i.Storage.Id == id);
+            if (item is not null)
+                _ = SelfTestOneAsync(item);
+        }
+        catch (Exception ex)
+        {
+            SetStatus("✕ Не удалось сохранить: " + ex.Message, ok: false);
+        }
+        finally
+        {
+            SetBusy(false);
+        }
+    }
+
+    private async void DeleteBtn_Click(object sender, RoutedEventArgs e)
+    {
+        if (_editing is null)
+            return;
+
+        var appRes = Application.Current.Resources;
+        var dialog = new ContentDialog
+        {
+            Title = "Удалить хранилище?",
+            Content = $"«{_editing.Name}» будет удалено из списка. Архивы в нём не трогаем.",
+            PrimaryButtonText = "Удалить",
+            CloseButtonText = "Отмена",
+            DefaultButton = ContentDialogButton.Close,
+            XamlRoot = XamlRoot,
+            Background = (Brush)appRes["EbDialogBrush"],
+            BorderBrush = (Brush)appRes["EbCardBorderBrush"],
+            BorderThickness = new Thickness(1),
+            CornerRadius = new CornerRadius(16),
+            CloseButtonStyle = (Style)appRes["EbDialogCloseStyle"]
+        };
+
+        if (await dialog.ShowAsync() != ContentDialogResult.Primary)
+            return;
+
+        SetBusy(true);
+        try
+        {
+            var fresh = (await _store.LoadAsync()).Where(s => s.Id != _editing.Id).ToList();
+            await _store.SaveAllAsync(fresh);
+            _editing = null;
+            await ReloadAsync(selectId: null);
+        }
+        catch (Exception ex)
+        {
+            SetStatus("✕ Не удалось удалить: " + ex.Message, ok: false);
+        }
+        finally
+        {
+            SetBusy(false);
+        }
+    }
+
     // ---------- селф-тест хранилищ ----------
 
     private void StartSelfTestTimer()
@@ -219,7 +443,6 @@ public sealed partial class StoragePage : Page
         if (_selfTestTimer is not null)
             return;
 
-        // Периодическая проверка доступности, пока экран открыт.
         _selfTestTimer = new DispatcherTimer { Interval = TimeSpan.FromMinutes(5) };
         _selfTestTimer.Tick += async (_, _) => await SelfTestAllAsync();
         _selfTestTimer.Start();
@@ -242,21 +465,19 @@ public sealed partial class StoragePage : Page
         }
     }
 
-    /// <summary>Проверка одного подключения; результат — значок в списке. Никогда не бросает.</summary>
-    private async Task SelfTestOneAsync(ConnItem item)
+    /// <summary>Проверка одного хранилища; результат — значок в списке. Никогда не бросает.</summary>
+    private async Task SelfTestOneAsync(StorageItem item)
     {
         item.StatusGlyph = "…";
         item.StatusBrush = (Brush)Application.Current.Resources["EbTextDimBrush"];
         try
         {
-            var options = _store.Unprotect(item.Connection);
-            var result = await new SftpStorageProvider(options).TestConnectionAsync();
+            var result = await StorageFactory.Create(item.Storage, _store.Protector).TestAsync();
             item.StatusGlyph = result.Success ? "✓" : "✕";
             item.StatusBrush = (Brush)Resources[result.Success ? "EbOkBrush" : "EbErrBrush"];
         }
         catch
         {
-            // Например, DPAPI не расшифровал секреты (конфиг с другого ПК).
             item.StatusGlyph = "✕";
             item.StatusBrush = (Brush)Resources["EbErrBrush"];
         }
@@ -265,215 +486,22 @@ public sealed partial class StoragePage : Page
     private async void RefreshBtn_Click(object sender, RoutedEventArgs e)
         => await SelfTestAllAsync();
 
-    // ---------- сбор параметров из формы ----------
-
-    /// <summary>
-    /// Собирает параметры подключения из формы. Пустые поля секретов при редактировании
-    /// означают «оставить прежний». Если сохранённые секреты не расшифровываются
-    /// (конфиг с другого ПК) — не падаем, а просим ввести секрет заново.
-    /// </summary>
-    private SftpConnectionOptions? BuildOptions(out string? error)
-    {
-        error = null;
-
-        var host = HostBox.Text.Trim();
-        var user = UserBox.Text.Trim();
-        if (host.Length == 0 || user.Length == 0)
-        {
-            error = "Укажи хост и логин.";
-            return null;
-        }
-
-        int port;
-        var portText = PortBox.Text.Trim();
-        if (portText.Length == 0)
-        {
-            port = 22;
-        }
-        else if (!int.TryParse(portText, out port) || port is <= 0 or > 65535)
-        {
-            error = "Порт должен быть числом от 1 до 65535.";
-            return null;
-        }
-
-        // Сохранённые секреты расшифровываем аккуратно: DPAPI с другого ПК/пользователя
-        // бросает — тогда считаем, что прежних секретов нет, и просим ввести заново.
-        SftpConnectionOptions? kept = null;
-        string? keptWarning = null;
-        if (_editing is not null)
-        {
-            try
-            {
-                kept = _store.Unprotect(_editing);
-            }
-            catch
-            {
-                keptWarning = "Сохранённые секреты не удалось расшифровать (конфиг с другого ПК?) — введи их заново.";
-            }
-        }
-
-        string? password = null, keyPem = null, keyPassphrase = null;
-        if (AuthKey.IsChecked == true)
-        {
-            keyPem = KeyPemBox.Text.Trim().Length > 0 ? KeyPemBox.Text : kept?.PrivateKeyPem;
-            if (string.IsNullOrWhiteSpace(keyPem))
-            {
-                error = keptWarning ?? "Вставь содержимое приватного ключа.";
-                return null;
-            }
-            keyPassphrase = KeyPassBox.Password.Length > 0 ? KeyPassBox.Password : kept?.PrivateKeyPassphrase;
-        }
-        else
-        {
-            password = PassBox.Password.Length > 0 ? PassBox.Password : kept?.Password;
-            if (string.IsNullOrEmpty(password))
-            {
-                error = keptWarning ?? "Введи пароль.";
-                return null;
-            }
-        }
-
-        // Нормализация пути: SFTP не разворачивает «~», а пути и так относительны
-        // домашней папки; обратные слэши приводим к прямым.
-        var dir = RemoteDirBox.Text.Trim().Replace('\\', '/');
-        if (dir == "~")
-            dir = ".";
-        else if (dir.StartsWith("~/", StringComparison.Ordinal))
-            dir = dir[2..];
-
-        return new SftpConnectionOptions
-        {
-            Host = host,
-            Port = port,
-            Username = user,
-            Password = password,
-            PrivateKeyPem = keyPem,
-            PrivateKeyPassphrase = keyPassphrase,
-            RemoteDirectory = dir.Length == 0 ? "." : dir
-        };
-    }
-
-    // ---------- действия ----------
-
-    private async void TestBtn_Click(object sender, RoutedEventArgs e)
-    {
-        SetBusy(true);
-        try
-        {
-            var options = BuildOptions(out var error);
-            if (options is null)
-            {
-                SetStatus(error!, ok: false);
-                return;
-            }
-
-            SetStatus("Проверяю подключение…", ok: true, dim: true);
-            var result = await new SftpStorageProvider(options).TestConnectionAsync();
-            SetStatus(result.Success ? "✓ " + result.Message : "✕ " + result.Message, result.Success);
-        }
-        catch (Exception ex)
-        {
-            SetStatus("✕ " + ex.Message, ok: false);
-        }
-        finally
-        {
-            SetBusy(false);
-        }
-    }
-
-    private async void SaveBtn_Click(object sender, RoutedEventArgs e)
-    {
-        SetBusy(true);
-        try
-        {
-            var options = BuildOptions(out var error);
-            if (options is null)
-            {
-                SetStatus(error!, ok: false);
-                return;
-            }
-
-            var name = NameBox.Text.Trim();
-            if (name.Length == 0)
-                name = options.Host;
-
-            // Сливаемся со СВЕЖИМ состоянием диска, а не со снапшотом страницы:
-            // подключения, добавленные через CLI параллельно, не должны затираться.
-            var fresh = (await _store.LoadAsync()).ToList();
-            var id = _editing?.Id ?? MakeId(name, fresh);
-            var saved = _store.Protect(id, name, options);
-            await _store.SaveAllAsync(fresh.Where(c => c.Id != id).Append(saved).ToList());
-
-            await ReloadAsync(selectId: id);
-            SetStatus("✓ Сохранено (секреты зашифрованы через DPAPI)", ok: true);
-
-            var item = _items.FirstOrDefault(i => i.Connection.Id == id);
-            if (item is not null)
-                _ = SelfTestOneAsync(item);
-        }
-        catch (Exception ex)
-        {
-            SetStatus("✕ Не удалось сохранить: " + ex.Message, ok: false);
-        }
-        finally
-        {
-            SetBusy(false);
-        }
-    }
-
-    private async void DeleteBtn_Click(object sender, RoutedEventArgs e)
-    {
-        if (_editing is null)
-            return;
-
-        var dialog = new ContentDialog
-        {
-            Title = "Удалить подключение?",
-            Content = $"«{_editing.Name}» будет удалено. Архивы на сервере не трогаем.",
-            PrimaryButtonText = "Удалить",
-            CloseButtonText = "Отмена",
-            DefaultButton = ContentDialogButton.Close,
-            XamlRoot = XamlRoot
-        };
-
-        if (await dialog.ShowAsync() != ContentDialogResult.Primary)
-            return;
-
-        SetBusy(true);
-        try
-        {
-            // Тот же принцип: удаляем из свежего состояния диска.
-            var fresh = (await _store.LoadAsync()).Where(c => c.Id != _editing.Id).ToList();
-            await _store.SaveAllAsync(fresh);
-            _editing = null;
-            await ReloadAsync(selectId: null);
-        }
-        catch (Exception ex)
-        {
-            SetStatus("✕ Не удалось удалить: " + ex.Message, ok: false);
-        }
-        finally
-        {
-            SetBusy(false);
-        }
-    }
-
-    // ---------- дерево удалённых папок ----------
+    // ---------- дерево удалённых папок (SFTP) ----------
 
     private async void BrowseBtn_Click(object sender, RoutedEventArgs e)
     {
         SetBusy(true);
         try
         {
-            var options = BuildOptions(out var error);
-            if (options is null)
+            var built = BuildFromForm(_editing?.Id ?? "browse", "browse", out var error);
+            if (built is null || built.Kind != StorageKind.Sftp)
             {
-                SetStatus(error!, ok: false);
+                SetStatus(error ?? "Обзор доступен для SFTP.", ok: false);
                 return;
             }
 
             SetStatus("Загружаю папки…", ok: true, dim: true);
-            _browseProvider = new SftpStorageProvider(options);
+            _browseProvider = new SftpStorageProvider(StorageFactory.ToSftpOptions(built, _store.Protector));
             var dirs = await _browseProvider.ListDirectoriesAsync(".");
 
             FolderTree.RootNodes.Clear();
@@ -507,7 +535,7 @@ public sealed partial class StoragePage : Page
         {
             var dirs = await provider.ListDirectoriesAsync(dir.Path);
 
-            // Пока грузили, могли выбрать другое подключение — результат уже неактуален.
+            // Пока грузили, могли выбрать другое хранилище — результат уже неактуален.
             if (!ReferenceEquals(provider, _browseProvider))
                 return;
 
@@ -538,9 +566,10 @@ public sealed partial class StoragePage : Page
         SaveBtn.IsEnabled = !busy;
         DeleteBtn.IsEnabled = !busy;
         BrowseBtn.IsEnabled = !busy;
+        BrowsePathBtn.IsEnabled = !busy;
         // Список и «добавить» тоже блокируем: иначе результат незавершённой операции
-        // (тест/обзор) приземлится в редактор уже другого подключения.
-        ConnList.IsEnabled = !busy;
+        // (тест/обзор) приземлится в редактор уже другого хранилища.
+        StorageList.IsEnabled = !busy;
         AddBtn.IsEnabled = !busy;
     }
 
@@ -552,18 +581,18 @@ public sealed partial class StoragePage : Page
             : (Brush)Resources[ok ? "EbOkBrush" : "EbErrBrush"];
     }
 
-    private static string MakeId(string name, IReadOnlyList<SavedSftpConnection> existing)
+    private static string MakeId(string name, IReadOnlyList<SavedStorage> existing)
     {
         var slug = new string(name.ToLowerInvariant()
                 .Select(ch => char.IsAsciiLetterOrDigit(ch) ? ch : '-')
                 .ToArray())
             .Trim('-');
         if (slug.Length == 0)
-            slug = "sftp";
+            slug = "storage";
 
         var id = slug;
         var n = 2;
-        while (existing.Any(c => c.Id == id))
+        while (existing.Any(s => s.Id == id))
             id = $"{slug}-{n++}";
         return id;
     }

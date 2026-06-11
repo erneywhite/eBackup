@@ -38,9 +38,7 @@
                 <StackPanel Spacing="8">
                     <TextBlock Text="Куда" FontSize="12"
                                Foreground="{StaticResource EbTextDimBrush}" />
-                    <CheckBox x:Name="LocalCheck" Content="Локальная папка (Документы\eBackup\Backups)"
-                              IsChecked="True" />
-                    <StackPanel x:Name="SftpPanel" Spacing="6" />
+                    <StackPanel x:Name="StoragesPanel" Spacing="6" />
                 </StackPanel>
             </Border>
 

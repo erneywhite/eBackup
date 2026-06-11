@@ -17,6 +17,9 @@ public sealed class AppSettings
     /// <summary>Закрытие окна сворачивает в трей (расписания продолжают работать).</summary>
     public bool MinimizeToTray { get; set; } = true;
 
+    /// <summary>Дефолтное хранилище «Локальная папка» уже создано (одноразовая инициализация).</summary>
+    public bool DefaultStorageCreated { get; set; }
+
     public static string DefaultLocalBackupDir => Path.Combine(
         Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments), "eBackup", "Backups");
 

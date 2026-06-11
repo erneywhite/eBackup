@@ -19,25 +19,9 @@
         <StackPanel Spacing="14" MaxWidth="660" HorizontalAlignment="Left">
             <TextBlock Text="Настройки" FontSize="26" FontWeight="SemiBold" />
 
-            <!-- Папка локальных бэкапов -->
-            <Border Style="{StaticResource EbSectionCard}">
-                <StackPanel Spacing="8">
-                    <TextBlock Text="Папка локальных бэкапов" FontSize="12"
-                               Foreground="{StaticResource EbTextDimBrush}" />
-                    <Grid ColumnSpacing="8">
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="*" />
-                            <ColumnDefinition Width="Auto" />
-                        </Grid.ColumnDefinitions>
-                        <TextBox x:Name="DirBox" PlaceholderText="куда складывать архивы" />
-                        <Button x:Name="PickDirBtn" Grid.Column="1" Content="Выбрать…"
-                                CornerRadius="10" Click="PickDirBtn_Click" />
-                    </Grid>
-                    <TextBlock Text="Сюда сохраняются архивы при бэкапе, отсюда же читается список на странице «Архивы»."
-                               FontSize="12" TextWrapping="Wrap"
-                               Foreground="{StaticResource EbTextDimBrush}" />
-                </StackPanel>
-            </Border>
+            <TextBlock Text="Папки для архивов (включая сетевые диски) настраиваются на странице «Хранилища»."
+                       FontSize="12" TextWrapping="Wrap"
+                       Foreground="{StaticResource EbTextDimBrush}" />
 
             <!-- Хранение версий -->
             <Border Style="{StaticResource EbSectionCard}">

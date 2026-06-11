@@ -1,11 +1,8 @@
-using System.Text.Json;
 using eBackup.Core.Abstractions;
-using eBackup.Core.Model;
 using eBackup.Core.Modules;
-using eBackup.Core.Paths;
 using eBackup.Modules.Obs;
 using eBackup.Security;
-using eBackup.Storage.Sftp;
+using eBackup.Storage;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Media;
@@ -24,10 +21,10 @@ public sealed partial class BackupPage : Page
         new BuiltInModuleSource([new ObsBackupModule()]),
         new DeclarativeModuleSource(),
     ]);
-    private readonly SftpConnectionStore _store = new(new DpapiSecretProtector());
+    private readonly StorageStore _storages = new(new DpapiSecretProtector());
 
     private readonly List<CheckBox> _moduleChecks = [];
-    private readonly List<CheckBox> _sftpChecks = [];
+    private readonly List<CheckBox> _storageChecks = [];
     private List<string> _folders = [];
 
     public BackupPage()
@@ -38,9 +35,6 @@ public sealed partial class BackupPage : Page
 
     private async Task InitAsync()
     {
-        // Локальная папка — из настроек.
-        LocalCheck.Content = $"Локальная папка ({AppSettings.Load().LocalBackupDir})";
-
         // Модули из реестра
         ModulesPanel.Children.Clear();
         _moduleChecks.Clear();
@@ -55,27 +49,52 @@ public sealed partial class BackupPage : Page
         _folders = LoadFolders();
         RenderFolders();
 
-        // Цели: сохранённые SFTP-подключения
-        SftpPanel.Children.Clear();
-        _sftpChecks.Clear();
-        List<SavedSftpConnection> connections;
+        // Цели: все хранилища из единого списка (папки отмечены по умолчанию)
+        StoragesPanel.Children.Clear();
+        _storageChecks.Clear();
+        List<SavedStorage> storages;
         try
         {
-            connections = (await _store.LoadAsync()).ToList();
+            storages = (await _storages.LoadAsync()).ToList();
         }
         catch
         {
-            connections = [];
+            storages = [];
         }
-        foreach (var c in connections)
+
+        if (storages.Count == 0)
         {
-            var cb = new CheckBox { Content = $"{c.Name}  ({c.Username}@{c.Host}:{c.Port})", Tag = c };
-            _sftpChecks.Add(cb);
-            SftpPanel.Children.Add(cb);
+            StoragesPanel.Children.Add(new TextBlock
+            {
+                Text = "хранилищ нет — добавь на странице «Хранилища»",
+                FontSize = 12,
+                Foreground = (Brush)Application.Current.Resources["EbTextDimBrush"]
+            });
+        }
+        else
+        {
+            foreach (var s in storages)
+            {
+                var cb = new CheckBox
+                {
+                    Content = DescribeStorage(s),
+                    IsChecked = s.Kind == StorageKind.LocalFolder,
+                    Tag = s
+                };
+                _storageChecks.Add(cb);
+                StoragesPanel.Children.Add(cb);
+            }
         }
 
         LaunchBtn.IsEnabled = MainWindow.Instance?.IsBusy != true;
     }
+
+    internal static string DescribeStorage(SavedStorage s) => s.Kind switch
+    {
+        StorageKind.LocalFolder => $"{s.Name}  ({s.Path})",
+        StorageKind.Sftp => $"{s.Name}  ({s.Username}@{s.Host}:{s.Port})",
+        _ => s.Name
+    };
 
     // ---------- свои папки (общий конфиг — расписания тоже его читают) ----------
 
@@ -180,15 +199,14 @@ public sealed partial class BackupPage : Page
         if (foldersModule is not null)
             modules.Add(foldersModule);
 
-        var targets = _sftpChecks.Where(cb => cb.IsChecked == true)
-            .Select(cb => (SavedSftpConnection)cb.Tag)
+        var targets = _storageChecks.Where(cb => cb.IsChecked == true)
+            .Select(cb => (SavedStorage)cb.Tag)
             .ToList();
-        var keepLocal = LocalCheck.IsChecked == true;
 
         string? err = null;
         if (modules.Count == 0)
             err = "Выбери хотя бы один модуль или добавь папку.";
-        else if (!keepLocal && targets.Count == 0)
+        else if (targets.Count == 0)
             err = "Выбери хотя бы одно хранилище.";
         else if (EncryptCheck.IsChecked == true)
         {
@@ -210,7 +228,7 @@ public sealed partial class BackupPage : Page
         LaunchBtn.IsEnabled = false;
         try
         {
-            await MainWindow.Instance.StartBackupAsync(new BackupRequest(modules, keepLocal, targets, passphrase));
+            await MainWindow.Instance.StartBackupAsync(new BackupRequest(modules, targets, passphrase));
         }
         finally
         {

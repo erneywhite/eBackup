@@ -29,6 +29,7 @@
     <ProjectReference Include="..\eBackup.Security\eBackup.Security.csproj" />
     <ProjectReference Include="..\eBackup.Core\eBackup.Core.csproj" />
     <ProjectReference Include="..\eBackup.Modules.Obs\eBackup.Modules.Obs.csproj" />
+    <ProjectReference Include="..\eBackup.Storage\eBackup.Storage.csproj" />
   </ItemGroup>
 
 </Project>
