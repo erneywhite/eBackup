@@ -9,7 +9,9 @@ public enum StorageKind
     /// <summary>FTP / FTPS (явный TLS).</summary>
     Ftp,
     /// <summary>S3-совместимое: AWS S3, MinIO, Backblaze B2, Cloudflare R2 и т.п.</summary>
-    S3
+    S3,
+    /// <summary>WebDAV: Nextcloud, ownCloud, Яндекс.Диск и т.п. (базовый URL + логин/пароль).</summary>
+    WebDav
 }
 
 /// <summary>

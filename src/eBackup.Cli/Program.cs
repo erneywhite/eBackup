@@ -397,6 +397,7 @@ static async Task StorageListAsync()
             StorageKind.Sftp => $"{s.Username}@{s.Host}:{s.Port}  папка={s.RemoteDirectory}",
             StorageKind.Ftp => $"{(s.UseFtps ? "ftps" : "ftp")}://{s.Username}@{s.Host}:{s.Port}  папка={s.RemoteDirectory}",
             StorageKind.S3 => $"s3 {s.ServiceUrl}  бакет={s.Bucket}  префикс={s.RemoteDirectory}",
+            StorageKind.WebDav => $"webdav {s.ServiceUrl}  папка={s.RemoteDirectory}",
             _ => ""
         };
         Console.WriteLine($"  {s.Id,-12} {s.Name,-20} [{s.Kind}] {details}");

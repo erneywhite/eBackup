@@ -71,6 +71,7 @@
                         <MenuFlyoutItem Text="SFTP-сервер" Click="AddSftp_Click" />
                         <MenuFlyoutItem Text="FTP / FTPS-сервер" Click="AddFtp_Click" />
                         <MenuFlyoutItem Text="S3-совместимое (AWS, MinIO, B2, R2…)" Click="AddS3_Click" />
+                        <MenuFlyoutItem Text="WebDAV (Nextcloud, Яндекс.Диск…)" Click="AddWebDav_Click" />
                     </MenuFlyout>
                 </Button.Flyout>
             </Button>
@@ -117,6 +118,27 @@
                             <TextBox x:Name="ShareUserBox"
                                      PlaceholderText="логин (например, nas\user или user)" />
                             <PasswordBox x:Name="SharePassBox" PlaceholderText="пароль" />
+                        </StackPanel>
+
+                        <!-- ===== WebDAV ===== -->
+                        <StackPanel x:Name="WebDavPanel" Spacing="10" Visibility="Collapsed">
+                            <TextBlock Text="Базовый URL" FontSize="12"
+                                       Foreground="{StaticResource EbTextDimBrush}" />
+                            <TextBox x:Name="WebDavUrlBox"
+                                     PlaceholderText="https://webdav.yandex.ru или https://сервер/remote.php/dav/files/логин" />
+
+                            <TextBlock Text="Папка для архивов" FontSize="12"
+                                       Foreground="{StaticResource EbTextDimBrush}" />
+                            <TextBox x:Name="WebDavDirBox" PlaceholderText="например: backups/eBackup (пусто — корень)" />
+
+                            <TextBlock Text="Логин" FontSize="12"
+                                       Foreground="{StaticResource EbTextDimBrush}" />
+                            <TextBox x:Name="WebDavUserBox" PlaceholderText="имя пользователя" />
+
+                            <PasswordBox x:Name="WebDavPassBox" PlaceholderText="пароль" />
+                            <TextBlock Text="Для Яндекс.Диска используй «пароль приложения» (создаётся в настройках Яндекс ID), для Nextcloud — пароль приложения из настроек безопасности."
+                                       FontSize="11" TextWrapping="Wrap"
+                                       Foreground="{StaticResource EbTextDimBrush}" />
                         </StackPanel>
 
                         <!-- ===== S3-совместимое ===== -->

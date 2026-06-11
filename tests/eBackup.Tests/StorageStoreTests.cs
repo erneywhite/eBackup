@@ -124,7 +124,16 @@ public class StorageStoreTests
             new SavedStorage { Id = "c", Name = "c", Kind = StorageKind.Ftp, Host = "h", Username = "u" }, protector));
         Assert.IsType<S3Storage>(StorageFactory.Create(
             new SavedStorage { Id = "d", Name = "d", Kind = StorageKind.S3, ServiceUrl = "https://s3.x", Bucket = "b" }, protector));
+        Assert.IsType<WebDavStorage>(StorageFactory.Create(
+            new SavedStorage { Id = "e", Name = "e", Kind = StorageKind.WebDav, ServiceUrl = "https://dav.x", Username = "u" }, protector));
     }
+
+    [Theory]
+    [InlineData("https://webdav.yandex.ru", null, "https://webdav.yandex.ru/")]
+    [InlineData("webdav.yandex.ru/", "backups", "https://webdav.yandex.ru/backups/")]
+    [InlineData("https://cloud.x/remote.php/dav/files/user", "eBackup/архивы", "https://cloud.x/remote.php/dav/files/user/eBackup/%D0%B0%D1%80%D1%85%D0%B8%D0%B2%D1%8B/")]
+    public void WebDav_Folder_Uri_Is_Built_And_Encoded(string baseUrl, string? dir, string expected)
+        => Assert.Equal(expected, WebDavStorage.BuildFolderUri(baseUrl, dir).AbsoluteUri);
 
     [Theory]
     [InlineData(null, "")]

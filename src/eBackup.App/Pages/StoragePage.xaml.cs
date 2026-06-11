@@ -23,6 +23,7 @@ public sealed class StorageItem(SavedStorage storage) : INotifyPropertyChanged
         StorageKind.Sftp => $"sftp · {Storage.Username}@{Storage.Host}:{Storage.Port}",
         StorageKind.Ftp => $"{(Storage.UseFtps ? "ftps" : "ftp")} · {Storage.Username}@{Storage.Host}:{Storage.Port}",
         StorageKind.S3 => $"s3 · {Storage.Bucket}",
+        StorageKind.WebDav => $"webdav · {Storage.ServiceUrl}",
         _ => Storage.Kind.ToString()
     };
 
@@ -130,6 +131,7 @@ public sealed partial class StoragePage : Page
     private void AddSftp_Click(object sender, RoutedEventArgs e) => StartNew(StorageKind.Sftp);
     private void AddFtp_Click(object sender, RoutedEventArgs e) => StartNew(StorageKind.Ftp);
     private void AddS3_Click(object sender, RoutedEventArgs e) => StartNew(StorageKind.S3);
+    private void AddWebDav_Click(object sender, RoutedEventArgs e) => StartNew(StorageKind.WebDav);
 
     private void StartNew(StorageKind kind)
     {
@@ -154,6 +156,7 @@ public sealed partial class StoragePage : Page
             StorageKind.LocalFolder => "Новая папка / сетевой диск",
             StorageKind.Ftp => "Новое FTP-подключение",
             StorageKind.S3 => "Новое S3-хранилище",
+            StorageKind.WebDav => "Новое WebDAV-хранилище",
             _ => "Новое SFTP-подключение"
         };
         NameBox.Text = s?.Name ?? string.Empty;
@@ -162,6 +165,16 @@ public sealed partial class StoragePage : Page
         SftpPanel.Visibility = _editorKind == StorageKind.Sftp ? Visibility.Visible : Visibility.Collapsed;
         FtpPanel.Visibility = _editorKind == StorageKind.Ftp ? Visibility.Visible : Visibility.Collapsed;
         S3Panel.Visibility = _editorKind == StorageKind.S3 ? Visibility.Visible : Visibility.Collapsed;
+        WebDavPanel.Visibility = _editorKind == StorageKind.WebDav ? Visibility.Visible : Visibility.Collapsed;
+
+        // WebDAV
+        WebDavUrlBox.Text = s?.Kind == StorageKind.WebDav ? s.ServiceUrl ?? "" : "";
+        WebDavDirBox.Text = s?.Kind == StorageKind.WebDav ? s.RemoteDirectory ?? "" : "";
+        WebDavUserBox.Text = s?.Kind == StorageKind.WebDav ? s.Username ?? "" : "";
+        WebDavPassBox.Password = string.Empty;
+        WebDavPassBox.PlaceholderText = s?.Kind == StorageKind.WebDav && s.ProtectedPassword is not null
+            ? "пусто — оставить прежний"
+            : "пароль";
 
         // S3
         S3UrlBox.Text = s?.Kind == StorageKind.S3 ? s.ServiceUrl ?? "" : "";
@@ -281,6 +294,40 @@ public sealed partial class StoragePage : Page
                 Path = path,
                 ShareUsername = shareUser.Length == 0 ? null : shareUser,
                 ProtectedSharePassword = protectedPass
+            };
+        }
+
+        if (_editorKind == StorageKind.WebDav)
+        {
+            var davUrl = WebDavUrlBox.Text.Trim();
+            var davUser = WebDavUserBox.Text.Trim();
+            if (davUrl.Length == 0 || davUser.Length == 0)
+            {
+                error = "Укажи URL и логин.";
+                return null;
+            }
+
+            string? davProtectedPass = null;
+            if (WebDavPassBox.Password.Length > 0)
+                davProtectedPass = _store.Protect(WebDavPassBox.Password);
+            else if (_editing?.Kind == StorageKind.WebDav && _editing.ProtectedPassword is not null)
+                davProtectedPass = _editing.ProtectedPassword;
+
+            if (davProtectedPass is null)
+            {
+                error = "Введи пароль.";
+                return null;
+            }
+
+            return new SavedStorage
+            {
+                Id = id,
+                Name = name,
+                Kind = StorageKind.WebDav,
+                ServiceUrl = davUrl,
+                Username = davUser,
+                ProtectedPassword = davProtectedPass,
+                RemoteDirectory = WebDavDirBox.Text.Trim()
             };
         }
 
@@ -485,6 +532,7 @@ public sealed partial class StoragePage : Page
                     StorageKind.LocalFolder => PathBox.Text.Trim(),
                     StorageKind.Ftp => FtpHostBox.Text.Trim(),
                     StorageKind.S3 => S3BucketBox.Text.Trim(),
+                    StorageKind.WebDav => WebDavUrlBox.Text.Trim(),
                     _ => HostBox.Text.Trim()
                 };
 
