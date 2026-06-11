@@ -14,6 +14,9 @@ public sealed class AppSettings
     /// <summary>Хранить последних N архивов; 0 — хранить все.</summary>
     public int RetentionCount { get; set; }
 
+    /// <summary>Закрытие окна сворачивает в трей (расписания продолжают работать).</summary>
+    public bool MinimizeToTray { get; set; } = true;
+
     public static string DefaultLocalBackupDir => Path.Combine(
         Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments), "eBackup", "Backups");
 

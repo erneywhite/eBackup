@@ -16,7 +16,14 @@
 
     <ScrollViewer>
         <StackPanel Spacing="14" MaxWidth="660" HorizontalAlignment="Left">
-            <TextBlock Text="Восстановление" FontSize="26" FontWeight="SemiBold" />
+            <StackPanel Orientation="Horizontal" Spacing="12">
+                <Button x:Name="BackBtn" CornerRadius="10" Padding="10,8"
+                        VerticalAlignment="Center" Click="BackBtn_Click"
+                        ToolTipService.ToolTip="Назад к архивам">
+                    <FontIcon Glyph="&#xE72B;" FontSize="13" />
+                </Button>
+                <TextBlock Text="Восстановление" FontSize="26" FontWeight="SemiBold" />
+            </StackPanel>
 
             <!-- Архив -->
             <Border Style="{StaticResource EbSectionCard}">

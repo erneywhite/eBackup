@@ -35,6 +35,11 @@ public partial class App : Application
     protected override void OnLaunched(LaunchActivatedEventArgs args)
     {
         _window = new MainWindow();
-        _window.Activate();
+
+        // Автозапуск с Windows стартует с «--minimized» — сразу в трей, без окна.
+        if (Environment.GetCommandLineArgs().Contains("--minimized"))
+            ((MainWindow)_window).StartHidden();
+        else
+            _window.Activate();
     }
 }

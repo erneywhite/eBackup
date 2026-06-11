@@ -72,6 +72,52 @@ public sealed partial class MainWindow : Window
         _scheduleTimer.Tick += async (_, _) => await CheckSchedulesAsync();
         _scheduleTimer.Start();
         _ = CheckSchedulesAsync();
+
+        // Трей: клик — показать окно; закрытие окна — спрятаться в трей (настраивается).
+        TrayIcon.LeftClickCommand = new RelayCommand(ShowFromTray);
+        TrayIcon.ForceCreate();
+        AppWindow.Closing += OnAppWindowClosing;
+        Closed += (_, _) => TrayIcon.Dispose();
+    }
+
+    // ---------- трей ----------
+
+    private bool _reallyExit;
+
+    private void OnAppWindowClosing(Microsoft.UI.Windowing.AppWindow sender,
+        Microsoft.UI.Windowing.AppWindowClosingEventArgs args)
+    {
+        if (!_reallyExit && AppSettings.Load().MinimizeToTray)
+        {
+            args.Cancel = true;
+            sender.Hide(); // окно прячется, расписания продолжают работать
+        }
+    }
+
+    /// <summary>Показать окно из трея.</summary>
+    public void ShowFromTray()
+    {
+        AppWindow.Show();
+        Activate();
+    }
+
+    /// <summary>Старт сразу в трей (автозапуск с «--minimized»).</summary>
+    public void StartHidden() => AppWindow.Hide();
+
+    private void TrayOpen_Click(object sender, RoutedEventArgs e) => ShowFromTray();
+
+    private void TrayBackup_Click(object sender, RoutedEventArgs e)
+    {
+        ShowFromTray();
+        Nav.SelectedItem = null;
+        if (ContentFrame.CurrentSourcePageType != typeof(BackupPage))
+            ContentFrame.Navigate(typeof(BackupPage));
+    }
+
+    private void TrayExit_Click(object sender, RoutedEventArgs e)
+    {
+        _reallyExit = true;
+        Close();
     }
 
     private void Nav_SelectionChanged(object sender, SelectionChangedEventArgs e)

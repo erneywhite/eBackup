@@ -12,6 +12,8 @@ public sealed partial class SettingsPage : Page
         var settings = AppSettings.Load();
         DirBox.Text = settings.LocalBackupDir;
         RetentionBox.Text = settings.RetentionCount.ToString();
+        TrayToggle.IsOn = settings.MinimizeToTray;
+        AutostartToggle.IsOn = Autostart.IsEnabled();
     }
 
     private async void PickDirBtn_Click(object sender, RoutedEventArgs e)
@@ -45,7 +47,13 @@ public sealed partial class SettingsPage : Page
         try
         {
             Directory.CreateDirectory(dir); // заодно проверяем, что путь рабочий
-            new AppSettings { LocalBackupDir = dir, RetentionCount = retention }.Save();
+            new AppSettings
+            {
+                LocalBackupDir = dir,
+                RetentionCount = retention,
+                MinimizeToTray = TrayToggle.IsOn
+            }.Save();
+            Autostart.Set(AutostartToggle.IsOn);
             SetStatus("✓ Сохранено", ok: true);
         }
         catch (Exception ex)
