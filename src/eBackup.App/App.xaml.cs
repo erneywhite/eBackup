@@ -34,12 +34,25 @@ public partial class App : Application
 
     protected override void OnLaunched(LaunchActivatedEventArgs args)
     {
-        _window = new MainWindow();
+        var window = new MainWindow();
+        _window = window;
 
         // Автозапуск с Windows стартует с «--minimized» — сразу в трей, без окна.
         if (Environment.GetCommandLineArgs().Contains("--minimized"))
-            ((MainWindow)_window).StartHidden();
-        else
-            _window.Activate();
+        {
+            window.StartHidden();
+            return;
+        }
+
+        window.Activate();
+
+        // Ассоциация .ebk: двойной клик по архиву открывает его в браузере архива.
+        var fileArg = Environment.GetCommandLineArgs()
+            .Skip(1)
+            .FirstOrDefault(a => !a.StartsWith("--", StringComparison.Ordinal)
+                && a.EndsWith(".ebk", StringComparison.OrdinalIgnoreCase)
+                && File.Exists(a));
+        if (fileArg is not null)
+            window.OpenLocalArchive(fileArg);
     }
 }

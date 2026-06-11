@@ -26,6 +26,15 @@
     </Content>
   </ItemGroup>
 
+  <!-- WinUI unpackaged: dotnet publish не копирует app-PRI (eBackup.App.pri),
+       без него ms-appx-ресурсы и XAML не грузятся. Копируем вручную. -->
+  <Target Name="CopyAppPriToPublish" AfterTargets="Publish">
+    <Copy SourceFiles="$(TargetDir)$(TargetName).pri"
+          DestinationFolder="$(PublishDir)"
+          Condition="Exists('$(TargetDir)$(TargetName).pri')"
+          SkipUnchangedFiles="true" />
+  </Target>
+
   <ItemGroup>
     <PackageReference Include="H.NotifyIcon.WinUI" Version="2.3.0" />
     <PackageReference Include="Microsoft.Windows.SDK.BuildTools" Version="10.0.28000.1839" />

@@ -29,6 +29,10 @@ coverage*.json
 backups/
 *.ebk
 
+# Publish / installer output (большие бинарники — собираются скриптом)
+publish/
+installer/dist/
+
 # OS / misc
 Thumbs.db
 desktop.ini

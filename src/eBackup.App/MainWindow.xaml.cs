@@ -291,6 +291,11 @@ public sealed partial class MainWindow : Window
         }
     }
 
+    /// <summary>Открыть локальный .ebk в браузере архива (ассоциация файлов).</summary>
+    public void OpenLocalArchive(string path)
+        => ContentFrame.Navigate(typeof(Pages.ArchiveBrowsePage),
+            new Pages.RestoreSource(path, null, null));
+
     /// <summary>Показать окно из трея.</summary>
     public void ShowFromTray()
     {
