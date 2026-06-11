@@ -506,9 +506,11 @@ public sealed partial class MainWindow : Window
                 : $"Завершено с ошибками за {elapsed:mm\\:ss}.");
             await history.SaveRunAsync(run);
 
-            // Окно скрыто в трее — человек итог не видит; говорим уведомлением.
-            if (settings.NotifyOnBackgroundBackup && !AppWindow.IsVisible)
-                TryNotify(run.Success == true ? "Бэкап выполнен" : "Бэкап завершён с ошибками",
+            // Итог — системным уведомлением (по просьбе пользователя — всегда,
+            // не только при скрытом окне).
+            if (settings.NotifyOnBackgroundBackup)
+                TryNotify(run.Success == true,
+                    run.Success == true ? "✅ Бэкап выполнен" : "❌ Бэкап завершён с ошибками",
                     run.Success == true
                         ? $"{run.ArchiveName} · {run.SizeBytes / 1024.0 / 1024.0:0.#} МБ → {string.Join(", ", run.Targets)}"
                         : run.Error ?? "подробности — на странице «История»");
@@ -526,12 +528,18 @@ public sealed partial class MainWindow : Window
         return Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(stream));
     }
 
-    /// <summary>Системное уведомление из трея. Сбой уведомления — не повод ронять бэкап.</summary>
-    private void TryNotify(string title, string message)
+    /// <summary>
+    /// Системное уведомление из трея. Цветной статус — эмодзи в заголовке
+    /// (✅/❌ рендерятся цветными), у ошибок дополнительно системный красный крест.
+    /// Сбой уведомления — не повод ронять бэкап.
+    /// </summary>
+    private void TryNotify(bool success, string title, string message)
     {
         try
         {
-            TrayIcon.ShowNotification(title, message);
+            TrayIcon.ShowNotification(title, message, success
+                ? H.NotifyIcon.Core.NotificationIcon.None
+                : H.NotifyIcon.Core.NotificationIcon.Error);
         }
         catch
         {
