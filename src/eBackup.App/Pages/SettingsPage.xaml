@@ -80,6 +80,9 @@
                     <ToggleSwitch x:Name="AutostartToggle"
                                   OnContent="Запускать вместе с Windows (свёрнуто, в трее)"
                                   OffContent="Запускать вместе с Windows (свёрнуто, в трее)" />
+                    <ToggleSwitch x:Name="NotifyToggle"
+                                  OnContent="Уведомлять о бэкапах, выполненных в фоне"
+                                  OffContent="Уведомлять о бэкапах, выполненных в фоне" />
                     <StackPanel Orientation="Horizontal" Spacing="10">
                         <TextBlock Text="Проверять хранилища каждые" VerticalAlignment="Center" />
                         <TextBox x:Name="SelfTestBox" Width="60" Text="5" />

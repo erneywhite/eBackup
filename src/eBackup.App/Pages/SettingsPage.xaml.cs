@@ -13,6 +13,7 @@ public sealed partial class SettingsPage : Page
         RetentionBox.Text = settings.RetentionCount.ToString();
         TrayToggle.IsOn = settings.MinimizeToTray;
         AutostartToggle.IsOn = Autostart.IsEnabled();
+        NotifyToggle.IsOn = settings.NotifyOnBackgroundBackup;
         MachineNameToggle.IsOn = settings.IncludeMachineNameInArchive;
         CompressionBox.SelectedIndex = Math.Clamp(settings.CompressionMode, 0, 2);
         AssetsDirBox.Text = settings.DefaultAssetsDir ?? string.Empty;
@@ -120,6 +121,7 @@ public sealed partial class SettingsPage : Page
             var settings = AppSettings.Load();
             settings.RetentionCount = retention;
             settings.MinimizeToTray = TrayToggle.IsOn;
+            settings.NotifyOnBackgroundBackup = NotifyToggle.IsOn;
             settings.IncludeMachineNameInArchive = MachineNameToggle.IsOn;
             settings.CompressionMode = Math.Clamp(CompressionBox.SelectedIndex, 0, 2);
             var assetsDir = AssetsDirBox.Text.Trim();

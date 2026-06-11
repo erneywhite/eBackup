@@ -32,6 +32,9 @@ public sealed class AppSettings
     /// <summary>Автопроверка хранилищ каждые N минут; 0 — только вручную (кнопка ⟳).</summary>
     public int SelfTestMinutes { get; set; } = 5;
 
+    /// <summary>Уведомление из трея, когда бэкап завершился при скрытом окне.</summary>
+    public bool NotifyOnBackgroundBackup { get; set; } = true;
+
     /// <summary>CompressionMode → уровень сжатия ZIP.</summary>
     [System.Text.Json.Serialization.JsonIgnore]
     public System.IO.Compression.CompressionLevel CompressionLevel => CompressionMode switch

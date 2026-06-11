@@ -506,6 +506,13 @@ public sealed partial class MainWindow : Window
                 : $"Завершено с ошибками за {elapsed:mm\\:ss}.");
             await history.SaveRunAsync(run);
 
+            // Окно скрыто в трее — человек итог не видит; говорим уведомлением.
+            if (settings.NotifyOnBackgroundBackup && !AppWindow.IsVisible)
+                TryNotify(run.Success == true ? "Бэкап выполнен" : "Бэкап завершён с ошибками",
+                    run.Success == true
+                        ? $"{run.ArchiveName} · {run.SizeBytes / 1024.0 / 1024.0:0.#} МБ → {string.Join(", ", run.Targets)}"
+                        : run.Error ?? "подробности — на странице «История»");
+
             _operationRunning = false;
             BackupBtn.IsEnabled = true;
             BackupCompleted?.Invoke();
@@ -517,6 +524,18 @@ public sealed partial class MainWindow : Window
     {
         using var stream = File.OpenRead(path);
         return Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(stream));
+    }
+
+    /// <summary>Системное уведомление из трея. Сбой уведомления — не повод ронять бэкап.</summary>
+    private void TryNotify(string title, string message)
+    {
+        try
+        {
+            TrayIcon.ShowNotification(title, message);
+        }
+        catch
+        {
+        }
     }
 
     // ---------- расписания (работают, пока приложение запущено) ----------
