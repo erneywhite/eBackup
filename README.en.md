@@ -10,7 +10,24 @@ another PC or after an OS reinstall. Branded dark UI plus a full CLI.
 Free, open source, no subscriptions. If eBackup turns out useful, you can
 [buy the author a coffee ☕](https://dalink.to/toristarm).
 
-> 🚧 Heading towards the v0.1 release, but everything below **already works**.
+> 🎉 **Version 0.1.0** — the first public release. Everything below works;
+> the final logo and more modules are next.
+
+## Install
+
+Grab the installer from the [**Releases**](https://github.com/erneywhite/eBackup/releases/latest)
+page (`eBackup-setup-x.y.z-x64.exe`) and run it. The app is **self-contained** —
+no .NET required. After install, eBackup checks for updates and can update itself
+with one click.
+
+Windows 10/11 (x64). Installing into Program Files needs administrator rights.
+
+## Screenshots
+
+<!-- TODO: add UI screenshots (Overview, Backup, Storage, History). Put images
+     under docs/screenshots/ and embed them here after the final logo lands. -->
+
+> Screenshots will appear here in an upcoming README update.
 
 ## Storage — 7 kinds, as many as you like at once
 
