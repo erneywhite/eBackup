@@ -1,0 +1,49 @@
+<Page
+    x:Class="eBackup.App.Pages.ArchiveBrowsePage"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+    <Grid RowSpacing="12" MaxWidth="860" HorizontalAlignment="Left">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+
+        <TextBlock x:Name="TitleText" Text="Содержимое архива"
+                   FontSize="26" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" />
+
+        <TextBlock x:Name="StatusText" Grid.Row="1" FontSize="12" TextWrapping="Wrap"
+                   Foreground="{StaticResource EbTextDimBrush}" />
+
+        <!-- Парольная фраза: видна только для зашифрованных архивов -->
+        <StackPanel x:Name="PassPanel" Grid.Row="2" Orientation="Horizontal" Spacing="10"
+                    Visibility="Collapsed">
+            <PasswordBox x:Name="PassBox" Width="300" PlaceholderText="парольная фраза архива" />
+            <Button Content="Расшифровать" CornerRadius="10" Click="Decrypt_Click" />
+        </StackPanel>
+
+        <!-- Дерево содержимого с галочками -->
+        <Border Grid.Row="3" Style="{StaticResource EbSectionCard}">
+            <TreeView x:Name="Tree" SelectionMode="Multiple"
+                      CanDragItems="False" CanReorderItems="False" />
+        </Border>
+
+        <StackPanel Grid.Row="4" Orientation="Horizontal" Spacing="10">
+            <Button x:Name="RestoreBtn" Style="{StaticResource EbAccentButtonStyle}"
+                    CornerRadius="12" Padding="22,8" IsEnabled="False"
+                    Click="RestoreSelected_Click">
+                <TextBlock Text="Восстановить выбранное" FontWeight="SemiBold" Foreground="#1A0F22" />
+            </Button>
+            <Button x:Name="DownloadBtn" Content="Скачать в папку…" CornerRadius="12"
+                    Padding="22,8" IsEnabled="False" Click="DownloadSelected_Click" />
+        </StackPanel>
+
+        <TextBlock Grid.Row="5" FontSize="11" TextWrapping="Wrap"
+                   Foreground="{StaticResource EbTextDimBrush}"
+                   Text="«Восстановить выбранное» кладёт файлы по их исходным путям; существующие сохраняются рядом с расширением .bak. Спец-обработка модулей (например, перепись путей в сценах OBS) при выборочном восстановлении не выполняется — для неё используй полное восстановление." />
+    </Grid>
+</Page>

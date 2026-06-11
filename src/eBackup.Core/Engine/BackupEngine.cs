@@ -259,6 +259,12 @@ public sealed class BackupEngine
     /// <param name="assetsDirectory">Папка для ассетов, управляемых модулями (если применимо).</param>
     /// <param name="passphrase">Парольная фраза, если архив зашифрован.</param>
     /// <param name="progress">Необязательный прогресс (фазы восстановления).</param>
+    /// <param name="entryFilter">
+    /// Выборочное восстановление: предикат по полному имени записи ZIP («data/…»).
+    /// Если задан — извлекаются только совпавшие файлы; записи, управляемые модулями
+    /// (ассеты), извлекаются как обычные файлы по своим исходным путям, а
+    /// restore-хуки модулей НЕ вызываются (пост-обработка — только при полном восстановлении).
+    /// </param>
     public async Task RestoreAsync(
         string archivePath,
         IEnumerable<IBackupModule>? modules = null,
@@ -267,6 +273,7 @@ public sealed class BackupEngine
         string? assetsDirectory = null,
         string? passphrase = null,
         IProgress<string>? progress = null,
+        Func<string, bool>? entryFilter = null,
         CancellationToken ct = default)
     {
         // Зашифрованный архив сначала расшифровываем во временный файл.
@@ -314,7 +321,9 @@ public sealed class BackupEngine
 
                 // Управляемые модулем записи (напр. ассеты OBS) восстанавливает
                 // сам модуль через свой restore-хук — движок их пропускает.
-                if (entry.ManagedByModule)
+                // При ВЫБОРОЧНОМ восстановлении хуки не зовутся, поэтому такие
+                // записи извлекаются как обычные файлы по исходным путям.
+                if (entry.ManagedByModule && entryFilter is null)
                     continue;
 
                 var target = destinationRootOverride is null
@@ -325,7 +334,7 @@ public sealed class BackupEngine
                 if (entry.Type == PathEntryType.File)
                 {
                     var ze = zip.GetEntry(prefix);
-                    if (ze is not null)
+                    if (ze is not null && (entryFilter is null || entryFilter(ze.FullName)))
                         ExtractFile(ze, target, conflictPolicy);
                 }
                 else if (entry.Type == PathEntryType.Directory)
@@ -334,6 +343,7 @@ public sealed class BackupEngine
                     {
                         if (string.IsNullOrEmpty(ze.Name)) continue; // пропустить маркеры папок
                         if (!ze.FullName.StartsWith(prefix + "/", StringComparison.Ordinal)) continue;
+                        if (entryFilter is not null && !entryFilter(ze.FullName)) continue;
 
                         var rel = ze.FullName[(prefix.Length + 1)..];
                         var dest = Path.Combine(target, rel.Replace('/', Path.DirectorySeparatorChar));
@@ -348,7 +358,8 @@ public sealed class BackupEngine
 
         // Модульные restore-хуки: размещение ассетов и пост-обработка.
         // Вся специфика приложения — внутри модуля; движок лишь зовёт хук.
-        if (modules is not null)
+        // При выборочном восстановлении хуки не зовутся (см. entryFilter).
+        if (modules is not null && entryFilter is null)
         {
             var hooks = modules.Where(m => m is IModuleRestoreHook).ToDictionary(m => m.Id);
             if (hooks.Count > 0)

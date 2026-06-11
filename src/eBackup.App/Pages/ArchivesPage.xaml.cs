@@ -116,7 +116,8 @@ public sealed partial class ArchivesPage : Page
                                     await ShowErrorAsync("Не удалось удалить: " + ex.Message);
                                 }
                                 await RefreshAsync();
-                            });
+                            },
+                            () => OpenBrowse(source));
                     }
                 }
                 catch (Exception ex)
@@ -157,6 +158,9 @@ public sealed partial class ArchivesPage : Page
     private void OpenRestore(RestoreSource source)
         => Frame.Navigate(typeof(RestorePage), source);
 
+    private void OpenBrowse(RestoreSource source)
+        => Frame.Navigate(typeof(ArchiveBrowsePage), source);
+
     /// <summary>Подтверждение удаления (диалог в стиле приложения).</summary>
     private async Task<bool> ConfirmDeleteAsync(string name, string where)
     {
@@ -196,7 +200,8 @@ public sealed partial class ArchivesPage : Page
         await dialog.ShowAsync();
     }
 
-    private void AddRow(string title, string subtitle, Action? onRestore = null, Func<Task>? onDelete = null)
+    private void AddRow(string title, string subtitle, Action? onRestore = null,
+        Func<Task>? onDelete = null, Action? onBrowse = null)
     {
         var appRes = Application.Current.Resources;
 
@@ -213,8 +218,24 @@ public sealed partial class ArchivesPage : Page
         row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
         row.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
         row.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+        row.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
         Grid.SetColumn(textPanel, 0);
         row.Children.Add(textPanel);
+
+        if (onBrowse is not null)
+        {
+            var browseBtn = new Button
+            {
+                Content = "Открыть",
+                CornerRadius = new CornerRadius(10),
+                Padding = new Thickness(14, 6, 14, 6),
+                VerticalAlignment = VerticalAlignment.Center
+            };
+            ToolTipService.SetToolTip(browseBtn, "Посмотреть содержимое и достать отдельные файлы");
+            browseBtn.Click += (_, _) => onBrowse();
+            Grid.SetColumn(browseBtn, 1);
+            row.Children.Add(browseBtn);
+        }
 
         if (onRestore is not null)
         {
@@ -226,7 +247,7 @@ public sealed partial class ArchivesPage : Page
                 VerticalAlignment = VerticalAlignment.Center
             };
             restoreBtn.Click += (_, _) => onRestore();
-            Grid.SetColumn(restoreBtn, 1);
+            Grid.SetColumn(restoreBtn, 2);
             row.Children.Add(restoreBtn);
         }
 
@@ -242,7 +263,7 @@ public sealed partial class ArchivesPage : Page
             };
             ToolTipService.SetToolTip(deleteBtn, "Удалить архив");
             deleteBtn.Click += async (_, _) => await onDelete();
-            Grid.SetColumn(deleteBtn, 2);
+            Grid.SetColumn(deleteBtn, 3);
             row.Children.Add(deleteBtn);
         }
 
