@@ -69,6 +69,7 @@
                     <MenuFlyout>
                         <MenuFlyoutItem Text="Папка или сетевой диск" Click="AddFolder_Click" />
                         <MenuFlyoutItem Text="SFTP-сервер" Click="AddSftp_Click" />
+                        <MenuFlyoutItem Text="FTP / FTPS-сервер" Click="AddFtp_Click" />
                     </MenuFlyout>
                 </Button.Flyout>
             </Button>
@@ -115,6 +116,41 @@
                             <TextBox x:Name="ShareUserBox"
                                      PlaceholderText="логин (например, nas\user или user)" />
                             <PasswordBox x:Name="SharePassBox" PlaceholderText="пароль" />
+                        </StackPanel>
+
+                        <!-- ===== FTP / FTPS ===== -->
+                        <StackPanel x:Name="FtpPanel" Spacing="10" Visibility="Collapsed">
+                            <Grid ColumnSpacing="10">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="110" />
+                                </Grid.ColumnDefinitions>
+                                <StackPanel Grid.Column="0" Spacing="10">
+                                    <TextBlock Text="Хост / IP" FontSize="12"
+                                               Foreground="{StaticResource EbTextDimBrush}" />
+                                    <TextBox x:Name="FtpHostBox" PlaceholderText="адрес сервера (домен или IP)" />
+                                </StackPanel>
+                                <StackPanel Grid.Column="1" Spacing="10">
+                                    <TextBlock Text="Порт" FontSize="12"
+                                               Foreground="{StaticResource EbTextDimBrush}" />
+                                    <TextBox x:Name="FtpPortBox" Text="21" />
+                                </StackPanel>
+                            </Grid>
+
+                            <TextBlock Text="Логин" FontSize="12"
+                                       Foreground="{StaticResource EbTextDimBrush}" />
+                            <TextBox x:Name="FtpUserBox" PlaceholderText="имя пользователя на сервере" />
+
+                            <PasswordBox x:Name="FtpPassBox" PlaceholderText="пароль" />
+
+                            <TextBlock Text="Удалённая папка для архивов" FontSize="12"
+                                       Foreground="{StaticResource EbTextDimBrush}" />
+                            <TextBox x:Name="FtpDirBox" Text="." />
+
+                            <CheckBox x:Name="FtpsCheck" Content="FTPS — шифровать соединение (TLS)" />
+                            <TextBlock Text="Сертификат сервера не проверяется строго (подходит для NAS с самоподписанным). Для архивов со стрим-ключами включай шифрование самого архива."
+                                       FontSize="11" TextWrapping="Wrap"
+                                       Foreground="{StaticResource EbTextDimBrush}" />
                         </StackPanel>
 
                         <!-- ===== SFTP ===== -->

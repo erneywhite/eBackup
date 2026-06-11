@@ -62,7 +62,8 @@ public sealed partial class ArchivesPage : Page
                 AddHeader(s.Kind switch
                 {
                     StorageKind.LocalFolder => $"{s.Name} — {s.Path}",
-                    StorageKind.Sftp => $"{s.Name} — {s.Username}@{s.Host}:{s.Port}, папка {s.RemoteDirectory}",
+                    StorageKind.Sftp => $"{s.Name} — sftp · {s.Username}@{s.Host}:{s.Port}, папка {s.RemoteDirectory}",
+                    StorageKind.Ftp => $"{s.Name} — {(s.UseFtps ? "ftps" : "ftp")} · {s.Username}@{s.Host}:{s.Port}, папка {s.RemoteDirectory}",
                     _ => s.Name
                 });
 

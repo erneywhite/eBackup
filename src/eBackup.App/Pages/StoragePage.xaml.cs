@@ -20,7 +20,8 @@ public sealed class StorageItem(SavedStorage storage) : INotifyPropertyChanged
     public string Subtitle => Storage.Kind switch
     {
         StorageKind.LocalFolder => Storage.Path ?? "",
-        StorageKind.Sftp => $"{Storage.Username}@{Storage.Host}:{Storage.Port}",
+        StorageKind.Sftp => $"sftp · {Storage.Username}@{Storage.Host}:{Storage.Port}",
+        StorageKind.Ftp => $"{(Storage.UseFtps ? "ftps" : "ftp")} · {Storage.Username}@{Storage.Host}:{Storage.Port}",
         _ => Storage.Kind.ToString()
     };
 
@@ -126,6 +127,7 @@ public sealed partial class StoragePage : Page
 
     private void AddFolder_Click(object sender, RoutedEventArgs e) => StartNew(StorageKind.LocalFolder);
     private void AddSftp_Click(object sender, RoutedEventArgs e) => StartNew(StorageKind.Sftp);
+    private void AddFtp_Click(object sender, RoutedEventArgs e) => StartNew(StorageKind.Ftp);
 
     private void StartNew(StorageKind kind)
     {
@@ -145,13 +147,28 @@ public sealed partial class StoragePage : Page
         EmptyHint.Visibility = Visibility.Collapsed;
         Editor.Visibility = Visibility.Visible;
 
-        EditorTitle.Text = s?.Name ?? (_editorKind == StorageKind.LocalFolder
-            ? "Новая папка / сетевой диск"
-            : "Новое SFTP-подключение");
+        EditorTitle.Text = s?.Name ?? _editorKind switch
+        {
+            StorageKind.LocalFolder => "Новая папка / сетевой диск",
+            StorageKind.Ftp => "Новое FTP-подключение",
+            _ => "Новое SFTP-подключение"
+        };
         NameBox.Text = s?.Name ?? string.Empty;
 
         FolderPanel.Visibility = _editorKind == StorageKind.LocalFolder ? Visibility.Visible : Visibility.Collapsed;
         SftpPanel.Visibility = _editorKind == StorageKind.Sftp ? Visibility.Visible : Visibility.Collapsed;
+        FtpPanel.Visibility = _editorKind == StorageKind.Ftp ? Visibility.Visible : Visibility.Collapsed;
+
+        // FTP
+        FtpHostBox.Text = s?.Kind == StorageKind.Ftp ? s.Host ?? "" : "";
+        FtpPortBox.Text = (s?.Kind == StorageKind.Ftp ? s.Port : 21).ToString();
+        FtpUserBox.Text = s?.Kind == StorageKind.Ftp ? s.Username ?? "" : "";
+        FtpDirBox.Text = s?.Kind == StorageKind.Ftp ? s.RemoteDirectory ?? "." : ".";
+        FtpsCheck.IsChecked = s?.Kind == StorageKind.Ftp && s.UseFtps;
+        FtpPassBox.Password = string.Empty;
+        FtpPassBox.PlaceholderText = s?.Kind == StorageKind.Ftp && s.ProtectedPassword is not null
+            ? "пусто — оставить прежний"
+            : "пароль";
 
         // Папка / сетевой диск
         PathBox.Text = s?.Path ?? string.Empty;
@@ -249,6 +266,54 @@ public sealed partial class StoragePage : Page
                 Path = path,
                 ShareUsername = shareUser.Length == 0 ? null : shareUser,
                 ProtectedSharePassword = protectedPass
+            };
+        }
+
+        if (_editorKind == StorageKind.Ftp)
+        {
+            var ftpHost = FtpHostBox.Text.Trim();
+            var ftpUser = FtpUserBox.Text.Trim();
+            if (ftpHost.Length == 0 || ftpUser.Length == 0)
+            {
+                error = "Укажи хост и логин.";
+                return null;
+            }
+
+            int ftpPort;
+            var ftpPortText = FtpPortBox.Text.Trim();
+            if (ftpPortText.Length == 0)
+            {
+                ftpPort = 21;
+            }
+            else if (!int.TryParse(ftpPortText, out ftpPort) || ftpPort is <= 0 or > 65535)
+            {
+                error = "Порт должен быть числом от 1 до 65535.";
+                return null;
+            }
+
+            string? ftpProtectedPass = null;
+            if (FtpPassBox.Password.Length > 0)
+                ftpProtectedPass = _store.Protect(FtpPassBox.Password);
+            else if (_editing?.Kind == StorageKind.Ftp && _editing.ProtectedPassword is not null)
+                ftpProtectedPass = _editing.ProtectedPassword;
+
+            if (ftpProtectedPass is null)
+            {
+                error = "Введи пароль.";
+                return null;
+            }
+
+            return new SavedStorage
+            {
+                Id = id,
+                Name = name,
+                Kind = StorageKind.Ftp,
+                Host = ftpHost,
+                Port = ftpPort,
+                Username = ftpUser,
+                ProtectedPassword = ftpProtectedPass,
+                RemoteDirectory = FtpDirBox.Text.Trim() is { Length: > 0 } d ? d : ".",
+                UseFtps = FtpsCheck.IsChecked == true
             };
         }
 
@@ -363,7 +428,12 @@ public sealed partial class StoragePage : Page
         {
             var name = NameBox.Text.Trim();
             if (name.Length == 0)
-                name = _editorKind == StorageKind.LocalFolder ? PathBox.Text.Trim() : HostBox.Text.Trim();
+                name = _editorKind switch
+                {
+                    StorageKind.LocalFolder => PathBox.Text.Trim(),
+                    StorageKind.Ftp => FtpHostBox.Text.Trim(),
+                    _ => HostBox.Text.Trim()
+                };
 
             // Сливаемся со СВЕЖИМ состоянием диска (параллельные правки не затираются).
             var fresh = (await _store.LoadAsync()).ToList();

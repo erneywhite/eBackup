@@ -5,7 +5,9 @@ public enum StorageKind
 {
     /// <summary>Локальная папка, прокинутый сетевой диск или UNC-путь (опц. с авторизацией SMB).</summary>
     LocalFolder,
-    Sftp
+    Sftp,
+    /// <summary>FTP / FTPS (явный TLS).</summary>
+    Ftp
 }
 
 /// <summary>
@@ -28,7 +30,7 @@ public sealed record SavedStorage
     /// <summary>Пароль сетевой папки, зашифрован DPAPI (опц.).</summary>
     public string? ProtectedSharePassword { get; init; }
 
-    // ---- Sftp ----
+    // ---- Sftp / Ftp (общие поля подключения) ----
     public string? Host { get; init; }
     public int Port { get; init; } = 22;
     public string? Username { get; init; }
@@ -36,4 +38,8 @@ public sealed record SavedStorage
     public string? ProtectedPrivateKey { get; init; }
     public string? ProtectedKeyPassphrase { get; init; }
     public string? RemoteDirectory { get; init; }
+
+    // ---- Ftp ----
+    /// <summary>FTPS (явный TLS). Сертификат принимается любой — ради NAS с самоподписанными.</summary>
+    public bool UseFtps { get; init; }
 }

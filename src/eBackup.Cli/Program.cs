@@ -395,6 +395,7 @@ static async Task StorageListAsync()
         {
             StorageKind.LocalFolder => s.Path,
             StorageKind.Sftp => $"{s.Username}@{s.Host}:{s.Port}  папка={s.RemoteDirectory}",
+            StorageKind.Ftp => $"{(s.UseFtps ? "ftps" : "ftp")}://{s.Username}@{s.Host}:{s.Port}  папка={s.RemoteDirectory}",
             _ => ""
         };
         Console.WriteLine($"  {s.Id,-12} {s.Name,-20} [{s.Kind}] {details}");

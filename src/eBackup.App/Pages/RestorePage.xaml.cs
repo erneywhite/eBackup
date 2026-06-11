@@ -75,14 +75,6 @@ public sealed partial class RestorePage : Page
         }
     }
 
-    private void BackBtn_Click(object sender, RoutedEventArgs e)
-    {
-        if (Frame.CanGoBack)
-            Frame.GoBack();
-        else
-            MainWindow.Instance?.SelectNav("archives");
-    }
-
     /// <summary>
     /// Поле ассетов показываем по СОДЕРЖИМОМУ архива: только если внутри есть записи,
     /// управляемые модулями (внешние ассеты). Для зашифрованных/серверных архивов

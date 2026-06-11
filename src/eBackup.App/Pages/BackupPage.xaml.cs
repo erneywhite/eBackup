@@ -92,7 +92,8 @@ public sealed partial class BackupPage : Page
     internal static string DescribeStorage(SavedStorage s) => s.Kind switch
     {
         StorageKind.LocalFolder => $"{s.Name}  ({s.Path})",
-        StorageKind.Sftp => $"{s.Name}  ({s.Username}@{s.Host}:{s.Port})",
+        StorageKind.Sftp => $"{s.Name}  (sftp · {s.Username}@{s.Host}:{s.Port})",
+        StorageKind.Ftp => $"{s.Name}  ({(s.UseFtps ? "ftps" : "ftp")} · {s.Username}@{s.Host}:{s.Port})",
         _ => s.Name
     };
 

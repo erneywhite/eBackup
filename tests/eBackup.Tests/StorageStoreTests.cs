@@ -111,4 +111,16 @@ public class StorageStoreTests
     [InlineData(@"\\onlyserver", null)]
     public void Share_Root_Is_Extracted_From_Unc_Path(string path, string? expected)
         => Assert.Equal(expected, FolderStorage.GetShareRoot(path));
+
+    [Fact]
+    public void Factory_Creates_Provider_For_Each_Kind()
+    {
+        var protector = new FakeProtector();
+        Assert.IsType<FolderStorage>(StorageFactory.Create(
+            new SavedStorage { Id = "a", Name = "a", Kind = StorageKind.LocalFolder, Path = "C:\\x" }, protector));
+        Assert.IsType<SftpArchiveStorage>(StorageFactory.Create(
+            new SavedStorage { Id = "b", Name = "b", Kind = StorageKind.Sftp, Host = "h", Username = "u" }, protector));
+        Assert.IsType<FtpStorage>(StorageFactory.Create(
+            new SavedStorage { Id = "c", Name = "c", Kind = StorageKind.Ftp, Host = "h", Username = "u" }, protector));
+    }
 }

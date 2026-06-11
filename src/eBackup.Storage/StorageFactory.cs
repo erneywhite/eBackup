@@ -11,6 +11,7 @@ public static class StorageFactory
         StorageKind.LocalFolder => new FolderStorage(s, protector),
         StorageKind.Sftp => new SftpArchiveStorage(
             new SftpStorageProvider(ToSftpOptions(s, protector)), s.Name),
+        StorageKind.Ftp => new FtpStorage(s, protector),
         _ => throw new NotSupportedException($"Тип хранилища {s.Kind} пока не поддерживается.")
     };
 
