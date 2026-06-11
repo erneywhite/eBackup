@@ -4,7 +4,8 @@
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:tb="using:H.NotifyIcon">
 
-    <Grid x:Name="RootGrid" Background="{StaticResource EbBackgroundBrush}">
+    <Grid x:Name="RootGrid" Background="{StaticResource EbBackgroundBrush}"
+          KeyboardAcceleratorPlacementMode="Hidden">
         <Grid.KeyboardAccelerators>
             <KeyboardAccelerator Key="Left" Modifiers="Menu" Invoked="BackAccel_Invoked" />
             <!-- Клавиша Browser Back (VK 166) добавляется в коде: в enum VirtualKey имени нет -->
