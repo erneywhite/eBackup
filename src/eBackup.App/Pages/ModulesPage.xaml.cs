@@ -72,9 +72,9 @@ public sealed partial class ModulesPage : Page
             Foreground = (Brush)appRes["EbTextDimBrush"]
         });
         var (statusText, statusBrush) = d.Problem is not null
-            ? ("✕ заблокирован", (Brush)Resources["EbErrBrush"])
+            ? ("✕ заблокирован", (Brush)appRes["EbErrBrush"])
             : d.Enabled
-                ? ("✓ включён", (Brush)Resources["EbOkBrush"])
+                ? ("✓ включён", (Brush)appRes["EbOkBrush"])
                 : ("⏸ выключен", (Brush)appRes["EbTextDimBrush"]);
         panel.Children.Add(new TextBlock
         {
@@ -115,7 +115,7 @@ public sealed partial class ModulesPage : Page
             + (d.Origin is not null && d.Source == ModuleSource.Declarative ? $"\n{d.Origin}" : "");
 
         DetailStatus.Text = d.Problem is null ? "✓ готов к работе" : "✕ заблокирован: " + d.Problem;
-        DetailStatus.Foreground = (Brush)Resources[d.Problem is null ? "EbOkBrush" : "EbErrBrush"];
+        DetailStatus.Foreground = (Brush)Application.Current.Resources[d.Problem is null ? "EbOkBrush" : "EbErrBrush"];
 
         // Выключатель — только для рабочих модулей (заблокированные включать нечем).
         _suppressToggle = true;

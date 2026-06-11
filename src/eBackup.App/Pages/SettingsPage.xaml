@@ -3,18 +3,6 @@
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
 
-    <Page.Resources>
-        <SolidColorBrush x:Key="EbOkBrush" Color="#7CE3A8" />
-        <SolidColorBrush x:Key="EbErrBrush" Color="#FF8A9C" />
-        <Style x:Key="EbSectionCard" TargetType="Border">
-            <Setter Property="CornerRadius" Value="16" />
-            <Setter Property="Background" Value="{StaticResource EbCardBrush}" />
-            <Setter Property="BorderBrush" Value="{StaticResource EbCardBorderBrush}" />
-            <Setter Property="BorderThickness" Value="1" />
-            <Setter Property="Padding" Value="18,14" />
-        </Style>
-    </Page.Resources>
-
     <ScrollViewer>
         <StackPanel Spacing="14" MaxWidth="660" HorizontalAlignment="Left">
             <TextBlock Text="Настройки" FontSize="26" FontWeight="SemiBold" />

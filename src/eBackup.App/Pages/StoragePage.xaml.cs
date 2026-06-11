@@ -270,7 +270,7 @@ public sealed partial class StoragePage : Page
     {
         status.Text = connected ? "✓ аккаунт подключён" : "аккаунт не подключён";
         status.Foreground = connected
-            ? (Brush)Resources["EbOkBrush"]
+            ? (Brush)Application.Current.Resources["EbOkBrush"]
             : (Brush)Application.Current.Resources["EbTextDimBrush"];
     }
 
@@ -828,12 +828,12 @@ public sealed partial class StoragePage : Page
         {
             var result = await StorageFactory.Create(item.Storage, _store.Protector).TestAsync();
             item.StatusGlyph = result.Success ? "✓" : "✕";
-            item.StatusBrush = (Brush)Resources[result.Success ? "EbOkBrush" : "EbErrBrush"];
+            item.StatusBrush = (Brush)Application.Current.Resources[result.Success ? "EbOkBrush" : "EbErrBrush"];
         }
         catch
         {
             item.StatusGlyph = "✕";
-            item.StatusBrush = (Brush)Resources["EbErrBrush"];
+            item.StatusBrush = (Brush)Application.Current.Resources["EbErrBrush"];
         }
     }
 
@@ -935,7 +935,7 @@ public sealed partial class StoragePage : Page
         StatusText.Text = text;
         StatusText.Foreground = dim
             ? (Brush)Application.Current.Resources["EbTextDimBrush"]
-            : (Brush)Resources[ok ? "EbOkBrush" : "EbErrBrush"];
+            : (Brush)Application.Current.Resources[ok ? "EbOkBrush" : "EbErrBrush"];
     }
 
     private static string MakeId(string name, IReadOnlyList<SavedStorage> existing)

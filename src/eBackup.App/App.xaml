@@ -44,11 +44,22 @@
             <SolidColorBrush x:Key="EbCardBorderBrush" Color="#1FFFFFFF" />
             <SolidColorBrush x:Key="EbTextDimBrush" Color="#9AA0AC" />
             <SolidColorBrush x:Key="EbDialogBrush" Color="#171022" />
+            <SolidColorBrush x:Key="EbOkBrush" Color="#7CE3A8" />
+            <SolidColorBrush x:Key="EbErrBrush" Color="#FF8A9C" />
 
             <LinearGradientBrush x:Key="EbAccentGradient" StartPoint="0,0" EndPoint="1,1">
                 <GradientStop Color="{StaticResource EbAccent1}" Offset="0" />
                 <GradientStop Color="{StaticResource EbAccent2}" Offset="1" />
             </LinearGradientBrush>
+
+            <!-- Карточка-секция страницы -->
+            <Style x:Key="EbSectionCard" TargetType="Border">
+                <Setter Property="CornerRadius" Value="16" />
+                <Setter Property="Background" Value="{StaticResource EbCardBrush}" />
+                <Setter Property="BorderBrush" Value="{StaticResource EbCardBorderBrush}" />
+                <Setter Property="BorderThickness" Value="1" />
+                <Setter Property="Padding" Value="18,14" />
+            </Style>
 
             <!-- Градиентная кнопка: свой шаблон, потому что стандартный на hover/нажатии
                  подменяет фон системной кистью и градиент пропадает. Здесь градиент

@@ -486,6 +486,6 @@ public sealed partial class SchedulePage : Page
     private void SetStatus(string text, bool ok)
     {
         StatusText.Text = text;
-        StatusText.Foreground = (Brush)Resources[ok ? "EbOkBrush" : "EbErrBrush"];
+        StatusText.Foreground = (Brush)Application.Current.Resources[ok ? "EbOkBrush" : "EbErrBrush"];
     }
 }

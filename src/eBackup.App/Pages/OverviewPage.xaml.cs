@@ -165,13 +165,13 @@ public sealed partial class OverviewPage : Page
         {
             var files = await StorageFactory.Create(s, _store.Protector).ListDetailedAsync();
             badge.Text = "✓";
-            badge.Foreground = (Brush)Resources["EbOkBrush"];
+            badge.Foreground = (Brush)Application.Current.Resources["EbOkBrush"];
             return (s, files);
         }
         catch
         {
             badge.Text = "✕";
-            badge.Foreground = (Brush)Resources["EbErrBrush"];
+            badge.Foreground = (Brush)Application.Current.Resources["EbErrBrush"];
             return (s, null);
         }
     }

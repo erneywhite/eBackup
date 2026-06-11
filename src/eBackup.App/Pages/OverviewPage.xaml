@@ -4,8 +4,6 @@
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
 
     <Page.Resources>
-        <SolidColorBrush x:Key="EbOkBrush" Color="#7CE3A8" />
-        <SolidColorBrush x:Key="EbErrBrush" Color="#FF8A9C" />
         <!-- Плитка-кнопка дашборда в стиле карточек -->
         <Style x:Key="EbTileStyle" TargetType="Button">
             <Setter Property="CornerRadius" Value="16" />

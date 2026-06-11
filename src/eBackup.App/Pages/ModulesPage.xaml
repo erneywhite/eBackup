@@ -3,11 +3,6 @@
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
 
-    <Page.Resources>
-        <SolidColorBrush x:Key="EbOkBrush" Color="#7CE3A8" />
-        <SolidColorBrush x:Key="EbErrBrush" Color="#FF8A9C" />
-    </Page.Resources>
-
     <Grid ColumnSpacing="18">
         <Grid.ColumnDefinitions>
             <ColumnDefinition Width="*" />

@@ -4,11 +4,6 @@
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:pages="using:eBackup.App.Pages">
 
-    <Page.Resources>
-        <SolidColorBrush x:Key="EbOkBrush" Color="#7CE3A8" />
-        <SolidColorBrush x:Key="EbErrBrush" Color="#FF8A9C" />
-    </Page.Resources>
-
     <Grid ColumnSpacing="18">
         <Grid.ColumnDefinitions>
             <ColumnDefinition Width="280" />
