@@ -591,6 +591,9 @@ public sealed partial class MainWindow : Window
     private bool _simRunning;
     private readonly List<Bubble> _bubbles = [];
     private readonly Random _rng = new();
+    // Шлейф: задний слой повторяет кромку переднего с задержкой в несколько кадров.
+    private readonly Queue<double[]> _edgeHistory = new();
+    private const int EdgeLagFrames = 7;
     private const double NodeStep = 6;       // шаг узлов мениска по вертикали, px
     private const double Spring = 0.024;     // жёсткость пружины к ровной кромке
     private const double Damping = 0.955;    // трение (выше — колебания живут дольше)
@@ -640,6 +643,7 @@ public sealed partial class MainWindow : Window
         _fillCur = 0;
         Array.Clear(_waveH);
         Array.Clear(_waveV);
+        _edgeHistory.Clear();
         _bubbles.Clear();
         BubblesLayer.Children.Clear();
         if (_simRunning)
@@ -663,6 +667,7 @@ public sealed partial class MainWindow : Window
         {
             _waveH = new double[nodes];
             _waveV = new double[nodes];
+            _edgeHistory.Clear();
         }
 
         // Заливка догоняет цель; при доливе мениск получает толчок,
@@ -717,9 +722,19 @@ public sealed partial class MainWindow : Window
         for (var i = 0; i < nodes; i++)
             _waveH[i] = Math.Clamp(_waveH[i], -MaxSwing, MaxSwing);
 
-        // Основной слой + «глубина» в противофазе чуть впереди.
-        WaterFront.Data = BuildWater(0, 1.0, height);
-        WaterBack.Data = BuildWater(4, -0.7, height);
+        // Итоговое смещение кромки = пружины + бегущая рябь (две волны навстречу).
+        var edge = new double[nodes];
+        for (var i = 0; i < nodes; i++)
+            edge[i] = _waveH[i]
+                    + 3.2 * Math.Sin(_simTime * 1.7 + i * 0.65)
+                    + 2.1 * Math.Sin(-_simTime * 1.15 + i * 1.25);
+
+        // Передний слой — текущая кромка; задний — она же несколько кадров назад
+        // (шлейф: догоняет переднюю, а не живёт своей жизнью).
+        _edgeHistory.Enqueue(edge);
+        var lagged = _edgeHistory.Count > EdgeLagFrames ? _edgeHistory.Dequeue() : edge;
+        WaterFront.Data = BuildWater(0, 1.0, height, edge);
+        WaterBack.Data = BuildWater(3, 0.92, height, lagged);
 
         // Пузырьки рождаются всегда, при активном доливе — охотнее.
         if (_bubbles.Count < 12 && _fillCur > 40 &&
@@ -729,27 +744,22 @@ public sealed partial class MainWindow : Window
     }
 
     /// <summary>
-    /// Заливка во всю высоту от левого края до фронта-мениска. Поверх пружинной
-    /// динамики на кромку наложены две бегущие волны (вверх и вниз) — поверхность
-    /// рябит всегда, а не «дышит» целиком. Кромка рисуется гладкими кривыми
-    /// через середины отрезков.
+    /// Заливка во всю высоту от левого края до фронта-мениска по готовым смещениям
+    /// кромки. Кромка рисуется гладкими кривыми через середины отрезков.
     /// </summary>
-    private Microsoft.UI.Xaml.Media.PathGeometry? BuildWater(double xOffset, double phase, double height)
+    private Microsoft.UI.Xaml.Media.PathGeometry? BuildWater(
+        double xOffset, double scale, double height, double[] edge)
     {
         if (_fillCur < 4)
             return null;
 
-        var n = _waveH.Length;
+        var n = edge.Length;
         var front = _fillCur + xOffset;
         var points = new Windows.Foundation.Point[n];
         for (var i = 0; i < n; i++)
-        {
-            var ripple = 3.2 * Math.Sin(_simTime * 1.7 + i * 0.65)
-                       + 2.1 * Math.Sin(-_simTime * 1.15 + i * 1.25);
             points[i] = new Windows.Foundation.Point(
-                Math.Max(0, front + (_waveH[i] + ripple) * phase),
+                Math.Max(0, front + edge[i] * scale),
                 Math.Min(i * NodeStep, height));
-        }
 
         var figure = new Microsoft.UI.Xaml.Media.PathFigure
         {
