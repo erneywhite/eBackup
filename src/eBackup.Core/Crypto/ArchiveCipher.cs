@@ -28,9 +28,24 @@ public static class ArchiveCipher
     public static bool IsEncrypted(string filePath)
     {
         using var fs = File.OpenRead(filePath);
-        Span<byte> head = stackalloc byte[4];
-        var n = fs.Read(head);
-        return n == 4 && head.SequenceEqual(Magic);
+        return IsEncrypted(fs);
+    }
+
+    /// <summary>То же по открытому seek-потоку; позиция восстанавливается.</summary>
+    public static bool IsEncrypted(Stream stream)
+    {
+        var position = stream.Position;
+        try
+        {
+            stream.Position = 0;
+            Span<byte> head = stackalloc byte[4];
+            var n = stream.Read(head);
+            return n == 4 && head.SequenceEqual(Magic);
+        }
+        finally
+        {
+            stream.Position = position;
+        }
     }
 
     public static async Task EncryptAsync(string plainPath, string encryptedPath, string passphrase, CancellationToken ct = default)

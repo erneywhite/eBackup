@@ -291,7 +291,47 @@ public sealed class BackupEngine
 
         try
         {
-        using var zip = ZipFile.OpenRead(workingPath);
+            using var zip = ZipFile.OpenRead(workingPath);
+            await RestoreFromArchiveAsync(zip, modules, conflictPolicy, destinationRootOverride,
+                assetsDirectory, progress, entryFilter, ct).ConfigureAwait(false);
+        }
+        finally
+        {
+            if (tempPlain is not null && File.Exists(tempPlain))
+                File.Delete(tempPlain);
+        }
+    }
+
+    /// <summary>
+    /// Восстановление из уже открытого ZIP-потока с произвольным доступом — например,
+    /// удалённого архива, который читается кусками без скачивания целиком. Поток
+    /// должен быть НЕзашифрованным ZIP; временем жизни потока управляет вызывающий.
+    /// </summary>
+    public async Task RestoreAsync(
+        Stream zipStream,
+        IEnumerable<IBackupModule>? modules = null,
+        ConflictPolicy conflictPolicy = ConflictPolicy.BackupExisting,
+        string? destinationRootOverride = null,
+        string? assetsDirectory = null,
+        IProgress<string>? progress = null,
+        Func<string, bool>? entryFilter = null,
+        CancellationToken ct = default)
+    {
+        using var zip = new ZipArchive(zipStream, ZipArchiveMode.Read, leaveOpen: true);
+        await RestoreFromArchiveAsync(zip, modules, conflictPolicy, destinationRootOverride,
+            assetsDirectory, progress, entryFilter, ct).ConfigureAwait(false);
+    }
+
+    private async Task RestoreFromArchiveAsync(
+        ZipArchive zip,
+        IEnumerable<IBackupModule>? modules,
+        ConflictPolicy conflictPolicy,
+        string? destinationRootOverride,
+        string? assetsDirectory,
+        IProgress<string>? progress,
+        Func<string, bool>? entryFilter,
+        CancellationToken ct)
+    {
         var manifestEntry = zip.GetEntry("manifest.json")
             ?? throw new InvalidDataException("В архиве нет manifest.json — это не архив eBackup.");
 
@@ -418,12 +458,6 @@ public sealed class BackupEngine
                     }
                 }
             }
-        }
-        }
-        finally
-        {
-            if (tempPlain is not null && File.Exists(tempPlain))
-                File.Delete(tempPlain);
         }
     }
 

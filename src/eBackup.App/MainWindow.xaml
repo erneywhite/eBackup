@@ -20,12 +20,9 @@
                         ToolTipText="eBackup"
                         NoLeftClickDelay="True"
                         ContextMenuMode="SecondWindow">
+            <!-- Временное лого; заменим на финальное от художницы -->
             <tb:TaskbarIcon.IconSource>
-                <tb:GeneratedIconSource Text="e"
-                                        FontWeight="Bold"
-                                        FontSize="46"
-                                        Foreground="#1A0F22"
-                                        Background="#C97DF6" />
+                <BitmapImage UriSource="ms-appx:///Assets/logo.png" />
             </tb:TaskbarIcon.IconSource>
             <tb:TaskbarIcon.ContextFlyout>
                 <MenuFlyout>
@@ -87,17 +84,16 @@
                 </Grid.RowDefinitions>
 
                 <!-- Брендинг (как в eCoda — верх сайдбара).
-                     LogoSlot 44×44: сюда позже встанет Image с лого от художницы. -->
+                     LogoSlot 44×44: временное лого (me_dev.png), заменим на финальное. -->
                 <StackPanel Grid.Row="0" Orientation="Horizontal" Spacing="11" Margin="6,2,6,16"
                             IsHitTestVisible="False">
                     <Border x:Name="LogoSlot" Width="44" Height="44" CornerRadius="12"
-                            Background="{StaticResource EbCardBrush}"
                             BorderBrush="{StaticResource EbCardBorderBrush}" BorderThickness="1"
                             VerticalAlignment="Center">
-                        <TextBlock Text="e" FontSize="24" FontWeight="Bold"
-                                   Foreground="{StaticResource EbAccentGradient}"
-                                   HorizontalAlignment="Center" VerticalAlignment="Center"
-                                   Margin="0,-3,0,0" />
+                        <Border.Background>
+                            <ImageBrush Stretch="UniformToFill"
+                                        ImageSource="ms-appx:///Assets/logo.png" />
+                        </Border.Background>
                     </Border>
                     <StackPanel VerticalAlignment="Center" Spacing="1" MaxWidth="130">
                         <TextBlock Text="eBackup" FontSize="18" FontWeight="Bold"

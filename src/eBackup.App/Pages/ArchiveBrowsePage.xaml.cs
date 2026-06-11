@@ -38,7 +38,8 @@ public sealed partial class ArchiveBrowsePage : Page
 {
     private readonly StorageStore _store = new(new DpapiSecretProtector());
     private RestoreSource? _source;
-    private string? _zipPath;        // готовый к чтению ZIP (после скачивания/расшифровки)
+    private string? _zipPath;        // локальный ZIP (после скачивания/расшифровки)
+    private Stream? _remoteStream;   // удалённый ZIP с произвольным доступом — без скачивания
     private string? _encryptedPath;  // зашифрованный .ebk, ждёт парольную фразу
     private string? _tempDownloaded; // скачанная с сервера копия (удаляется при уходе)
     private string? _tempDecrypted;  // расшифрованная копия (удаляется при уходе)
@@ -84,8 +85,34 @@ public sealed partial class ArchiveBrowsePage : Page
                 var storages = await _store.LoadAsync();
                 var saved = storages.FirstOrDefault(s => s.Id == _source.StorageId)
                     ?? throw new InvalidOperationException("Хранилище-источник не найдено.");
-                SetStatus($"Скачиваю {_source.RemoteName} из «{saved.Name}»…", dim: true);
                 var storage = StorageFactory.Create(saved, _store.Protector);
+
+                // Хранилище умеет произвольный доступ? Тогда читаем архив кусками —
+                // без скачивания целиком (для 100+ ГБ это единственный разумный путь).
+                // Исключение — зашифрованные: им нужен целый файл для расшифровки.
+                if (storage is ISeekableArchiveStorage seekable)
+                {
+                    SetStatus("Читаю оглавление архива (без скачивания целиком)…", dim: true);
+                    var stream = await seekable.OpenSeekableReadAsync(_source.RemoteName!, _cts.Token);
+                    if (_unloaded)
+                    {
+                        stream.Dispose();
+                        return;
+                    }
+
+                    var encrypted = await Task.Run(() => ArchiveCipher.IsEncrypted(stream));
+                    if (!encrypted)
+                    {
+                        _remoteStream = stream;
+                        TitleText.Text = _source.RemoteName;
+                        await BuildTreeAsync();
+                        return;
+                    }
+
+                    stream.Dispose(); // зашифрован — переходим к полному скачиванию
+                }
+
+                SetStatus($"Скачиваю {_source.RemoteName} из «{saved.Name}»…", dim: true);
                 // GUID в имени: повторное открытие того же архива не должно
                 // столкнуться с файлом, который ещё дописывает брошенная загрузка.
                 _tempDownloaded = Path.Combine(Path.GetTempPath(), "eBackup",
@@ -179,10 +206,16 @@ public sealed partial class ArchiveBrowsePage : Page
     /// </summary>
     private async Task BuildTreeAsync()
     {
-        var zipPath = _zipPath!;
+        var zipPath = _zipPath;
+        var remote = _remoteStream;
         var entries = await Task.Run(() =>
         {
-            using var zip = System.IO.Compression.ZipFile.OpenRead(zipPath);
+            // Удалённый поток: ZipArchive прочитает только центральный каталог
+            // (несколько диапазонов с конца файла), не весь архив.
+            using var zip = remote is not null
+                ? new System.IO.Compression.ZipArchive(
+                    remote, System.IO.Compression.ZipArchiveMode.Read, leaveOpen: true)
+                : System.IO.Compression.ZipFile.OpenRead(zipPath!);
             return zip.Entries
                 .Where(en => !string.IsNullOrEmpty(en.Name)
                     && en.FullName.StartsWith("data/", StringComparison.Ordinal))
@@ -288,7 +321,7 @@ public sealed partial class ArchiveBrowsePage : Page
     /// </summary>
     private async Task RunSelectedAsync(string? destinationRoot)
     {
-        if (_busy || _zipPath is null)
+        if (_busy || (_zipPath is null && _remoteStream is null))
             return;
 
         var selected = SelectedEntries();
@@ -312,12 +345,19 @@ public sealed partial class ArchiveBrowsePage : Page
                 : $"Скачиваю {selected.Count} файлов в {destinationRoot}…", dim: true);
 
             var zipPath = _zipPath;
+            var remote = _remoteStream;
             var engine = new BackupEngine();
-            await Task.Run(() => engine.RestoreAsync(
-                zipPath,
-                conflictPolicy: ConflictPolicy.BackupExisting,
-                destinationRootOverride: destinationRoot,
-                entryFilter: selected.Contains));
+            await Task.Run(() => remote is not null
+                ? engine.RestoreAsync(             // удалённо: тянутся только выбранные куски
+                    remote,
+                    conflictPolicy: ConflictPolicy.BackupExisting,
+                    destinationRootOverride: destinationRoot,
+                    entryFilter: selected.Contains)
+                : engine.RestoreAsync(
+                    zipPath!,
+                    conflictPolicy: ConflictPolicy.BackupExisting,
+                    destinationRootOverride: destinationRoot,
+                    entryFilter: selected.Contains));
 
             SetStatus(destinationRoot is null
                 ? $"✓ Восстановлено файлов: {selected.Count} (существовавшие сохранены как .bak)"
@@ -343,6 +383,9 @@ public sealed partial class ArchiveBrowsePage : Page
 
     private void Cleanup()
     {
+        try { _remoteStream?.Dispose(); } catch { }
+        _remoteStream = null;
+
         foreach (var path in new[] { _tempDownloaded, _tempDecrypted })
             if (path is not null)
                 try { File.Delete(path); } catch { }

@@ -3,9 +3,13 @@ using eBackup.Storage.Sftp;
 namespace eBackup.Storage;
 
 /// <summary>Адаптер SFTP-провайдера под единую поверхность хранилищ.</summary>
-public sealed class SftpArchiveStorage(SftpStorageProvider provider, string name) : IArchiveStorage
+public sealed class SftpArchiveStorage(SftpStorageProvider provider, string name)
+    : IArchiveStorage, ISeekableArchiveStorage
 {
     public string Name => name;
+
+    public Task<Stream> OpenSeekableReadAsync(string remoteName, CancellationToken ct = default)
+        => provider.OpenSeekableReadAsync(remoteName, ct);
 
     public Task UploadAsync(string localFilePath, string remoteName, CancellationToken ct = default)
         => provider.UploadAsync(localFilePath, remoteName, ct);

@@ -13,7 +13,8 @@ namespace eBackup.Storage;
 /// PROPFIND — листинг, PUT/GET — заливка/скачивание, DELETE, MKCOL — папки.
 /// Аутентификация — Basic (пароль в DPAPI; для Яндекса — пароль приложения).
 /// </summary>
-public sealed class WebDavStorage(SavedStorage config, ISecretProtector protector) : IArchiveStorage
+public sealed class WebDavStorage(SavedStorage config, ISecretProtector protector)
+    : IArchiveStorage, ISeekableArchiveStorage
 {
     private static readonly HttpClient Http = new(new HttpClientHandler())
     {
@@ -85,6 +86,29 @@ public sealed class WebDavStorage(SavedStorage config, ISecretProtector protecto
         response.EnsureSuccessStatusCode();
         await using var target = File.Create(localFilePath);
         await response.Content.CopyToAsync(target, ct).ConfigureAwait(false);
+    }
+
+    /// <summary>Чтение кусками через HTTP Range; сервер обязан отвечать 206.</summary>
+    public async Task<Stream> OpenSeekableReadAsync(string remoteName, CancellationToken ct = default)
+    {
+        var uri = new Uri(FolderUri, Uri.EscapeDataString(remoteName));
+
+        using var head = Request(HttpMethod.Head, uri);
+        using var headResponse = await Http.SendAsync(head, ct).ConfigureAwait(false);
+        headResponse.EnsureSuccessStatusCode();
+        var length = headResponse.Content.Headers.ContentLength
+            ?? throw new IOException("WebDAV-сервер не сообщил размер файла.");
+
+        return new RangeStream(length, async (from, count, token) =>
+        {
+            using var request = Request(HttpMethod.Get, uri);
+            request.Headers.Range = new RangeHeaderValue(from, from + count - 1);
+            using var response = await Http.SendAsync(request, token).ConfigureAwait(false);
+            if (response.StatusCode != HttpStatusCode.PartialContent)
+                throw new IOException(
+                    "WebDAV-сервер не поддерживает чтение по диапазонам (Range) — скачай архив целиком.");
+            return await response.Content.ReadAsByteArrayAsync(token).ConfigureAwait(false);
+        });
     }
 
     public async Task<IReadOnlyList<RemoteFileInfo>> ListDetailedAsync(CancellationToken ct = default)

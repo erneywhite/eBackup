@@ -10,7 +10,8 @@ namespace eBackup.Storage;
 /// S3-совместимое хранилище (AWS S3, MinIO, Backblaze B2, Cloudflare R2, Яндекс и т.п.).
 /// «Папка» в бакете — это префикс ключей (SavedStorage.RemoteDirectory).
 /// </summary>
-public sealed class S3Storage(SavedStorage config, ISecretProtector protector) : IArchiveStorage
+public sealed class S3Storage(SavedStorage config, ISecretProtector protector)
+    : IArchiveStorage, ISeekableArchiveStorage
 {
     public string Name => config.Name;
 
@@ -68,6 +69,36 @@ public sealed class S3Storage(SavedStorage config, ISecretProtector protector) :
         using var client = CreateClient();
         using var response = await client.GetObjectAsync(Bucket, Prefix + remoteName, ct).ConfigureAwait(false);
         await response.WriteResponseStreamToFileAsync(localFilePath, append: false, ct).ConfigureAwait(false);
+    }
+
+    /// <summary>Чтение кусками через S3 Range-запросы — архив не скачивается целиком.</summary>
+    public async Task<Stream> OpenSeekableReadAsync(string remoteName, CancellationToken ct = default)
+    {
+        var client = CreateClient();
+        try
+        {
+            var key = Prefix + remoteName;
+            var meta = await client.GetObjectMetadataAsync(Bucket, key, ct).ConfigureAwait(false);
+            var length = meta.ContentLength;
+
+            return new RangeStream(length, async (from, count, token) =>
+            {
+                using var response = await client.GetObjectAsync(new GetObjectRequest
+                {
+                    BucketName = Bucket,
+                    Key = key,
+                    ByteRange = new ByteRange(from, from + count - 1)
+                }, token).ConfigureAwait(false);
+                using var buffer = new MemoryStream(count);
+                await response.ResponseStream.CopyToAsync(buffer, token).ConfigureAwait(false);
+                return buffer.ToArray();
+            }, onDispose: client.Dispose);
+        }
+        catch
+        {
+            client.Dispose();
+            throw;
+        }
     }
 
     public async Task<IReadOnlyList<RemoteFileInfo>> ListDetailedAsync(CancellationToken ct = default)

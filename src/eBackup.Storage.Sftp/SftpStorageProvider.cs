@@ -111,6 +111,27 @@ public sealed class SftpStorageProvider : IStorageProvider
             }
         }, ct);
 
+    /// <summary>
+    /// Открыть удалённый файл как поток с Seek: читаются только нужные куски
+    /// (например, оглавление ZIP). Соединение живёт, пока открыт поток.
+    /// </summary>
+    public Task<Stream> OpenSeekableReadAsync(string remoteName, CancellationToken ct = default)
+        => Task.Run<Stream>(() =>
+        {
+            var client = new SftpClient(BuildConnectionInfo(_options));
+            try
+            {
+                client.Connect();
+                var stream = client.OpenRead(CombineRemote(_options.RemoteDirectory, remoteName));
+                return new OwnedStream(stream, client);
+            }
+            catch
+            {
+                client.Dispose();
+                throw;
+            }
+        }, ct);
+
     private SftpClient Connect()
     {
         var client = new SftpClient(BuildConnectionInfo(_options));

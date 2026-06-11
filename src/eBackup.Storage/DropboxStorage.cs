@@ -12,7 +12,8 @@ namespace eBackup.Storage;
 /// Dropbox через REST (доступ «App folder» — приложение видит только Apps/&lt;имя&gt;).
 /// Файлы больше ~100 МБ заливаются сессией по кускам (лимит одиночного аплоада — 150 МБ).
 /// </summary>
-public sealed class DropboxStorage(SavedStorage config, ISecretProtector protector) : IArchiveStorage
+public sealed class DropboxStorage(SavedStorage config, ISecretProtector protector)
+    : IArchiveStorage, ISeekableArchiveStorage
 {
     private static readonly HttpClient Http = new() { Timeout = TimeSpan.FromMinutes(30) };
     private const string TokenEndpoint = "https://api.dropboxapi.com/oauth2/token";
@@ -124,6 +125,28 @@ public sealed class DropboxStorage(SavedStorage config, ISecretProtector protect
         await ThrowIfErrorAsync(response, ct).ConfigureAwait(false);
         await using var target = File.Create(localFilePath);
         await response.Content.CopyToAsync(target, ct).ConfigureAwait(false);
+    }
+
+    /// <summary>Чтение кусками: download с заголовком Range — архив не качается целиком.</summary>
+    public async Task<Stream> OpenSeekableReadAsync(string remoteName, CancellationToken ct = default)
+    {
+        var meta = await RpcAsync("https://api.dropboxapi.com/2/files/get_metadata",
+            new { path = FilePath(remoteName) }, ct).ConfigureAwait(false);
+        var length = meta.RootElement.GetProperty("size").GetInt64();
+
+        return new RangeStream(length, async (from, count, token) =>
+        {
+            using var request = new HttpRequestMessage(HttpMethod.Post,
+                "https://content.dropboxapi.com/2/files/download");
+            request.Headers.Authorization = await BearerAsync(token).ConfigureAwait(false);
+            request.Headers.Add("Dropbox-API-Arg",
+                JsonSerializer.Serialize(new { path = FilePath(remoteName) }));
+            request.Headers.Range = new RangeHeaderValue(from, from + count - 1);
+            using var response = await Http.SendAsync(request, token).ConfigureAwait(false);
+            if (response.StatusCode != HttpStatusCode.PartialContent)
+                throw new IOException("Dropbox не вернул запрошенный диапазон (Range).");
+            return await response.Content.ReadAsByteArrayAsync(token).ConfigureAwait(false);
+        });
     }
 
     public async Task<IReadOnlyList<RemoteFileInfo>> ListDetailedAsync(CancellationToken ct = default)

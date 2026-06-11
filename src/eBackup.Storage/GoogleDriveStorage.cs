@@ -1,3 +1,4 @@
+using System.Net;
 using System.Net.Http.Headers;
 using System.Text;
 using System.Text.Json;
@@ -12,7 +13,8 @@ namespace eBackup.Storage;
 /// Архивы лежат в папке (по умолчанию «eBackup») в корне Диска; загрузка — resumable
 /// (без ограничения «мелких» аплоадов), одноимённый файл заменяется.
 /// </summary>
-public sealed class GoogleDriveStorage(SavedStorage config, ISecretProtector protector) : IArchiveStorage
+public sealed class GoogleDriveStorage(SavedStorage config, ISecretProtector protector)
+    : IArchiveStorage, ISeekableArchiveStorage
 {
     private static readonly HttpClient Http = new() { Timeout = TimeSpan.FromMinutes(30) };
     private const string TokenEndpoint = "https://oauth2.googleapis.com/token";
@@ -116,6 +118,31 @@ public sealed class GoogleDriveStorage(SavedStorage config, ISecretProtector pro
         await ThrowIfErrorAsync(response, ct).ConfigureAwait(false);
         await using var target = File.Create(localFilePath);
         await response.Content.CopyToAsync(target, ct).ConfigureAwait(false);
+    }
+
+    /// <summary>Чтение кусками через Range на alt=media — архив не скачивается целиком.</summary>
+    public async Task<Stream> OpenSeekableReadAsync(string remoteName, CancellationToken ct = default)
+    {
+        var folderId = await FolderIdAsync(createIfMissing: false, ct).ConfigureAwait(false)
+            ?? throw new FileNotFoundException($"Папка «{FolderName}» на Диске не найдена.");
+        var fileId = await FindFileIdAsync(folderId, remoteName, ct).ConfigureAwait(false)
+            ?? throw new FileNotFoundException($"Файл {remoteName} не найден на Google Drive.");
+
+        var meta = await SendAsync(HttpMethod.Get,
+            $"{ApiBase}/files/{fileId}?fields=size", null, ct).ConfigureAwait(false);
+        if (!long.TryParse(meta.RootElement.GetProperty("size").GetString(), out var length))
+            throw new IOException("Google Drive не сообщил размер файла.");
+
+        return new RangeStream(length, async (from, count, token) =>
+        {
+            using var request = new HttpRequestMessage(HttpMethod.Get, $"{ApiBase}/files/{fileId}?alt=media");
+            request.Headers.Authorization = await BearerAsync(token).ConfigureAwait(false);
+            request.Headers.Range = new RangeHeaderValue(from, from + count - 1);
+            using var response = await Http.SendAsync(request, token).ConfigureAwait(false);
+            if (response.StatusCode != HttpStatusCode.PartialContent)
+                throw new IOException("Google Drive не вернул запрошенный диапазон (Range).");
+            return await response.Content.ReadAsByteArrayAsync(token).ConfigureAwait(false);
+        });
     }
 
     public async Task<IReadOnlyList<RemoteFileInfo>> ListDetailedAsync(CancellationToken ct = default)
