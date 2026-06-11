@@ -35,9 +35,6 @@ public sealed class AppSettings
     /// <summary>Уведомление из трея, когда бэкап завершился при скрытом окне.</summary>
     public bool NotifyOnBackgroundBackup { get; set; } = true;
 
-    /// <summary>Проверять обновления (GitHub Releases) при запуске, не чаще раза в сутки.</summary>
-    public bool CheckForUpdates { get; set; } = true;
-
     /// <summary>Когда последний раз проверяли обновления (троттлинг до раза в сутки).</summary>
     public DateTimeOffset? LastUpdateCheck { get; set; }
 

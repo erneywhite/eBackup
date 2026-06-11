@@ -591,9 +591,7 @@ public sealed partial class MainWindow : Window
     private async Task CheckForUpdatesAsync()
     {
         var settings = AppSettings.Load();
-        if (!settings.CheckForUpdates)
-            return;
-        // Не чаще раза в сутки, чтобы не дёргать API на каждый запуск.
+        // Проверяем при каждом запуске, но не чаще раза в сутки (чтобы не дёргать API).
         if (settings.LastUpdateCheck is { } last && (DateTimeOffset.Now - last).TotalHours < 24)
             return;
 
