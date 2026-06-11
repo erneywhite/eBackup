@@ -367,6 +367,30 @@ public sealed partial class StoragePage : Page
         KeyPanel.Visibility = keyAuth ? Visibility.Visible : Visibility.Collapsed;
     }
 
+    /// <summary>Открыть папку хранилища в проводнике (локальная или сетевая).</summary>
+    private void OpenPathBtn_Click(object sender, RoutedEventArgs e)
+    {
+        var path = PathBox.Text.Trim();
+        if (path.Length == 0)
+        {
+            SetStatus("Сначала укажи путь к папке.", ok: false);
+            return;
+        }
+
+        try
+        {
+            System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
+            {
+                FileName = path,
+                UseShellExecute = true
+            });
+        }
+        catch (Exception ex)
+        {
+            SetStatus("✕ Не удалось открыть: " + ex.Message, ok: false);
+        }
+    }
+
     private async void BrowsePathBtn_Click(object sender, RoutedEventArgs e)
     {
         if (MainWindow.Instance is null)
@@ -797,7 +821,13 @@ public sealed partial class StoragePage : Page
         if (_selfTestTimer is not null)
             return;
 
-        _selfTestTimer = new DispatcherTimer { Interval = TimeSpan.FromMinutes(5) };
+        // Интервал из настроек; 0 — автопроверки нет (остаются проверка при
+        // открытии страницы и кнопка ⟳). Перечитывается при следующем заходе.
+        var minutes = AppSettings.Load().SelfTestMinutes;
+        if (minutes <= 0)
+            return;
+
+        _selfTestTimer = new DispatcherTimer { Interval = TimeSpan.FromMinutes(minutes) };
         _selfTestTimer.Tick += async (_, _) => await SelfTestAllAsync();
         _selfTestTimer.Start();
     }

@@ -371,11 +371,13 @@ public sealed partial class MainWindow : Window
         {
             // Архив собирается во временной папке и раскладывается по всем целям одинаково.
             var buildDir = Path.Combine(Path.GetTempPath(), "eBackup");
-            var name = BackupNaming.DefaultName(request.Modules);
+            var name = BackupNaming.DefaultName(request.Modules,
+                machineTag: settings.IncludeMachineNameInArchive ? Environment.MachineName : null);
 
             var engine = new BackupEngine();
             var archive = await Task.Run(() =>
-                engine.CreateBackupAsync(request.Modules, buildDir, name, request.Passphrase, progress));
+                engine.CreateBackupAsync(request.Modules, buildDir, name, request.Passphrase,
+                    progress, settings.CompressionLevel));
             SetFill(0.70);
 
             var done = new List<string>();

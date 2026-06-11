@@ -32,8 +32,12 @@ public sealed partial class RestorePage : Page
         AssetsDirBox.Text = DefaultAssetsDir();
     }
 
-    private static string DefaultAssetsDir() => Path.Combine(
-        Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments), "eBackup", "Assets");
+    /// <summary>Дефолт из настроек; пусто в настройках — Documents\eBackup\Assets.</summary>
+    private static string DefaultAssetsDir()
+    {
+        var configured = AppSettings.Load().DefaultAssetsDir;
+        return string.IsNullOrWhiteSpace(configured) ? AppSettings.DefaultAssetsDirPath : configured;
+    }
 
     protected override void OnNavigatedTo(NavigationEventArgs e)
     {

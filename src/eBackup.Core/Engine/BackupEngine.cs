@@ -27,6 +27,7 @@ public sealed class BackupEngine
         string archiveName,
         string? passphrase = null,
         IProgress<string>? progress = null,
+        CompressionLevel compression = CompressionLevel.Optimal,
         CancellationToken ct = default)
     {
         Directory.CreateDirectory(outputDirectory);
@@ -84,7 +85,7 @@ public sealed class BackupEngine
                     if (entry.Type == PathEntryType.File && File.Exists(source))
                     {
                         var archiveEntryPath = "data/" + entry.ArchivePath.Replace('\\', '/');
-                        zip.CreateEntryFromFile(source, archiveEntryPath);
+                        zip.CreateEntryFromFile(source, archiveEntryPath, compression);
                         moduleEntry.Entries.Add(entry with { Sha256 = await Sha256OfFileAsync(source, ct).ConfigureAwait(false) });
                     }
                     else if (entry.Type == PathEntryType.Directory && Directory.Exists(source))
@@ -101,7 +102,7 @@ public sealed class BackupEngine
                         {
                             ct.ThrowIfCancellationRequested();
                             var rel = Path.GetRelativePath(source, file).Replace('\\', '/');
-                            zip.CreateEntryFromFile(file, basePrefix + "/" + rel);
+                            zip.CreateEntryFromFile(file, basePrefix + "/" + rel, compression);
                             if (++fileCount % 250 == 0)
                                 progress?.Report($"{module.DisplayName}: {fileCount} файлов…");
                         }

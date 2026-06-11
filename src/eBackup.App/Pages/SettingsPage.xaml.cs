@@ -13,9 +13,54 @@ public sealed partial class SettingsPage : Page
         RetentionBox.Text = settings.RetentionCount.ToString();
         TrayToggle.IsOn = settings.MinimizeToTray;
         AutostartToggle.IsOn = Autostart.IsEnabled();
+        MachineNameToggle.IsOn = settings.IncludeMachineNameInArchive;
+        CompressionBox.SelectedIndex = Math.Clamp(settings.CompressionMode, 0, 2);
+        AssetsDirBox.Text = settings.DefaultAssetsDir ?? string.Empty;
+        SelfTestBox.Text = settings.SelfTestMinutes.ToString();
 
         var version = System.Reflection.Assembly.GetExecutingAssembly().GetName().Version;
         VersionText.Text = version is null ? "" : $"v{version.ToString(3)}";
+    }
+
+    private async void PickAssetsDir_Click(object sender, RoutedEventArgs e)
+    {
+        if (MainWindow.Instance is null)
+            return;
+        var picker = new Windows.Storage.Pickers.FolderPicker();
+        picker.FileTypeFilter.Add("*");
+        var hwnd = WinRT.Interop.WindowNative.GetWindowHandle(MainWindow.Instance);
+        WinRT.Interop.InitializeWithWindow.Initialize(picker, hwnd);
+        var folder = await picker.PickSingleFolderAsync();
+        if (folder is not null)
+            AssetsDirBox.Text = folder.Path;
+    }
+
+    private void CleanTemp_Click(object sender, RoutedEventArgs e)
+    {
+        if (MainWindow.Instance?.IsBusy == true)
+        {
+            SetStatus("Идёт бэкап или восстановление — временные файлы сейчас нужны.", ok: false);
+            return;
+        }
+
+        var tempDir = Path.Combine(Path.GetTempPath(), "eBackup");
+        try
+        {
+            long freed = 0;
+            if (Directory.Exists(tempDir))
+            {
+                freed = Directory.EnumerateFiles(tempDir, "*", SearchOption.AllDirectories)
+                    .Sum(f => { try { return new FileInfo(f).Length; } catch { return 0L; } });
+                Directory.Delete(tempDir, recursive: true);
+            }
+            SetStatus(freed == 0
+                ? "✓ Временных файлов нет — и так чисто."
+                : $"✓ Очищено: освобождено {freed / 1024.0 / 1024.0:0.#} МБ.", ok: true);
+        }
+        catch (Exception ex)
+        {
+            SetStatus("✕ Не удалось очистить: " + ex.Message, ok: false);
+        }
     }
 
     // ---------- ссылки и быстрые папки ----------
@@ -63,12 +108,23 @@ public sealed partial class SettingsPage : Page
             return;
         }
 
+        if (!int.TryParse(SelfTestBox.Text.Trim(), out var selfTest) || selfTest is < 0 or > 1440)
+        {
+            SetStatus("Проверка хранилищ — число минут от 0 до 1440.", ok: false);
+            return;
+        }
+
         try
         {
             // Меняем только свои поля — остальное (флаги инициализации и т.п.) не трогаем.
             var settings = AppSettings.Load();
             settings.RetentionCount = retention;
             settings.MinimizeToTray = TrayToggle.IsOn;
+            settings.IncludeMachineNameInArchive = MachineNameToggle.IsOn;
+            settings.CompressionMode = Math.Clamp(CompressionBox.SelectedIndex, 0, 2);
+            var assetsDir = AssetsDirBox.Text.Trim();
+            settings.DefaultAssetsDir = assetsDir.Length == 0 ? null : assetsDir;
+            settings.SelfTestMinutes = selfTest;
             settings.Save();
 
             Autostart.Set(AutostartToggle.IsOn);

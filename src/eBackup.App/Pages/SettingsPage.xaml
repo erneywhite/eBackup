@@ -27,6 +27,48 @@
                 </StackPanel>
             </Border>
 
+            <!-- Архив -->
+            <Border Style="{StaticResource EbSectionCard}">
+                <StackPanel Spacing="8">
+                    <TextBlock Text="Архив" FontSize="12"
+                               Foreground="{StaticResource EbTextDimBrush}" />
+                    <ToggleSwitch x:Name="MachineNameToggle"
+                                  OnContent="Добавлять имя компьютера в имя архива"
+                                  OffContent="Добавлять имя компьютера в имя архива" />
+                    <StackPanel Orientation="Horizontal" Spacing="10">
+                        <TextBlock Text="Сжатие" VerticalAlignment="Center" />
+                        <ComboBox x:Name="CompressionBox" Width="190" SelectedIndex="1">
+                            <ComboBoxItem Content="Быстрее (слабее жмёт)" />
+                            <ComboBoxItem Content="Обычное" />
+                            <ComboBoxItem Content="Максимальное (медленнее)" />
+                        </ComboBox>
+                    </StackPanel>
+                    <TextBlock Text="Имя компьютера полезно, когда несколько ПК бэкапятся в одно хранилище: ebackup_DESKTOP-ABC_obs_2026-… Сжатие влияет на время бэкапа и размер архива."
+                               FontSize="11" TextWrapping="Wrap"
+                               Foreground="{StaticResource EbTextDimBrush}" />
+                </StackPanel>
+            </Border>
+
+            <!-- Восстановление -->
+            <Border Style="{StaticResource EbSectionCard}">
+                <StackPanel Spacing="8">
+                    <TextBlock Text="Восстановление" FontSize="12"
+                               Foreground="{StaticResource EbTextDimBrush}" />
+                    <TextBlock Text="Папка ассетов по умолчанию (внешние файлы сцен и т.п.)"
+                               FontSize="12" Foreground="{StaticResource EbTextDimBrush}" />
+                    <Grid ColumnSpacing="8">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+                        <TextBox x:Name="AssetsDirBox"
+                                 PlaceholderText="пусто — Documents\eBackup\Assets" />
+                        <Button x:Name="PickAssetsDirBtn" Grid.Column="1" Content="Обзор…"
+                                CornerRadius="10" Click="PickAssetsDir_Click" />
+                    </Grid>
+                </StackPanel>
+            </Border>
+
             <!-- Поведение: трей и автозапуск -->
             <Border Style="{StaticResource EbSectionCard}">
                 <StackPanel Spacing="8">
@@ -38,7 +80,12 @@
                     <ToggleSwitch x:Name="AutostartToggle"
                                   OnContent="Запускать вместе с Windows (свёрнуто, в трее)"
                                   OffContent="Запускать вместе с Windows (свёрнуто, в трее)" />
-                    <TextBlock Text="В трее расписания продолжают работать; полный выход — через меню иконки в трее."
+                    <StackPanel Orientation="Horizontal" Spacing="10">
+                        <TextBlock Text="Проверять хранилища каждые" VerticalAlignment="Center" />
+                        <TextBox x:Name="SelfTestBox" Width="60" Text="5" />
+                        <TextBlock Text="минут" VerticalAlignment="Center" />
+                    </StackPanel>
+                    <TextBlock Text="0 — не проверять по таймеру (значки ✓/✕ обновятся при открытии страницы или кнопкой ⟳). В трее расписания продолжают работать; полный выход — через меню иконки в трее."
                                FontSize="11" TextWrapping="Wrap"
                                Foreground="{StaticResource EbTextDimBrush}" />
                 </StackPanel>
@@ -62,8 +109,9 @@
                         <Button Content="Папка настроек" CornerRadius="10" Click="OpenConfig_Click" />
                         <Button Content="Папка модулей" CornerRadius="10" Click="OpenModules_Click" />
                         <Button Content="Журнал ошибок" CornerRadius="10" Click="OpenLog_Click" />
+                        <Button Content="Очистить временные файлы" CornerRadius="10" Click="CleanTemp_Click" />
                     </StackPanel>
-                    <TextBlock Text="В папке настроек — конфиги и расписания; в папку модулей кладутся drop-in модули (*.module.json); журнал пригодится, если что-то пошло не так."
+                    <TextBlock Text="В папке настроек — конфиги и расписания; в папку модулей кладутся drop-in модули (*.module.json); журнал пригодится, если что-то пошло не так. Временные файлы остаются после прерванных бэкапов и скачиваний."
                                FontSize="11" TextWrapping="Wrap"
                                Foreground="{StaticResource EbTextDimBrush}" />
                 </StackPanel>
@@ -81,7 +129,7 @@
                         <TextBlock x:Name="VersionText" FontSize="12" VerticalAlignment="Center"
                                    Foreground="{StaticResource EbTextDimBrush}" />
                     </StackPanel>
-                    <TextBlock Text="Бэкапы, которые переезжают с тобой. Бесплатно и без подписок — делаем для людей."
+                    <TextBlock Text="Бэкапы, которые переезжают с тобой."
                                FontSize="12" TextWrapping="Wrap"
                                Foreground="{StaticResource EbTextDimBrush}" />
                     <StackPanel Orientation="Horizontal" Spacing="10">

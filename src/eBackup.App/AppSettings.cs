@@ -20,6 +20,30 @@ public sealed class AppSettings
     /// <summary>Дефолтное хранилище «Локальная папка» уже создано (одноразовая инициализация).</summary>
     public bool DefaultStorageCreated { get; set; }
 
+    /// <summary>Добавлять имя компьютера в имя архива (несколько ПК в одном хранилище).</summary>
+    public bool IncludeMachineNameInArchive { get; set; }
+
+    /// <summary>Сжатие архива: 0 — быстрее, 1 — обычное, 2 — максимальное.</summary>
+    public int CompressionMode { get; set; } = 1;
+
+    /// <summary>Папка ассетов при восстановлении; null/пусто — Documents\eBackup\Assets.</summary>
+    public string? DefaultAssetsDir { get; set; }
+
+    /// <summary>Автопроверка хранилищ каждые N минут; 0 — только вручную (кнопка ⟳).</summary>
+    public int SelfTestMinutes { get; set; } = 5;
+
+    /// <summary>CompressionMode → уровень сжатия ZIP.</summary>
+    [System.Text.Json.Serialization.JsonIgnore]
+    public System.IO.Compression.CompressionLevel CompressionLevel => CompressionMode switch
+    {
+        0 => System.IO.Compression.CompressionLevel.Fastest,
+        2 => System.IO.Compression.CompressionLevel.SmallestSize,
+        _ => System.IO.Compression.CompressionLevel.Optimal
+    };
+
+    public static string DefaultAssetsDirPath => Path.Combine(
+        Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments), "eBackup", "Assets");
+
     public static string DefaultLocalBackupDir => Path.Combine(
         Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments), "eBackup", "Backups");
 

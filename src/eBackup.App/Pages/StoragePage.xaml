@@ -102,11 +102,15 @@
                                 <Grid.ColumnDefinitions>
                                     <ColumnDefinition Width="*" />
                                     <ColumnDefinition Width="Auto" />
+                                    <ColumnDefinition Width="Auto" />
                                 </Grid.ColumnDefinitions>
                                 <TextBox x:Name="PathBox"
                                          PlaceholderText="D:\Backups, Z:\… или \\nas\share\backups" />
                                 <Button x:Name="BrowsePathBtn" Grid.Column="1" Content="Обзор…"
                                         CornerRadius="10" Click="BrowsePathBtn_Click" />
+                                <Button x:Name="OpenPathBtn" Grid.Column="2" Content="Открыть"
+                                        CornerRadius="10" Click="OpenPathBtn_Click"
+                                        ToolTipService.ToolTip="Открыть папку в проводнике" />
                             </Grid>
 
                             <TextBlock Text="Авторизация для сетевой папки (если требуется; подключение временное — в системе не сохраняется)"
