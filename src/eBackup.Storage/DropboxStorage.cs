@@ -142,10 +142,12 @@ public sealed class DropboxStorage(SavedStorage config, ISecretProtector protect
             request.Headers.Add("Dropbox-API-Arg",
                 JsonSerializer.Serialize(new { path = FilePath(remoteName) }));
             request.Headers.Range = new RangeHeaderValue(from, from + count - 1);
-            using var response = await Http.SendAsync(request, token).ConfigureAwait(false);
+            using var response = await Http.SendAsync(
+                request, HttpCompletionOption.ResponseHeadersRead, token).ConfigureAwait(false);
             if (response.StatusCode != HttpStatusCode.PartialContent)
                 throw new IOException("Dropbox не вернул запрошенный диапазон (Range).");
-            return await response.Content.ReadAsByteArrayAsync(token).ConfigureAwait(false);
+            await using var stream = await response.Content.ReadAsStreamAsync(token).ConfigureAwait(false);
+            return await RangeStream.ReadBoundedAsync(stream, count, token).ConfigureAwait(false);
         });
     }
 

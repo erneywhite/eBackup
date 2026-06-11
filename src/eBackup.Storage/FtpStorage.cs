@@ -6,8 +6,8 @@ namespace eBackup.Storage;
 
 /// <summary>
 /// Хранилище FTP / FTPS (FluentFTP). На каждую операцию — отдельное подключение:
-/// просто и надёжно для нечастых операций бэкапа. При FTPS сертификат принимается
-/// любой (NAS обычно с самоподписанным) — об этом сказано в подсказке UI.
+/// просто и надёжно для нечастых операций бэкапа. FTPS по умолчанию проверяет
+/// сертификат по системным корням; приём непроверенного — отдельным флагом.
 /// </summary>
 public sealed class FtpStorage(SavedStorage config, ISecretProtector protector) : IArchiveStorage
 {
@@ -34,7 +34,11 @@ public sealed class FtpStorage(SavedStorage config, ISecretProtector protector) 
         if (config.UseFtps)
         {
             client.Config.EncryptionMode = FtpEncryptionMode.Explicit;
-            client.Config.ValidateAnyCertificate = true;
+            // По умолчанию сертификат проверяется по системным корням (FluentFTP).
+            // «Любой сертификат» — только по явному выбору (NAS с самоподписанным),
+            // иначе FTPS-шифрование молча открыто для MITM.
+            if (config.AllowUntrustedCertificate)
+                client.Config.ValidateAnyCertificate = true;
         }
 
         await client.Connect(ct).ConfigureAwait(false);

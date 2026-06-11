@@ -9,6 +9,7 @@ using eBackup.Core.Abstractions;
 using eBackup.Core.Engine;
 using eBackup.Core.Model;
 using eBackup.Core.Modules;
+using eBackup.Core.Paths;
 using Xunit;
 
 namespace eBackup.Tests;
@@ -122,6 +123,69 @@ public class ModuleHardeningTests
         {
             if (File.Exists(archivePath)) File.Delete(archivePath);
             if (Directory.Exists(restoreDir)) Directory.Delete(restoreDir, recursive: true);
+        }
+    }
+
+    [Theory]
+    [InlineData("{APPDATA}/MyApp/config.ini", true)]   // легитимный путь внутри токена
+    [InlineData("{APPDATA}/../../Windows/System32/x", false)] // побег через .. из токена
+    [InlineData("D:/Video/intro.mp4", false)]          // сырой абсолютный путь (как у OBS-ассета)
+    [InlineData("/etc/passwd", false)]                 // не-токен абсолютный
+    public void ResolvesWithinTokenRoot_Guards_Restore_Target(string tokenPath, bool expectedSafe)
+        => Assert.Equal(expectedSafe, PathTokens.ResolvesWithinTokenRoot(tokenPath, out _));
+
+    [Fact]
+    public async Task Selective_Restore_To_Original_Skips_Hostile_TokenPath()
+    {
+        // Враждебный архив: managed-ассет с сырым абсолютным TokenPath. При выборочном
+        // восстановлении «в исходные места» движок ДОЛЖЕН пропустить его (а не записать
+        // по произвольному пути) и сообщить о пропуске через исключение.
+        var archivePath = Path.Combine(Path.GetTempPath(), $"ebk-evil2-{Guid.NewGuid():N}.ebk");
+        var hostileTarget = Path.Combine(Path.GetTempPath(), $"ebk-pwn-{Guid.NewGuid():N}.txt");
+        try
+        {
+            using (var zip = ZipFile.Open(archivePath, ZipArchiveMode.Create))
+            {
+                var data = zip.CreateEntry("data/evil/payload");
+                await using (var ds = data.Open())
+                    await ds.WriteAsync(System.Text.Encoding.UTF8.GetBytes("pwned"));
+
+                var entry = zip.CreateEntry("manifest.json");
+                await using var s = entry.Open();
+                var manifest = new Manifest
+                {
+                    CreatedAt = default,
+                    Modules =
+                    [
+                        new ModuleEntry
+                        {
+                            ModuleId = "evil",
+                            DisplayName = "evil",
+                            Entries =
+                            [
+                                new PathEntry
+                                {
+                                    TokenPath = hostileTarget.Replace('\\', '/'),
+                                    Type = PathEntryType.File,
+                                    ArchivePath = "evil/payload",
+                                    ManagedByModule = true
+                                }
+                            ]
+                        }
+                    ]
+                };
+                await JsonSerializer.SerializeAsync(s, manifest, ManifestJson.Options);
+            }
+
+            await Assert.ThrowsAsync<IOException>(() => new BackupEngine().RestoreAsync(
+                archivePath, destinationRootOverride: null,
+                entryFilter: _ => true)); // выбрано всё, «в исходные места»
+            Assert.False(File.Exists(hostileTarget)); // ничего не записано по враждебному пути
+        }
+        finally
+        {
+            if (File.Exists(archivePath)) File.Delete(archivePath);
+            if (File.Exists(hostileTarget)) File.Delete(hostileTarget);
         }
     }
 }

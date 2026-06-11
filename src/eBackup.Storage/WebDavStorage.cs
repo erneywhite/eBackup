@@ -103,11 +103,13 @@ public sealed class WebDavStorage(SavedStorage config, ISecretProtector protecto
         {
             using var request = Request(HttpMethod.Get, uri);
             request.Headers.Range = new RangeHeaderValue(from, from + count - 1);
-            using var response = await Http.SendAsync(request, token).ConfigureAwait(false);
+            using var response = await Http.SendAsync(
+                request, HttpCompletionOption.ResponseHeadersRead, token).ConfigureAwait(false);
             if (response.StatusCode != HttpStatusCode.PartialContent)
                 throw new IOException(
                     "WebDAV-сервер не поддерживает чтение по диапазонам (Range) — скачай архив целиком.");
-            return await response.Content.ReadAsByteArrayAsync(token).ConfigureAwait(false);
+            await using var stream = await response.Content.ReadAsStreamAsync(token).ConfigureAwait(false);
+            return await RangeStream.ReadBoundedAsync(stream, count, token).ConfigureAwait(false);
         });
     }
 

@@ -53,6 +53,32 @@ public sealed class RangeStream(
         return toCopy;
     }
 
+    /// <summary>
+    /// Прочитать из <paramref name="source"/> НЕ БОЛЕЕ <paramref name="max"/> байт и
+    /// убедиться, что сервер не прислал лишнего. Защита от вредоносного/битого
+    /// хранилища, которое на запрос диапазона 512 КБ отвечает многогигабайтным телом
+    /// (иначе — рост буфера до OOM). Короткий ответ у конца файла — это нормально.
+    /// </summary>
+    public static async Task<byte[]> ReadBoundedAsync(Stream source, int max, CancellationToken ct)
+    {
+        var data = new byte[max];
+        var read = 0;
+        while (read < max)
+        {
+            var n = await source.ReadAsync(data.AsMemory(read, max - read), ct).ConfigureAwait(false);
+            if (n == 0)
+                break;
+            read += n;
+        }
+
+        // Заполнили буфер до предела, но в потоке ещё есть данные → сервер врёт про диапазон.
+        if (read == max && await source.ReadAsync(new byte[1].AsMemory(), ct).ConfigureAwait(false) != 0)
+            throw new IOException(
+                "Хранилище вернуло больше данных, чем запрошено диапазоном (Range).");
+
+        return read == max ? data : data[..read];
+    }
+
     public override long Seek(long offset, SeekOrigin origin)
     {
         _position = origin switch

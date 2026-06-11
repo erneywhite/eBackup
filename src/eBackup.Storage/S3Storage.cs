@@ -89,9 +89,8 @@ public sealed class S3Storage(SavedStorage config, ISecretProtector protector)
                     Key = key,
                     ByteRange = new ByteRange(from, from + count - 1)
                 }, token).ConfigureAwait(false);
-                using var buffer = new MemoryStream(count);
-                await response.ResponseStream.CopyToAsync(buffer, token).ConfigureAwait(false);
-                return buffer.ToArray();
+                return await RangeStream.ReadBoundedAsync(response.ResponseStream, count, token)
+                    .ConfigureAwait(false);
             }, onDispose: client.Dispose);
         }
         catch

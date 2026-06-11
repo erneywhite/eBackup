@@ -222,6 +222,7 @@ public sealed partial class StoragePage : Page
         FtpUserBox.Text = s?.Kind == StorageKind.Ftp ? s.Username ?? "" : "";
         FtpDirBox.Text = s?.Kind == StorageKind.Ftp ? s.RemoteDirectory ?? "." : ".";
         FtpsCheck.IsChecked = s?.Kind == StorageKind.Ftp && s.UseFtps;
+        FtpAllowUntrustedCheck.IsChecked = s?.Kind == StorageKind.Ftp && s.AllowUntrustedCertificate;
         FtpPassBox.Password = string.Empty;
         FtpPassBox.PlaceholderText = s?.Kind == StorageKind.Ftp && s.ProtectedPassword is not null
             ? "пусто — оставить прежний"
@@ -598,7 +599,8 @@ public sealed partial class StoragePage : Page
                 Username = ftpUser,
                 ProtectedPassword = ftpProtectedPass,
                 RemoteDirectory = FtpDirBox.Text.Trim() is { Length: > 0 } d ? d : ".",
-                UseFtps = FtpsCheck.IsChecked == true
+                UseFtps = FtpsCheck.IsChecked == true,
+                AllowUntrustedCertificate = FtpAllowUntrustedCheck.IsChecked == true
             };
         }
 

@@ -240,7 +240,9 @@
                             <TextBox x:Name="FtpDirBox" Text="." />
 
                             <CheckBox x:Name="FtpsCheck" Content="FTPS — шифровать соединение (TLS)" />
-                            <TextBlock Text="Сертификат сервера не проверяется строго (подходит для NAS с самоподписанным). Для архивов со стрим-ключами включай шифрование самого архива."
+                            <CheckBox x:Name="FtpAllowUntrustedCheck"
+                                      Content="Принимать самоподписанный/непроверенный сертификат" />
+                            <TextBlock Text="Без этой галочки сертификат FTPS проверяется по системным корням. Включай её только для NAS с самоподписанным сертификатом — это ослабляет защиту от подмены (MITM); для важных архивов дополнительно шифруй сам архив."
                                        FontSize="11" TextWrapping="Wrap"
                                        Foreground="{StaticResource EbTextDimBrush}" />
                         </StackPanel>

@@ -48,8 +48,12 @@ public sealed record SavedStorage
     public string? RemoteDirectory { get; init; }
 
     // ---- Ftp ----
-    /// <summary>FTPS (явный TLS). Сертификат принимается любой — ради NAS с самоподписанными.</summary>
+    /// <summary>FTPS (явный TLS). По умолчанию сертификат проверяется по системным корням.</summary>
     public bool UseFtps { get; init; }
+
+    /// <summary>Принимать непроверенный/самоподписанный TLS-сертификат FTPS (НЕБЕЗОПАСНО:
+    /// открывает MITM). Только явный выбор пользователя для NAS с самоподписанным сертификатом.</summary>
+    public bool AllowUntrustedCertificate { get; init; }
 
     // ---- S3 ----
     /// <summary>Endpoint: https://s3.eu-central-1.amazonaws.com, https://…r2.cloudflarestorage.com, http://minio:9000…</summary>

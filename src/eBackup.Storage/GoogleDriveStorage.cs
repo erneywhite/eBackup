@@ -138,10 +138,12 @@ public sealed class GoogleDriveStorage(SavedStorage config, ISecretProtector pro
             using var request = new HttpRequestMessage(HttpMethod.Get, $"{ApiBase}/files/{fileId}?alt=media");
             request.Headers.Authorization = await BearerAsync(token).ConfigureAwait(false);
             request.Headers.Range = new RangeHeaderValue(from, from + count - 1);
-            using var response = await Http.SendAsync(request, token).ConfigureAwait(false);
+            using var response = await Http.SendAsync(
+                request, HttpCompletionOption.ResponseHeadersRead, token).ConfigureAwait(false);
             if (response.StatusCode != HttpStatusCode.PartialContent)
                 throw new IOException("Google Drive не вернул запрошенный диапазон (Range).");
-            return await response.Content.ReadAsByteArrayAsync(token).ConfigureAwait(false);
+            await using var stream = await response.Content.ReadAsStreamAsync(token).ConfigureAwait(false);
+            return await RangeStream.ReadBoundedAsync(stream, count, token).ConfigureAwait(false);
         });
     }
 

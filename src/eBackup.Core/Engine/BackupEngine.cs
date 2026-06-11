@@ -384,9 +384,33 @@ public sealed class BackupEngine
                 if (entry.ManagedByModule && entryFilter is null)
                     continue;
 
-                var target = destinationRootOverride is null
-                    ? PathTokens.Resolve(entry.TokenPath)
-                    : Path.Combine(destinationRootOverride, entry.ArchivePath.Replace('/', Path.DirectorySeparatorChar));
+                // Корень записи — граница доверия (манифест из архива). В исходные
+                // места пускаем только пути внутри известного токен-корня; «в папку» —
+                // строго внутри выбранной папки. Сырые абсолютные пути и побеги через
+                // «..» отвергаются (в выборочном режиме — пропуск, в полном — отказ).
+                string target;
+                if (destinationRootOverride is null)
+                {
+                    if (!PathTokens.ResolvesWithinTokenRoot(entry.TokenPath, out target))
+                    {
+                        var msg = $"небезопасный или непереносимый путь в манифесте: {entry.TokenPath}";
+                        if (selectiveFailures is not null)
+                        {
+                            selectiveFailures.Add($"{entry.ArchivePath}: {msg}");
+                            log?.Invoke($"  ✕ {msg}");
+                            continue;
+                        }
+                        throw new InvalidDataException(msg);
+                    }
+                }
+                else
+                {
+                    target = Path.Combine(destinationRootOverride,
+                        entry.ArchivePath.Replace('/', Path.DirectorySeparatorChar));
+                    if (!PathSafety.IsWithin(destinationRootOverride, target))
+                        throw new InvalidDataException(
+                            $"Запись выходит за пределы целевой папки: {entry.ArchivePath}");
+                }
                 var prefix = "data/" + entry.ArchivePath.Replace('\\', '/');
 
                 if (entry.Type == PathEntryType.File)
