@@ -37,3 +37,6 @@ installer/dist/
 Thumbs.db
 desktop.ini
 *.log
+
+# Локальный handoff-файл для ассистента (в репу не нужен)
+CLAUDE.md
