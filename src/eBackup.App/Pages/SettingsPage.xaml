@@ -106,6 +106,20 @@
                 <TextBlock x:Name="StatusText" FontSize="12" VerticalAlignment="Center" />
             </StackPanel>
 
+            <!-- Обновления (GitHub Releases, в стиле eCoda) -->
+            <Border Style="{StaticResource EbSectionCard}">
+                <StackPanel Spacing="8">
+                    <TextBlock Text="Обновления" FontSize="12"
+                               Foreground="{StaticResource EbTextDimBrush}" />
+                    <TextBlock x:Name="UpdCurrentText" />
+                    <TextBlock x:Name="UpdStatusText" FontSize="12" TextWrapping="Wrap"
+                               Foreground="{StaticResource EbTextDimBrush}" />
+                    <Button x:Name="UpdActionBtn" Content="Проверить обновления"
+                            CornerRadius="10" Padding="16,7" Click="UpdAction_Click"
+                            HorizontalAlignment="Left" />
+                </StackPanel>
+            </Border>
+
             <!-- Данные приложения -->
             <Border Style="{StaticResource EbSectionCard}">
                 <StackPanel Spacing="10">

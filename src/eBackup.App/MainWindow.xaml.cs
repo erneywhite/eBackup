@@ -74,7 +74,9 @@ public sealed partial class MainWindow : Window
 
         InitLiquidProgress();
 
-        // Проверка обновлений (GitHub Releases) — раз в сутки, тихо, в фоне.
+        // Обновления (GitHub Releases): баннер следит за общим состоянием,
+        // тихая проверка раз в сутки при старте.
+        UpdateService.Changed += OnUpdateStateChanged;
         _ = CheckForUpdatesAsync();
 
         // Хвосты браузера архивов (browse-*): при закрытии окна WinUI не гарантирует
@@ -584,9 +586,7 @@ public sealed partial class MainWindow : Window
         return Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(stream));
     }
 
-    // ---------- проверка обновлений (GitHub Releases) ----------
-
-    private UpdateInfo? _pendingUpdate;
+    // ---------- обновления (GitHub Releases, в стиле eCoda) ----------
 
     private async Task CheckForUpdatesAsync()
     {
@@ -597,39 +597,83 @@ public sealed partial class MainWindow : Window
         if (settings.LastUpdateCheck is { } last && (DateTimeOffset.Now - last).TotalHours < 24)
             return;
 
-        var update = await UpdateChecker.CheckAsync();
+        await UpdateService.CheckAsync(quiet: true);
 
-        // Отметку «проверяли» пишем независимо от исхода (свежие настройки с диска).
         var fresh = AppSettings.Load();
         fresh.LastUpdateCheck = DateTimeOffset.Now;
         fresh.Save();
+    }
 
-        if (update is null || update.Version == fresh.DismissedUpdateVersion)
-            return;
-
-        _pendingUpdate = update;
-        UpdateText.Text = $"Доступна новая версия eBackup {update.Version} "
-            + $"(у вас {UpdateChecker.AppVersion()}).";
-        UpdateBanner.Visibility = Visibility.Visible;
+    /// <summary>Баннер обновления реагирует на общее состояние UpdateService.</summary>
+    private void OnUpdateStateChanged(UpdateState s)
+    {
+        DispatcherQueue.TryEnqueue(() =>
+        {
+            switch (s.Stage)
+            {
+                case UpdateStage.Available:
+                    if (s.Version == AppSettings.Load().DismissedUpdateVersion)
+                    {
+                        UpdateBanner.Visibility = Visibility.Collapsed;
+                        break;
+                    }
+                    UpdateText.Text = $"Доступна новая версия eBackup {s.Version} (у вас {UpdateService.AppVersion()}).";
+                    UpdateGetBtn.Content = "Скачать и установить";
+                    UpdateGetBtn.IsEnabled = true;
+                    UpdateBanner.Visibility = Visibility.Visible;
+                    break;
+                case UpdateStage.Downloading:
+                    UpdateText.Text = $"Скачиваю обновление… {s.Progress * 100:0}%";
+                    UpdateGetBtn.IsEnabled = false;
+                    UpdateBanner.Visibility = Visibility.Visible;
+                    break;
+                case UpdateStage.ReadyToInstall:
+                    UpdateText.Text = "Готово — устанавливаю и перезапускаю…";
+                    UpdateGetBtn.IsEnabled = false;
+                    break;
+                case UpdateStage.Failed:
+                    UpdateText.Text = "✕ " + (s.Error ?? "не удалось обновиться");
+                    UpdateGetBtn.Content = "Повторить";
+                    UpdateGetBtn.IsEnabled = true;
+                    break;
+            }
+        });
     }
 
     private async void UpdateGet_Click(object sender, RoutedEventArgs e)
     {
-        if (_pendingUpdate is not null)
-            await Windows.System.Launcher.LaunchUriAsync(new Uri(_pendingUpdate.Url));
-        UpdateBanner.Visibility = Visibility.Collapsed;
+        if (UpdateService.Current.Stage == UpdateStage.Failed)
+            await UpdateService.CheckAsync(quiet: false);
+        await StartUpdateInstallAsync();
+    }
+
+    /// <summary>Скачать установщик и запустить его с перезапуском (зовётся баннером и настройками).</summary>
+    public async Task StartUpdateInstallAsync()
+    {
+        if (UpdateService.Current.Stage != UpdateStage.Available)
+            return;
+        var path = await UpdateService.DownloadAsync();
+        if (path is not null && UpdateService.LaunchInstaller())
+            QuitForUpdate();
     }
 
     private void UpdateDismiss_Click(object sender, RoutedEventArgs e)
     {
         // Скрыть и не напоминать именно про эту версию (следующая — снова покажем).
-        if (_pendingUpdate is not null)
+        if (UpdateService.Current.Version is { } v)
         {
             var settings = AppSettings.Load();
-            settings.DismissedUpdateVersion = _pendingUpdate.Version;
+            settings.DismissedUpdateVersion = v;
             settings.Save();
         }
         UpdateBanner.Visibility = Visibility.Collapsed;
+    }
+
+    /// <summary>Чистый выход перед запуском установщика (чтобы он заменил файлы).</summary>
+    private void QuitForUpdate()
+    {
+        _reallyExit = true;
+        Close();
     }
 
     private static string FormatBytes(long bytes) => bytes switch

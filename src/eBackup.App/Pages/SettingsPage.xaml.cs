@@ -22,6 +22,69 @@ public sealed partial class SettingsPage : Page
 
         var version = System.Reflection.Assembly.GetExecutingAssembly().GetName().Version;
         VersionText.Text = version is null ? "" : $"v{version.ToString(3)}";
+
+        // Карточка обновлений: текущая версия + текущее состояние UpdateService.
+        UpdCurrentText.Text = $"Текущая версия: {UpdateService.AppVersion()}";
+        UpdateService.Changed += OnUpdateState;
+        OnUpdateState(UpdateService.Current);
+        Unloaded += (_, _) => UpdateService.Changed -= OnUpdateState;
+    }
+
+    private void OnUpdateState(UpdateState s)
+    {
+        DispatcherQueue.TryEnqueue(() =>
+        {
+            switch (s.Stage)
+            {
+                case UpdateStage.Checking:
+                    UpdStatusText.Text = "Проверяю наличие обновлений…";
+                    UpdActionBtn.Content = "Проверяю…";
+                    UpdActionBtn.IsEnabled = false;
+                    break;
+                case UpdateStage.Available:
+                    UpdStatusText.Text = $"Доступна новая версия {s.Version}.";
+                    UpdActionBtn.Content = "Скачать и установить";
+                    UpdActionBtn.IsEnabled = true;
+                    break;
+                case UpdateStage.Downloading:
+                    UpdStatusText.Text = $"Скачиваю обновление: {s.Progress * 100:0}%";
+                    UpdActionBtn.Content = "Скачиваю…";
+                    UpdActionBtn.IsEnabled = false;
+                    break;
+                case UpdateStage.ReadyToInstall:
+                    UpdStatusText.Text = "Устанавливаю и перезапускаю…";
+                    UpdActionBtn.IsEnabled = false;
+                    break;
+                case UpdateStage.Failed:
+                    UpdStatusText.Text = "✕ " + (s.Error ?? "ошибка проверки");
+                    UpdActionBtn.Content = "Проверить обновления";
+                    UpdActionBtn.IsEnabled = true;
+                    break;
+                case UpdateStage.UpToDate:
+                    UpdStatusText.Text = "Установлена последняя версия.";
+                    UpdActionBtn.Content = "Проверить обновления";
+                    UpdActionBtn.IsEnabled = true;
+                    break;
+                default:
+                    UpdStatusText.Text = string.Empty;
+                    UpdActionBtn.Content = "Проверить обновления";
+                    UpdActionBtn.IsEnabled = true;
+                    break;
+            }
+        });
+    }
+
+    private async void UpdAction_Click(object sender, RoutedEventArgs e)
+    {
+        if (UpdateService.Current.Stage == UpdateStage.Available)
+        {
+            if (MainWindow.Instance is not null)
+                await MainWindow.Instance.StartUpdateInstallAsync();
+        }
+        else
+        {
+            await UpdateService.CheckAsync(quiet: false);
+        }
     }
 
     private async void PickAssetsDir_Click(object sender, RoutedEventArgs e)

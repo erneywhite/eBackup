@@ -77,14 +77,25 @@ Root: HKA; Subkey: "Software\Classes\eBackup.Archive\shell\open\command"; ValueT
   ValueName: ""; ValueData: """{app}\{#AppExe}"" ""%1"""; Tasks: assoc
 
 [Run]
+; Обычная установка — кнопка «Запустить eBackup» на финальной странице.
 Filename: "{app}\{#AppExe}"; Description: "Запустить eBackup"; \
   Flags: nowait postinstall skipifsilent
+; Тихая установка (из автообновления приложения) — сами перезапускаем приложение
+; от имени обычного пользователя (установщик идёт с правами администратора).
+Filename: "{app}\{#AppExe}"; Parameters: "--minimized"; \
+  Flags: nowait runasoriginaluser; Check: IsSilentInstall
 
 [UninstallRun]
 ; Закрыть работающий экземпляр перед удалением (тихо, без ошибки если не запущен).
 Filename: "{cmd}"; Parameters: "/C taskkill /IM {#AppExe} /F"; Flags: runhidden; RunOnceId: "KillApp"
 
 [Code]
+// true при тихой установке (/SILENT|/VERYSILENT) — отличает автообновление от ручной.
+function IsSilentInstall: Boolean;
+begin
+  Result := WizardSilent();
+end;
+
 // При удалении предлагаем убрать настройки/историю (бэкап-архивы НЕ трогаем).
 procedure CurUninstallStepChanged(CurUninstallStep: TUninstallStep);
 var
