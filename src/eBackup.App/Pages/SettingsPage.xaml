@@ -53,9 +53,49 @@
                 <TextBlock x:Name="StatusText" FontSize="12" VerticalAlignment="Center" />
             </StackPanel>
 
-            <TextBlock Text="Позже здесь появятся: язык интерфейса и другие настройки."
-                       FontSize="12" TextWrapping="Wrap" Margin="0,8,0,0"
-                       Foreground="{StaticResource EbTextDimBrush}" />
+            <!-- Данные приложения -->
+            <Border Style="{StaticResource EbSectionCard}">
+                <StackPanel Spacing="10">
+                    <TextBlock Text="Данные приложения" FontSize="12"
+                               Foreground="{StaticResource EbTextDimBrush}" />
+                    <StackPanel Orientation="Horizontal" Spacing="10">
+                        <Button Content="Папка настроек" CornerRadius="10" Click="OpenConfig_Click" />
+                        <Button Content="Папка модулей" CornerRadius="10" Click="OpenModules_Click" />
+                        <Button Content="Журнал ошибок" CornerRadius="10" Click="OpenLog_Click" />
+                    </StackPanel>
+                    <TextBlock Text="В папке настроек — конфиги и расписания; в папку модулей кладутся drop-in модули (*.module.json); журнал пригодится, если что-то пошло не так."
+                               FontSize="11" TextWrapping="Wrap"
+                               Foreground="{StaticResource EbTextDimBrush}" />
+                </StackPanel>
+            </Border>
+
+            <!-- О программе -->
+            <Border Style="{StaticResource EbSectionCard}">
+                <StackPanel Spacing="10">
+                    <TextBlock Text="О программе" FontSize="12"
+                               Foreground="{StaticResource EbTextDimBrush}" />
+                    <StackPanel Orientation="Horizontal" Spacing="8">
+                        <TextBlock Text="eBackup" FontSize="16" FontWeight="SemiBold"
+                                   Foreground="{StaticResource EbAccentGradient}"
+                                   VerticalAlignment="Center" />
+                        <TextBlock x:Name="VersionText" FontSize="12" VerticalAlignment="Center"
+                                   Foreground="{StaticResource EbTextDimBrush}" />
+                    </StackPanel>
+                    <TextBlock Text="Бэкапы, которые переезжают с тобой. Бесплатно и без подписок — делаем для людей."
+                               FontSize="12" TextWrapping="Wrap"
+                               Foreground="{StaticResource EbTextDimBrush}" />
+                    <StackPanel Orientation="Horizontal" Spacing="10">
+                        <Button CornerRadius="12" Padding="18,8"
+                                Style="{StaticResource EbAccentButtonStyle}" Click="Coffee_Click">
+                            <TextBlock Text="☕ Купить кофе" FontWeight="SemiBold" Foreground="#1A0F22" />
+                        </Button>
+                        <Button Content="GitHub" CornerRadius="12" Padding="18,8" Click="GitHub_Click" />
+                    </StackPanel>
+                    <TextBlock Text="Кофе — это просто «спасибо»: всё работает бесплатно и так."
+                               FontSize="11" TextWrapping="Wrap"
+                               Foreground="{StaticResource EbTextDimBrush}" />
+                </StackPanel>
+            </Border>
         </StackPanel>
     </ScrollViewer>
 </Page>

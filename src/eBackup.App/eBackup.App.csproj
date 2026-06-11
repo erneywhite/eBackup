@@ -15,6 +15,7 @@
     <!-- Носим рантайм Windows App SDK с собой — не требуем установки у пользователя -->
     <WindowsAppSDKSelfContained>true</WindowsAppSDKSelfContained>
     <ApplicationManifest>app.manifest</ApplicationManifest>
+    <Version>0.1.0</Version>
   </PropertyGroup>
 
   <ItemGroup>
