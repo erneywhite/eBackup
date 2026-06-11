@@ -47,7 +47,7 @@ public sealed class DropboxStorage(SavedStorage config, ISecretProtector protect
                 ["response_type"] = "code",
                 ["token_access_type"] = "offline"
             },
-            fixedPort: CloudOAuthConfig.DropboxRedirectPort, ct: ct).ConfigureAwait(false);
+            fixedPort: CloudOAuthConfig.DropboxRedirectPort, providerName: "Dropbox", ct: ct).ConfigureAwait(false);
 
         using var response = await Http.PostAsync(TokenEndpoint, new FormUrlEncodedContent(
             new Dictionary<string, string>

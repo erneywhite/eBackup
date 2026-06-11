@@ -43,7 +43,7 @@ public sealed class GoogleDriveStorage(SavedStorage config, ISecretProtector pro
                 ["scope"] = "https://www.googleapis.com/auth/drive.file",
                 ["access_type"] = "offline",
                 ["prompt"] = "consent" // иначе Google может не выдать refresh_token повторно
-            }, ct: ct).ConfigureAwait(false);
+            }, providerName: "Google", ct: ct).ConfigureAwait(false);
 
         using var response = await Http.PostAsync(TokenEndpoint, new FormUrlEncodedContent(
             new Dictionary<string, string>

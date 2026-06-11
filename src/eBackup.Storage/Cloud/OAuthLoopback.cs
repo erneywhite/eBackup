@@ -18,6 +18,7 @@ public static class OAuthLoopback
         string authorizationEndpoint,
         IReadOnlyDictionary<string, string> queryParams,
         int? fixedPort = null,
+        string? providerName = null,
         CancellationToken ct = default)
     {
         var verifier = Base64Url(RandomNumberGenerator.GetBytes(48));
@@ -78,18 +79,22 @@ public static class OAuthLoopback
 
                 // Устаревшая вкладка входа или посторонний запрос (favicon и т.п.) —
                 // отвечаем и продолжаем ждать «свой» редирект.
-                await RespondAsync(context,
-                    "Это устаревшая вкладка входа — закрой её и подтверди вход в последней открытой вкладке.")
-                    .ConfigureAwait(false);
+                await RespondAsync(context, Page("dim", "↻", "Устаревшая вкладка входа",
+                    "Закрой её и подтверди вход в последней открытой вкладке.",
+                    tryCloseTab: false)).ConfigureAwait(false);
             }
 
             var code = context.Request.QueryString["code"];
             var error = context.Request.QueryString["error"];
 
+            var who = providerName is null ? "Аккаунт" : providerName + "-аккаунт";
             await RespondAsync(context, code is null
-                    ? "Вход не выполнен. Вкладку можно закрыть."
-                    : "Готово! Возвращайся в eBackup — вкладку можно закрыть.",
-                tryCloseTab: true).ConfigureAwait(false);
+                ? Page("err", "✕", "Вход не выполнен",
+                    "Авторизация отклонена — вернись в eBackup и попробуй ещё раз. Вкладку можно закрыть.",
+                    tryCloseTab: true)
+                : Page("ok", "✓", "Готово!",
+                    $"{who} подключён к eBackup. Вкладку можно закрыть — она попытается закрыться сама.",
+                    tryCloseTab: true)).ConfigureAwait(false);
 
             if (code is null)
                 throw new InvalidOperationException("Авторизация отклонена: " + (error ?? "код не получен"));
@@ -102,27 +107,59 @@ public static class OAuthLoopback
         }
     }
 
-    private static async Task RespondAsync(HttpListenerContext context, string message, bool tryCloseTab = false)
+    private static async Task RespondAsync(HttpListenerContext context, string html)
     {
         try
         {
-            // Попытка закрыть вкладку сама по себе: браузер может и отказать
-            // (скриптам не всегда позволено закрывать чужие вкладки) — тогда
-            // остаётся текст с просьбой закрыть вручную.
-            var script = tryCloseTab
-                ? "<script>window.open('','_self');window.close();" +
-                  "setTimeout(function(){window.close()},300);</script>"
-                : "";
-            var html = Encoding.UTF8.GetBytes(
-                $"<html><meta charset=\"utf-8\"><body style=\"font-family:sans-serif\">{message}{script}</body></html>");
+            var bytes = Encoding.UTF8.GetBytes(html);
             context.Response.ContentType = "text/html; charset=utf-8";
-            await context.Response.OutputStream.WriteAsync(html, CancellationToken.None).ConfigureAwait(false);
+            await context.Response.OutputStream.WriteAsync(bytes, CancellationToken.None).ConfigureAwait(false);
             context.Response.Close();
         }
         catch
         {
             // Клиент оборвал соединение — на исход входа не влияет.
         }
+    }
+
+    /// <summary>
+    /// Страница-ответ в браузере, в стиле приложения (тёмная «аврора» + карточка).
+    /// kind: ok — градиентный бейдж, err — красный, dim — нейтральный.
+    /// </summary>
+    private static string Page(string kind, string glyph, string title, string message, bool tryCloseTab)
+    {
+        // Закрытие вкладки самой себя браузер может и запретить (скриптам не всегда
+        // позволено закрывать вкладки, открытые пользователем) — текст остаётся фолбэком.
+        var script = tryCloseTab
+            ? "<script>window.open('','_self');window.close();" +
+              "setTimeout(function(){window.close()},300);</script>"
+            : "";
+        return $$"""
+<!doctype html><html lang="ru"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1"><title>eBackup — вход</title><style>
+*{box-sizing:border-box}
+body{margin:0;min-height:100vh;display:flex;align-items:center;justify-content:center;
+font-family:"Segoe UI",system-ui,sans-serif;color:#EFEAF6;background:
+radial-gradient(640px 420px at 18% 8%,rgba(201,125,246,.16),transparent 60%),
+radial-gradient(520px 380px at 84% 22%,rgba(255,109,200,.13),transparent 60%),
+radial-gradient(760px 540px at 50% 105%,rgba(124,94,255,.12),transparent 60%),#0E0A16}
+.card{background:#171022;border:1px solid rgba(255,255,255,.08);border-radius:20px;
+padding:44px 52px;margin:16px;text-align:center;max-width:430px;box-shadow:0 24px 80px rgba(0,0,0,.45)}
+.badge{width:64px;height:64px;border-radius:50%;margin:0 auto 20px;display:flex;
+align-items:center;justify-content:center;font-size:28px;font-weight:700}
+.badge.ok{background:linear-gradient(135deg,#C97DF6,#FF6DC8);color:#1A0F22}
+.badge.err{background:rgba(255,138,156,.12);color:#FF8A9C;border:1px solid rgba(255,138,156,.35)}
+.badge.dim{background:rgba(255,255,255,.06);color:#A89BC0;border:1px solid rgba(255,255,255,.1)}
+h1{font-size:22px;font-weight:600;margin:0 0 10px}
+p{margin:0;color:#A89BC0;font-size:14px;line-height:1.55}
+.brand{margin-top:26px;font-size:12px;letter-spacing:.4px;color:#6F6390}
+.brand b{font-weight:700;background:linear-gradient(90deg,#C97DF6,#FF6DC8);
+-webkit-background-clip:text;background-clip:text;color:transparent}
+</style></head><body><div class="card">
+<div class="badge {{kind}}">{{glyph}}</div><h1>{{title}}</h1><p>{{message}}</p>
+<div class="brand"><b>eBackup</b> — бэкапы, которые переезжают с тобой</div>
+</div>{{script}}</body></html>
+""";
     }
 
     private static int GetFreePort()
