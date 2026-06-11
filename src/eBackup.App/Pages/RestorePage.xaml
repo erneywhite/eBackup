@@ -99,7 +99,7 @@
                        Foreground="{StaticResource EbErrBrush}" Visibility="Collapsed" />
 
             <Button x:Name="LaunchBtn" Height="46" Padding="32,0" CornerRadius="23"
-                    Background="{StaticResource EbAccentGradient}" BorderThickness="0"
+                    Style="{StaticResource EbAccentButtonStyle}"
                     Click="LaunchBtn_Click" Margin="0,4,0,16">
                 <TextBlock Text="Восстановить" FontWeight="SemiBold" Foreground="#1A0F22" />
             </Button>

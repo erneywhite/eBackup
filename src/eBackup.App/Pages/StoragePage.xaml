@@ -318,8 +318,8 @@
                             <Button x:Name="TestBtn" Content="Тест" CornerRadius="12"
                                     Padding="22,8" Click="TestBtn_Click" />
                             <Button x:Name="SaveBtn" CornerRadius="12" Padding="22,8"
-                                    Background="{StaticResource EbAccentGradient}"
-                                    BorderThickness="0" Click="SaveBtn_Click">
+                                    Style="{StaticResource EbAccentButtonStyle}"
+                                    Click="SaveBtn_Click">
                                 <TextBlock Text="Сохранить" FontWeight="SemiBold" Foreground="#1A0F22" />
                             </Button>
                             <Button x:Name="DeleteBtn" Content="Удалить" CornerRadius="12"

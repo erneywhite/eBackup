@@ -93,7 +93,7 @@ public static class OAuthLoopback
                     "Авторизация отклонена — вернись в eBackup и попробуй ещё раз. Вкладку можно закрыть.",
                     tryCloseTab: true)
                 : Page("ok", "✓", "Готово!",
-                    $"{who} подключён к eBackup. Вкладку можно закрыть — она попытается закрыться сама.",
+                    $"{who} подключён к eBackup. Вкладку можно закрыть.",
                     tryCloseTab: true)).ConfigureAwait(false);
 
             if (code is null)

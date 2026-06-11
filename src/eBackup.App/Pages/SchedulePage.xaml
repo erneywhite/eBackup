@@ -150,7 +150,7 @@
 
                         <StackPanel Orientation="Horizontal" Spacing="10" Margin="0,8,0,0">
                             <Button x:Name="SaveBtn" CornerRadius="12" Padding="22,8"
-                                    Background="{StaticResource EbAccentGradient}" BorderThickness="0"
+                                    Style="{StaticResource EbAccentButtonStyle}"
                                     Click="SaveBtn_Click">
                                 <TextBlock Text="Сохранить" FontWeight="SemiBold" Foreground="#1A0F22" />
                             </Button>
