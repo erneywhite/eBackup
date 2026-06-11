@@ -446,6 +446,35 @@ public sealed partial class MainWindow : Window
         }
     }
 
+    /// <summary>
+    /// Запустить расписание немедленно (кнопка «Выполнить сейчас»).
+    /// Возвращает null при успешном старте, иначе — текст причины.
+    /// </summary>
+    public async Task<string?> RunScheduleNowAsync(BackupSchedule schedule)
+    {
+        if (_operationRunning)
+            return "Уже идёт бэкап или восстановление — подожди завершения.";
+
+        var store = new ScheduleStore(new DpapiSecretProtector());
+        var request = await BuildRequestFromScheduleAsync(schedule, store);
+        if (request is null)
+            return "Нет модулей/целей, или парольная фраза не расшифровалась.";
+
+        // Ручной запуск занимает сегодняшний слот так же, как плановый:
+        // дневное расписание после него не сработает повторно.
+        try
+        {
+            var all = (await store.LoadAsync()).ToList();
+            await store.SaveAllAsync(all.Select(s =>
+                s.Id == schedule.Id ? s with { LastRunAt = DateTime.Now } : s));
+        }
+        catch { /* не критично: значит, плановый запуск просто случится в своё время */ }
+
+        StatusSub.Text = $"вручную по расписанию «{schedule.Name}»…";
+        _ = StartBackupAsync(request); // не ждём завершения: кнопке важен сам старт
+        return null;
+    }
+
     /// <summary>Собрать параметры бэкапа из расписания (свой набор настроек, глобальный тумблер не важен).</summary>
     private async Task<BackupRequest?> BuildRequestFromScheduleAsync(BackupSchedule s, ScheduleStore store)
     {

@@ -17,9 +17,8 @@
     </Page.Resources>
 
     <ScrollViewer x:Name="Scroller">
-        <!-- Ширина задаётся кодом: следует за окном до потолка 860 (SizeChanged).
-             По центру — на широком окне колонка не прижата влево с пустыней справа. -->
-        <StackPanel x:Name="ContentPanel" Spacing="14" HorizontalAlignment="Center">
+        <!-- Контент тянется на всю ширину окна (выбор пользователя: не пустовато). -->
+        <StackPanel x:Name="ContentPanel" Spacing="14">
             <TextBlock Text="Обзор" FontSize="26" FontWeight="SemiBold" />
 
             <!-- Последний бэкап -->

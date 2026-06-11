@@ -230,7 +230,28 @@ public sealed partial class SchedulePage : Page
 
         EnabledToggle.IsOn = s?.Enabled ?? true;
         DeleteBtn.Visibility = s is null ? Visibility.Collapsed : Visibility.Visible;
+        RunNowBtn.Visibility = s is null ? Visibility.Collapsed : Visibility.Visible;
         SetStatus(string.Empty, ok: true);
+    }
+
+    /// <summary>Ручной запуск расписания — по СОХРАНЁННЫМ настройкам (правки формы не участвуют).</summary>
+    private async void RunNowBtn_Click(object sender, RoutedEventArgs e)
+    {
+        if (_editing is null || MainWindow.Instance is null)
+            return;
+
+        RunNowBtn.IsEnabled = false;
+        try
+        {
+            var error = await MainWindow.Instance.RunScheduleNowAsync(_editing);
+            SetStatus(error is null
+                ? "✓ Запущено — прогресс в нижней панели."
+                : "✕ " + error, ok: error is null);
+        }
+        finally
+        {
+            RunNowBtn.IsEnabled = true;
+        }
     }
 
     private void EncryptCheck_Changed(object sender, RoutedEventArgs e)

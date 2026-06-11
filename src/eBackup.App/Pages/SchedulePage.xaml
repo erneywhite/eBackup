@@ -149,6 +149,9 @@
                                     Click="SaveBtn_Click">
                                 <TextBlock Text="Сохранить" FontWeight="SemiBold" Foreground="#1A0F22" />
                             </Button>
+                            <Button x:Name="RunNowBtn" Content="Выполнить сейчас" CornerRadius="12"
+                                    Padding="22,8" Visibility="Collapsed" Click="RunNowBtn_Click"
+                                    ToolTipService.ToolTip="Запустить задачу прямо сейчас — по сохранённым настройкам расписания" />
                             <Button x:Name="DeleteBtn" Content="Удалить" CornerRadius="12"
                                     Padding="22,8" Foreground="{StaticResource EbErrBrush}"
                                     Visibility="Collapsed" Click="DeleteBtn_Click" />
