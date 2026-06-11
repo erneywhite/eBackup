@@ -64,6 +64,8 @@ public sealed partial class ArchivesPage : Page
                     StorageKind.LocalFolder => $"{s.Name} — {s.Path}",
                     StorageKind.Sftp => $"{s.Name} — sftp · {s.Username}@{s.Host}:{s.Port}, папка {s.RemoteDirectory}",
                     StorageKind.Ftp => $"{s.Name} — {(s.UseFtps ? "ftps" : "ftp")} · {s.Username}@{s.Host}:{s.Port}, папка {s.RemoteDirectory}",
+                    StorageKind.S3 => $"{s.Name} — s3 · {s.Bucket}"
+                        + (string.IsNullOrWhiteSpace(s.RemoteDirectory) ? "" : $"/{s.RemoteDirectory!.Trim('/')}"),
                     _ => s.Name
                 });
 

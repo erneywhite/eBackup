@@ -7,7 +7,9 @@ public enum StorageKind
     LocalFolder,
     Sftp,
     /// <summary>FTP / FTPS (явный TLS).</summary>
-    Ftp
+    Ftp,
+    /// <summary>S3-совместимое: AWS S3, MinIO, Backblaze B2, Cloudflare R2 и т.п.</summary>
+    S3
 }
 
 /// <summary>
@@ -42,4 +44,19 @@ public sealed record SavedStorage
     // ---- Ftp ----
     /// <summary>FTPS (явный TLS). Сертификат принимается любой — ради NAS с самоподписанными.</summary>
     public bool UseFtps { get; init; }
+
+    // ---- S3 ----
+    /// <summary>Endpoint: https://s3.eu-central-1.amazonaws.com, https://…r2.cloudflarestorage.com, http://minio:9000…</summary>
+    public string? ServiceUrl { get; init; }
+
+    public string? Bucket { get; init; }
+
+    /// <summary>Access Key ID (не секрет; секретный ключ — в ProtectedSecretKey).</summary>
+    public string? AccessKeyId { get; init; }
+
+    /// <summary>Secret Access Key, зашифрован DPAPI.</summary>
+    public string? ProtectedSecretKey { get; init; }
+
+    /// <summary>Path-style адресация (нужна MinIO и большинству S3-совместимых; для AWS можно выключить).</summary>
+    public bool ForcePathStyle { get; init; } = true;
 }

@@ -70,6 +70,7 @@
                         <MenuFlyoutItem Text="Папка или сетевой диск" Click="AddFolder_Click" />
                         <MenuFlyoutItem Text="SFTP-сервер" Click="AddSftp_Click" />
                         <MenuFlyoutItem Text="FTP / FTPS-сервер" Click="AddFtp_Click" />
+                        <MenuFlyoutItem Text="S3-совместимое (AWS, MinIO, B2, R2…)" Click="AddS3_Click" />
                     </MenuFlyout>
                 </Button.Flyout>
             </Button>
@@ -116,6 +117,40 @@
                             <TextBox x:Name="ShareUserBox"
                                      PlaceholderText="логин (например, nas\user или user)" />
                             <PasswordBox x:Name="SharePassBox" PlaceholderText="пароль" />
+                        </StackPanel>
+
+                        <!-- ===== S3-совместимое ===== -->
+                        <StackPanel x:Name="S3Panel" Spacing="10" Visibility="Collapsed">
+                            <TextBlock Text="Endpoint" FontSize="12"
+                                       Foreground="{StaticResource EbTextDimBrush}" />
+                            <TextBox x:Name="S3UrlBox"
+                                     PlaceholderText="https://s3.eu-central-1.amazonaws.com или адрес MinIO/B2/R2" />
+
+                            <Grid ColumnSpacing="10">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="*" />
+                                </Grid.ColumnDefinitions>
+                                <StackPanel Grid.Column="0" Spacing="10">
+                                    <TextBlock Text="Бакет" FontSize="12"
+                                               Foreground="{StaticResource EbTextDimBrush}" />
+                                    <TextBox x:Name="S3BucketBox" PlaceholderText="my-backups" />
+                                </StackPanel>
+                                <StackPanel Grid.Column="1" Spacing="10">
+                                    <TextBlock Text="Папка в бакете (префикс)" FontSize="12"
+                                               Foreground="{StaticResource EbTextDimBrush}" />
+                                    <TextBox x:Name="S3PrefixBox" PlaceholderText="пусто — корень бакета" />
+                                </StackPanel>
+                            </Grid>
+
+                            <TextBlock Text="Access Key ID" FontSize="12"
+                                       Foreground="{StaticResource EbTextDimBrush}" />
+                            <TextBox x:Name="S3AccessBox" PlaceholderText="ключ доступа" />
+
+                            <PasswordBox x:Name="S3SecretBox" PlaceholderText="Secret Access Key" />
+
+                            <CheckBox x:Name="S3PathStyleCheck" IsChecked="True"
+                                      Content="Path-style адресация (нужна MinIO/B2/R2; для AWS можно снять)" />
                         </StackPanel>
 
                         <!-- ===== FTP / FTPS ===== -->

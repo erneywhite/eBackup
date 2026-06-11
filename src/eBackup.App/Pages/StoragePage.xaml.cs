@@ -22,6 +22,7 @@ public sealed class StorageItem(SavedStorage storage) : INotifyPropertyChanged
         StorageKind.LocalFolder => Storage.Path ?? "",
         StorageKind.Sftp => $"sftp · {Storage.Username}@{Storage.Host}:{Storage.Port}",
         StorageKind.Ftp => $"{(Storage.UseFtps ? "ftps" : "ftp")} · {Storage.Username}@{Storage.Host}:{Storage.Port}",
+        StorageKind.S3 => $"s3 · {Storage.Bucket}",
         _ => Storage.Kind.ToString()
     };
 
@@ -128,6 +129,7 @@ public sealed partial class StoragePage : Page
     private void AddFolder_Click(object sender, RoutedEventArgs e) => StartNew(StorageKind.LocalFolder);
     private void AddSftp_Click(object sender, RoutedEventArgs e) => StartNew(StorageKind.Sftp);
     private void AddFtp_Click(object sender, RoutedEventArgs e) => StartNew(StorageKind.Ftp);
+    private void AddS3_Click(object sender, RoutedEventArgs e) => StartNew(StorageKind.S3);
 
     private void StartNew(StorageKind kind)
     {
@@ -151,6 +153,7 @@ public sealed partial class StoragePage : Page
         {
             StorageKind.LocalFolder => "Новая папка / сетевой диск",
             StorageKind.Ftp => "Новое FTP-подключение",
+            StorageKind.S3 => "Новое S3-хранилище",
             _ => "Новое SFTP-подключение"
         };
         NameBox.Text = s?.Name ?? string.Empty;
@@ -158,6 +161,18 @@ public sealed partial class StoragePage : Page
         FolderPanel.Visibility = _editorKind == StorageKind.LocalFolder ? Visibility.Visible : Visibility.Collapsed;
         SftpPanel.Visibility = _editorKind == StorageKind.Sftp ? Visibility.Visible : Visibility.Collapsed;
         FtpPanel.Visibility = _editorKind == StorageKind.Ftp ? Visibility.Visible : Visibility.Collapsed;
+        S3Panel.Visibility = _editorKind == StorageKind.S3 ? Visibility.Visible : Visibility.Collapsed;
+
+        // S3
+        S3UrlBox.Text = s?.Kind == StorageKind.S3 ? s.ServiceUrl ?? "" : "";
+        S3BucketBox.Text = s?.Kind == StorageKind.S3 ? s.Bucket ?? "" : "";
+        S3PrefixBox.Text = s?.Kind == StorageKind.S3 ? s.RemoteDirectory ?? "" : "";
+        S3AccessBox.Text = s?.Kind == StorageKind.S3 ? s.AccessKeyId ?? "" : "";
+        S3PathStyleCheck.IsChecked = s?.Kind != StorageKind.S3 || s.ForcePathStyle;
+        S3SecretBox.Password = string.Empty;
+        S3SecretBox.PlaceholderText = s?.Kind == StorageKind.S3 && s.ProtectedSecretKey is not null
+            ? "пусто — оставить прежний"
+            : "Secret Access Key";
 
         // FTP
         FtpHostBox.Text = s?.Kind == StorageKind.Ftp ? s.Host ?? "" : "";
@@ -266,6 +281,43 @@ public sealed partial class StoragePage : Page
                 Path = path,
                 ShareUsername = shareUser.Length == 0 ? null : shareUser,
                 ProtectedSharePassword = protectedPass
+            };
+        }
+
+        if (_editorKind == StorageKind.S3)
+        {
+            var url = S3UrlBox.Text.Trim();
+            var bucket = S3BucketBox.Text.Trim();
+            var access = S3AccessBox.Text.Trim();
+            if (url.Length == 0 || bucket.Length == 0 || access.Length == 0)
+            {
+                error = "Укажи endpoint, бакет и Access Key ID.";
+                return null;
+            }
+
+            string? protectedSecret = null;
+            if (S3SecretBox.Password.Length > 0)
+                protectedSecret = _store.Protect(S3SecretBox.Password);
+            else if (_editing?.Kind == StorageKind.S3 && _editing.ProtectedSecretKey is not null)
+                protectedSecret = _editing.ProtectedSecretKey;
+
+            if (protectedSecret is null)
+            {
+                error = "Введи Secret Access Key.";
+                return null;
+            }
+
+            return new SavedStorage
+            {
+                Id = id,
+                Name = name,
+                Kind = StorageKind.S3,
+                ServiceUrl = url,
+                Bucket = bucket,
+                AccessKeyId = access,
+                ProtectedSecretKey = protectedSecret,
+                RemoteDirectory = S3PrefixBox.Text.Trim(),
+                ForcePathStyle = S3PathStyleCheck.IsChecked == true
             };
         }
 
@@ -432,6 +484,7 @@ public sealed partial class StoragePage : Page
                 {
                     StorageKind.LocalFolder => PathBox.Text.Trim(),
                     StorageKind.Ftp => FtpHostBox.Text.Trim(),
+                    StorageKind.S3 => S3BucketBox.Text.Trim(),
                     _ => HostBox.Text.Trim()
                 };
 

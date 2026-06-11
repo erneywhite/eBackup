@@ -12,6 +12,7 @@ public static class StorageFactory
         StorageKind.Sftp => new SftpArchiveStorage(
             new SftpStorageProvider(ToSftpOptions(s, protector)), s.Name),
         StorageKind.Ftp => new FtpStorage(s, protector),
+        StorageKind.S3 => new S3Storage(s, protector),
         _ => throw new NotSupportedException($"Тип хранилища {s.Kind} пока не поддерживается.")
     };
 

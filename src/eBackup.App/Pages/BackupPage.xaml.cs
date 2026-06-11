@@ -94,6 +94,7 @@ public sealed partial class BackupPage : Page
         StorageKind.LocalFolder => $"{s.Name}  ({s.Path})",
         StorageKind.Sftp => $"{s.Name}  (sftp · {s.Username}@{s.Host}:{s.Port})",
         StorageKind.Ftp => $"{s.Name}  ({(s.UseFtps ? "ftps" : "ftp")} · {s.Username}@{s.Host}:{s.Port})",
+        StorageKind.S3 => $"{s.Name}  (s3 · {s.Bucket})",
         _ => s.Name
     };
 

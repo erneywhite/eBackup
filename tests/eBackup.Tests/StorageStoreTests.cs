@@ -122,5 +122,16 @@ public class StorageStoreTests
             new SavedStorage { Id = "b", Name = "b", Kind = StorageKind.Sftp, Host = "h", Username = "u" }, protector));
         Assert.IsType<FtpStorage>(StorageFactory.Create(
             new SavedStorage { Id = "c", Name = "c", Kind = StorageKind.Ftp, Host = "h", Username = "u" }, protector));
+        Assert.IsType<S3Storage>(StorageFactory.Create(
+            new SavedStorage { Id = "d", Name = "d", Kind = StorageKind.S3, ServiceUrl = "https://s3.x", Bucket = "b" }, protector));
     }
+
+    [Theory]
+    [InlineData(null, "")]
+    [InlineData("", "")]
+    [InlineData(".", "")]
+    [InlineData("/backups/", "backups/")]
+    [InlineData("backups/obs", "backups/obs/")]
+    public void S3_Prefix_Is_Normalized(string? input, string expected)
+        => Assert.Equal(expected, S3Storage.NormalizePrefix(input));
 }
