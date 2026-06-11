@@ -22,12 +22,24 @@ public static class OAuthLoopback
     {
         var verifier = Base64Url(RandomNumberGenerator.GetBytes(48));
         var challenge = Base64Url(SHA256.HashData(Encoding.ASCII.GetBytes(verifier)));
+        // Метка попытки: на фиксированном порту (Dropbox) редирект от УСТАРЕВШЕЙ
+        // вкладки входа иначе достался бы новой попытке с чужим PKCE-кодом.
+        var state = Base64Url(RandomNumberGenerator.GetBytes(16));
         var port = fixedPort ?? GetFreePort();
         var redirect = $"http://localhost:{port}/";
 
         using var listener = new HttpListener();
         listener.Prefixes.Add(redirect);
-        listener.Start();
+        try
+        {
+            listener.Start();
+        }
+        catch (HttpListenerException ex)
+        {
+            throw new IOException(
+                $"Порт {port} уже занят (возможно, ждёт ответа предыдущая попытка входа " +
+                "или запущена вторая копия eBackup). Попробуй ещё раз через минуту.", ex);
+        }
         try
         {
             var query = new StringBuilder();
@@ -36,7 +48,8 @@ public static class OAuthLoopback
                      .Append(Uri.EscapeDataString(value)).Append('&');
             query.Append("redirect_uri=").Append(Uri.EscapeDataString(redirect))
                  .Append("&code_challenge=").Append(challenge)
-                 .Append("&code_challenge_method=S256");
+                 .Append("&code_challenge_method=S256")
+                 .Append("&state=").Append(state);
 
             Process.Start(new ProcessStartInfo
             {
@@ -48,24 +61,34 @@ public static class OAuthLoopback
             cts.CancelAfter(TimeSpan.FromMinutes(3));
 
             HttpListenerContext context;
-            try
+            while (true)
             {
-                context = await listener.GetContextAsync().WaitAsync(cts.Token).ConfigureAwait(false);
-            }
-            catch (OperationCanceledException)
-            {
-                throw new TimeoutException("Вход не подтверждён в браузере (таймаут 3 минуты).");
+                try
+                {
+                    context = await listener.GetContextAsync().WaitAsync(cts.Token).ConfigureAwait(false);
+                }
+                catch (OperationCanceledException)
+                {
+                    ct.ThrowIfCancellationRequested(); // внешняя отмена — не таймаут
+                    throw new TimeoutException("Вход не подтверждён в браузере (таймаут 3 минуты).");
+                }
+
+                if (context.Request.QueryString["state"] == state)
+                    break;
+
+                // Устаревшая вкладка входа или посторонний запрос (favicon и т.п.) —
+                // отвечаем и продолжаем ждать «свой» редирект.
+                await RespondAsync(context,
+                    "Это устаревшая вкладка входа — закрой её и подтверди вход в последней открытой вкладке.")
+                    .ConfigureAwait(false);
             }
 
             var code = context.Request.QueryString["code"];
             var error = context.Request.QueryString["error"];
 
-            var html = Encoding.UTF8.GetBytes(code is null
-                ? "<html><meta charset=\"utf-8\"><body style=\"font-family:sans-serif\">Вход не выполнен. Вкладку можно закрыть.</body></html>"
-                : "<html><meta charset=\"utf-8\"><body style=\"font-family:sans-serif\">Готово! Возвращайся в eBackup — вкладку можно закрыть.</body></html>");
-            context.Response.ContentType = "text/html; charset=utf-8";
-            await context.Response.OutputStream.WriteAsync(html, CancellationToken.None).ConfigureAwait(false);
-            context.Response.Close();
+            await RespondAsync(context, code is null
+                ? "Вход не выполнен. Вкладку можно закрыть."
+                : "Готово! Возвращайся в eBackup — вкладку можно закрыть.").ConfigureAwait(false);
 
             if (code is null)
                 throw new InvalidOperationException("Авторизация отклонена: " + (error ?? "код не получен"));
@@ -75,6 +98,22 @@ public static class OAuthLoopback
         finally
         {
             listener.Stop();
+        }
+    }
+
+    private static async Task RespondAsync(HttpListenerContext context, string message)
+    {
+        try
+        {
+            var html = Encoding.UTF8.GetBytes(
+                $"<html><meta charset=\"utf-8\"><body style=\"font-family:sans-serif\">{message}</body></html>");
+            context.Response.ContentType = "text/html; charset=utf-8";
+            await context.Response.OutputStream.WriteAsync(html, CancellationToken.None).ConfigureAwait(false);
+            context.Response.Close();
+        }
+        catch
+        {
+            // Клиент оборвал соединение — на исход входа не влияет.
         }
     }
 

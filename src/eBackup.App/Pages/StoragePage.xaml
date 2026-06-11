@@ -325,6 +325,10 @@
                             <Button x:Name="DeleteBtn" Content="Удалить" CornerRadius="12"
                                     Padding="22,8" Foreground="{StaticResource EbErrBrush}"
                                     Visibility="Collapsed" Click="DeleteBtn_Click" />
+                            <Button x:Name="CloseEditorBtn" Content="Закрыть" CornerRadius="12"
+                                    Padding="22,8" Click="CloseEditorBtn_Click"
+                                    Foreground="{StaticResource EbTextDimBrush}"
+                                    ToolTipService.ToolTip="Закрыть без сохранения" />
                         </StackPanel>
 
                         <TextBlock x:Name="StatusText" TextWrapping="Wrap" FontSize="12" />

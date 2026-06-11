@@ -56,6 +56,13 @@ public sealed partial class StoragePage : Page
     private StorageKind _editorKind;           // тип редактируемого/создаваемого
     private string? _pendingGDriveToken;       // refresh-токен после «Войти», ещё не сохранён
     private string? _pendingDropboxToken;
+
+    // OAuth-вход держит loopback-порт до завершения (до 3 минут, если редирект не
+    // пришёл). Статически — чтобы новая попытка отменяла прошлую даже с пересозданной
+    // страницы, а не падала на занятом порту.
+    private static CancellationTokenSource? _activeOAuthCts;
+    private static Task? _activeOAuthTask;
+    private CancellationTokenSource? _pageOAuthCts; // попытка, начатая ЭТОЙ страницей
     private SftpStorageProvider? _browseProvider;
     private bool _suppressSelection;
     private bool _selfTestRunning;
@@ -77,6 +84,9 @@ public sealed partial class StoragePage : Page
         {
             _selfTestTimer?.Stop();
             _selfTestTimer = null;
+            // Результат входа всё равно приземлился бы в мёртвую страницу — отменяем,
+            // заодно освобождая loopback-порт для следующей попытки.
+            _pageOAuthCts?.Cancel();
         };
     }
 
@@ -264,13 +274,49 @@ public sealed partial class StoragePage : Page
             : (Brush)Application.Current.Resources["EbTextDimBrush"];
     }
 
+    /// <summary>
+    /// Запускает OAuth-вход, предварительно отменив незавершённую прошлую попытку
+    /// (она держит loopback-порт). null — вход отменили (повторный клик, закрытие
+    /// редактора, уход со страницы), это не ошибка.
+    /// </summary>
+    private async Task<string?> RunOAuthLoginAsync(Func<CancellationToken, Task<string>> authorize)
+    {
+        _activeOAuthCts?.Cancel();
+        if (_activeOAuthTask is not null)
+            try { await _activeOAuthTask; } catch { /* прошлая попытка отменена или упала */ }
+
+        var cts = new CancellationTokenSource();
+        _activeOAuthCts = cts;
+        _pageOAuthCts = cts;
+        var task = authorize(cts.Token);
+        _activeOAuthTask = task;
+        try
+        {
+            return await task;
+        }
+        catch (OperationCanceledException)
+        {
+            return null;
+        }
+    }
+
     private async void GDriveLogin_Click(object sender, RoutedEventArgs e)
     {
         SetBusy(true);
+        // OAuth-ожидание отменяемо — «Закрыть» остаётся единственным способом его
+        // прервать, не дожидаясь 3-минутного таймаута. Остальные busy-операции
+        // отменить нельзя, поэтому там кнопка блокируется вместе со всеми.
+        CloseEditorBtn.IsEnabled = true;
         SetStatus("Открываю браузер — подтверди вход в Google…", ok: true, dim: true);
         try
         {
-            _pendingGDriveToken = await GoogleDriveStorage.AuthorizeAsync();
+            var token = await RunOAuthLoginAsync(GoogleDriveStorage.AuthorizeAsync);
+            if (token is null)
+            {
+                SetStatus("Вход отменён.", ok: true, dim: true);
+                return;
+            }
+            _pendingGDriveToken = token;
             SetOAuthStatus(GDriveStatus, connected: true);
             SetStatus("✓ Вход выполнен — нажми «Сохранить».", ok: true);
         }
@@ -287,10 +333,17 @@ public sealed partial class StoragePage : Page
     private async void DropboxLogin_Click(object sender, RoutedEventArgs e)
     {
         SetBusy(true);
+        CloseEditorBtn.IsEnabled = true; // см. комментарий в GDriveLogin_Click
         SetStatus("Открываю браузер — подтверди вход в Dropbox…", ok: true, dim: true);
         try
         {
-            _pendingDropboxToken = await DropboxStorage.AuthorizeAsync();
+            var token = await RunOAuthLoginAsync(DropboxStorage.AuthorizeAsync);
+            if (token is null)
+            {
+                SetStatus("Вход отменён.", ok: true, dim: true);
+                return;
+            }
+            _pendingDropboxToken = token;
             SetOAuthStatus(DropboxStatus, connected: true);
             SetStatus("✓ Вход выполнен — нажми «Сохранить».", ok: true);
         }
@@ -676,6 +729,25 @@ public sealed partial class StoragePage : Page
         }
     }
 
+    /// <summary>Закрыть редактор без сохранения. Доступна и во время ожидания
+    /// OAuth-входа (единственный способ прервать его, не дожидаясь таймаута).</summary>
+    private void CloseEditorBtn_Click(object sender, RoutedEventArgs e)
+    {
+        _pageOAuthCts?.Cancel();
+
+        _suppressSelection = true;
+        StorageList.SelectedItem = null;
+        _suppressSelection = false;
+
+        _editing = null;
+        _pendingGDriveToken = null;
+        _pendingDropboxToken = null;
+        ResetTransientUi();
+        Editor.Visibility = Visibility.Collapsed;
+        EmptyHint.Text = "Выбери хранилище слева или добавь новое";
+        EmptyHint.Visibility = Visibility.Visible;
+    }
+
     private async void DeleteBtn_Click(object sender, RoutedEventArgs e)
     {
         if (_editing is null)
@@ -845,6 +917,7 @@ public sealed partial class StoragePage : Page
     private void SetBusy(bool busy)
     {
         TestBtn.IsEnabled = !busy;
+        CloseEditorBtn.IsEnabled = !busy;
         SaveBtn.IsEnabled = !busy;
         DeleteBtn.IsEnabled = !busy;
         BrowseBtn.IsEnabled = !busy;

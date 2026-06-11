@@ -67,7 +67,8 @@ public sealed class GoogleDriveStorage(SavedStorage config, ISecretProtector pro
 
     public async Task UploadAsync(string localFilePath, string remoteName, CancellationToken ct = default)
     {
-        var folderId = await FolderIdAsync(createIfMissing: true, ct).ConfigureAwait(false);
+        var folderId = await FolderIdAsync(createIfMissing: true, ct).ConfigureAwait(false)
+            ?? throw new IOException("Не удалось создать папку на Google Drive.");
 
         // Перезапись: Drive разрешает дубликаты имён — старый файл удаляем.
         var existing = await FindFileIdAsync(folderId, remoteName, ct).ConfigureAwait(false);
