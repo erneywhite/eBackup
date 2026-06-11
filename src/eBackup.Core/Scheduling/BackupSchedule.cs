@@ -2,12 +2,14 @@ namespace eBackup.Core.Scheduling;
 
 public enum ScheduleKind
 {
-    /// <summary>Ежедневно в указанное время.</summary>
+    /// <summary>Ежедневно в указанное время (для постоянно работающих машин).</summary>
     Daily,
     /// <summary>Еженедельно: день недели + время.</summary>
     Weekly,
     /// <summary>Каждые N часов от последнего запуска.</summary>
-    EveryHours
+    EveryHours,
+    /// <summary>Раз в день, когда ПК в простое — момент выбирает приложение.</summary>
+    DailyWhenIdle
 }
 
 /// <summary>
@@ -22,8 +24,8 @@ public sealed record BackupSchedule
     /// <summary>Id модулей, входящих в этот бэкап (своя выборка расписания).</summary>
     public List<string> ModuleIds { get; init; } = [];
 
-    /// <summary>Включать ли «свои папки» (список — общий, со страницы «Бэкап»).</summary>
-    public bool IncludeCustomFolders { get; init; }
+    /// <summary>Свои папки ЭТОГО расписания (не зависят от списка на странице «Бэкап»).</summary>
+    public List<string> CustomFolders { get; init; } = [];
 
     public bool KeepLocal { get; init; } = true;
 
@@ -44,6 +46,9 @@ public sealed record BackupSchedule
 
     /// <summary>Интервал в часах (для EveryHours).</summary>
     public int EveryHours { get; init; } = 6;
+
+    /// <summary>Сколько минут без ввода считать простоем (для DailyWhenIdle).</summary>
+    public int IdleMinutes { get; init; } = 5;
 
     public bool Enabled { get; init; } = true;
 

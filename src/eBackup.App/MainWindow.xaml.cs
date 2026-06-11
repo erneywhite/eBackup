@@ -233,7 +233,8 @@ public sealed partial class MainWindow : Window
             }
 
             var now = DateTime.Now;
-            var due = schedules.FirstOrDefault(s => ScheduleTiming.IsDue(s, now));
+            var idle = IdleDetector.GetIdleTime();
+            var due = schedules.FirstOrDefault(s => ScheduleTiming.IsDue(s, now, idle));
             if (due is null)
                 return;
 
@@ -265,8 +266,8 @@ public sealed partial class MainWindow : Window
             .Where(m => s.ModuleIds.Contains(m.Id, StringComparer.OrdinalIgnoreCase))
             .ToList();
 
-        if (s.IncludeCustomFolders &&
-            Core.Modules.CustomFolders.Build(CustomFolderConfig.Load()) is { } foldersModule)
+        // Свои папки — СВОИ у каждого расписания (не зависят от страницы «Бэкап»).
+        if (Core.Modules.CustomFolders.Build(s.CustomFolders) is { } foldersModule)
             modules.Add(foldersModule);
 
         if (modules.Count == 0)

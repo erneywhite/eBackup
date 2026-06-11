@@ -73,7 +73,12 @@
                         <TextBlock Text="Что бэкапим" FontSize="12" Margin="0,6,0,0"
                                    Foreground="{StaticResource EbTextDimBrush}" />
                         <StackPanel x:Name="ModulesPanel" Spacing="6" />
-                        <CheckBox x:Name="FoldersCheck" Content="Свои папки (как настроены на странице «Бэкап»)" />
+
+                        <TextBlock Text="Свои папки этого расписания" FontSize="12" Margin="0,6,0,0"
+                                   Foreground="{StaticResource EbTextDimBrush}" />
+                        <StackPanel x:Name="SchedFoldersPanel" Spacing="6" />
+                        <Button x:Name="AddSchedFolderBtn" Content="+ Добавить папку" CornerRadius="10"
+                                Click="AddSchedFolderBtn_Click" />
 
                         <TextBlock Text="Куда" FontSize="12" Margin="0,6,0,0"
                                    Foreground="{StaticResource EbTextDimBrush}" />
@@ -91,13 +96,27 @@
 
                         <TextBlock Text="Когда" FontSize="12" Margin="0,6,0,0"
                                    Foreground="{StaticResource EbTextDimBrush}" />
-                        <StackPanel Orientation="Horizontal" Spacing="16">
-                            <RadioButton x:Name="DailyRadio" Content="Ежедневно" GroupName="kind"
-                                         IsChecked="True" Checked="Kind_Changed" />
+                        <StackPanel Spacing="6">
+                            <RadioButton x:Name="IdleRadio" GroupName="kind" IsChecked="True"
+                                         Content="Раз в день, при простое ПК (рекомендуется)"
+                                         Checked="Kind_Changed" />
+                            <RadioButton x:Name="DailyRadio" Content="Ежедневно в точное время" GroupName="kind"
+                                         Checked="Kind_Changed" />
                             <RadioButton x:Name="WeeklyRadio" Content="Еженедельно" GroupName="kind"
                                          Checked="Kind_Changed" />
                             <RadioButton x:Name="EveryRadio" Content="Каждые N часов" GroupName="kind"
                                          Checked="Kind_Changed" />
+                        </StackPanel>
+                        <TextBlock Text="Точное время подходит машинам, работающим постоянно (например, серверам). Пропущенные запуски не догоняются — на обычном ПК выбирай «при простое»."
+                                   FontSize="11" TextWrapping="Wrap"
+                                   Foreground="{StaticResource EbTextDimBrush}" />
+
+                        <StackPanel x:Name="IdleRow" Orientation="Horizontal" Spacing="10">
+                            <TextBlock Text="Считать простоем" VerticalAlignment="Center" FontSize="12"
+                                       Foreground="{StaticResource EbTextDimBrush}" />
+                            <TextBox x:Name="IdleBox" Width="70" Text="5" />
+                            <TextBlock Text="минут без активности" VerticalAlignment="Center" FontSize="12"
+                                       Foreground="{StaticResource EbTextDimBrush}" />
                         </StackPanel>
 
                         <StackPanel x:Name="DayRow" Orientation="Horizontal" Spacing="10"
@@ -107,7 +126,8 @@
                             <ComboBox x:Name="DayCombo" Width="160" />
                         </StackPanel>
 
-                        <StackPanel x:Name="TimeRow" Orientation="Horizontal" Spacing="10">
+                        <StackPanel x:Name="TimeRow" Orientation="Horizontal" Spacing="10"
+                                    Visibility="Collapsed">
                             <TextBlock Text="Время" VerticalAlignment="Center" FontSize="12"
                                        Foreground="{StaticResource EbTextDimBrush}" />
                             <TimePicker x:Name="TimeBox" ClockIdentifier="24HourClock" />

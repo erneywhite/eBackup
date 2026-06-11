@@ -1,4 +1,5 @@
 using eBackup.Core.Modules;
+using eBackup.Core.Scheduling;
 using eBackup.Modules.Obs;
 using eBackup.Security;
 using eBackup.Storage.Sftp;
@@ -87,6 +88,35 @@ public sealed partial class OverviewPage : Page
             ModulesTileText.Text = $"✓ включено: {enabled}"
                 + (paused > 0 ? $"\n⏸ выключено: {paused}" : "")
                 + (blocked > 0 ? $"\n✕ заблокировано: {blocked}" : "");
+
+            // ---- расписания
+            try
+            {
+                var schedules = await new ScheduleStore(new DpapiSecretProtector()).LoadAsync();
+                var active = schedules.Where(x => x.Enabled).ToList();
+                if (active.Count == 0)
+                {
+                    ScheduleTileText.Text = "нет активных — создай в «Расписании»";
+                }
+                else
+                {
+                    var now = DateTime.Now;
+                    var nexts = active.Select(x => ScheduleTiming.NextRun(x, now))
+                        .Where(n => n is not null)
+                        .Select(n => n!.Value)
+                        .ToList();
+                    var idlePending = active.Any(x => x.Kind == ScheduleKind.DailyWhenIdle
+                        && (x.LastRunAt is null || x.LastRunAt.Value.Date < now.Date));
+
+                    ScheduleTileText.Text = $"активных: {active.Count}"
+                        + (nexts.Count > 0 ? $"\nближайший: {nexts.Min():dd.MM HH:mm}" : "")
+                        + (idlePending ? "\nожидает простоя ПК" : "");
+                }
+            }
+            catch
+            {
+                ScheduleTileText.Text = "не удалось прочитать расписания";
+            }
 
             // ---- хранилища: строки + живой селф-тест
             StorageRows.Children.Clear();
@@ -199,4 +229,7 @@ public sealed partial class OverviewPage : Page
 
     private void GoStorage_Click(object sender, RoutedEventArgs e)
         => MainWindow.Instance?.SelectNav("storage");
+
+    private void GoSchedule_Click(object sender, RoutedEventArgs e)
+        => MainWindow.Instance?.SelectNav("schedule");
 }

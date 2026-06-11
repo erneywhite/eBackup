@@ -54,6 +54,15 @@
                                    Foreground="{StaticResource EbTextDimBrush}" Text="…" />
                     </StackPanel>
                 </Button>
+
+                <Button x:Name="ScheduleTile" Style="{StaticResource EbTileStyle}"
+                        Width="240" MinHeight="96" Click="GoSchedule_Click">
+                    <StackPanel Spacing="4">
+                        <TextBlock Text="Расписание" FontWeight="SemiBold" />
+                        <TextBlock x:Name="ScheduleTileText" FontSize="12" TextWrapping="Wrap"
+                                   Foreground="{StaticResource EbTextDimBrush}" Text="…" />
+                    </StackPanel>
+                </Button>
             </StackPanel>
 
             <!-- Хранилища с живыми статусами -->

@@ -20,10 +20,17 @@ public sealed class ScheduleItem(BackupSchedule schedule)
         get
         {
             var when = SchedulePage.Describe(Schedule);
+            if (!Schedule.Enabled)
+                return $"{when} · приостановлено";
+
+            if (Schedule.Kind == ScheduleKind.DailyWhenIdle)
+            {
+                var ranToday = Schedule.LastRunAt is { } last && last.Date == DateTime.Now.Date;
+                return $"{when} · {(ranToday ? "сегодня уже выполнен" : "ожидает простоя")}";
+            }
+
             var next = ScheduleTiming.NextRun(Schedule, DateTime.Now);
-            return next is null
-                ? $"{when} · приостановлено"
-                : $"{when} · следующий: {next:dd.MM HH:mm}";
+            return next is null ? when : $"{when} · следующий: {next:dd.MM HH:mm}";
         }
     }
 }
@@ -46,6 +53,7 @@ public sealed partial class SchedulePage : Page
     private bool _suppressSelection;
     private readonly List<CheckBox> _moduleChecks = [];
     private readonly List<CheckBox> _sftpChecks = [];
+    private List<string> _schedFolders = [];   // свои папки ЭТОГО расписания
 
     public SchedulePage()
     {
@@ -61,7 +69,8 @@ public sealed partial class SchedulePage : Page
     {
         ScheduleKind.Daily => $"ежедневно в {s.Hour:00}:{s.Minute:00}",
         ScheduleKind.Weekly => $"еженедельно, {DayNames[((int)s.Day + 6) % 7]} {s.Hour:00}:{s.Minute:00}",
-        _ => $"каждые {s.EveryHours} ч"
+        ScheduleKind.EveryHours => $"каждые {s.EveryHours} ч",
+        _ => "раз в день, при простое ПК"
     };
 
     // ---------- список ----------
@@ -138,9 +147,9 @@ public sealed partial class SchedulePage : Page
             ModulesPanel.Children.Add(cb);
         }
 
-        var foldersCount = CustomFolderConfig.Load().Count;
-        FoldersCheck.Content = $"Свои папки ({foldersCount} шт, как на странице «Бэкап»)";
-        FoldersCheck.IsChecked = s?.IncludeCustomFolders ?? foldersCount > 0;
+        // Свои папки — собственный список расписания.
+        _schedFolders = s?.CustomFolders.ToList() ?? [];
+        RenderSchedFolders();
 
         // Цели
         LocalCheck.IsChecked = s?.KeepLocal ?? true;
@@ -174,13 +183,15 @@ public sealed partial class SchedulePage : Page
         Pass1.PlaceholderText = s?.ProtectedPassphrase is null ? "парольная фраза" : "пусто — оставить прежнюю";
         Pass2.PlaceholderText = s?.ProtectedPassphrase is null ? "повтори фразу" : "пусто — оставить прежнюю";
 
-        // Когда
-        DailyRadio.IsChecked = s is null || s.Kind == ScheduleKind.Daily;
+        // Когда («при простое» — рекомендуемый дефолт для нового)
+        IdleRadio.IsChecked = s is null || s.Kind == ScheduleKind.DailyWhenIdle;
+        DailyRadio.IsChecked = s?.Kind == ScheduleKind.Daily;
         WeeklyRadio.IsChecked = s?.Kind == ScheduleKind.Weekly;
         EveryRadio.IsChecked = s?.Kind == ScheduleKind.EveryHours;
         TimeBox.SelectedTime = new TimeSpan(s?.Hour ?? 3, s?.Minute ?? 0, 0);
         DayCombo.SelectedIndex = s is null ? 0 : ((int)s.Day + 6) % 7;
         EveryBox.Text = (s?.EveryHours ?? 6).ToString();
+        IdleBox.Text = (s?.IdleMinutes ?? 5).ToString();
 
         EnabledToggle.IsOn = s?.Enabled ?? true;
         DeleteBtn.Visibility = s is null ? Visibility.Collapsed : Visibility.Visible;
@@ -198,11 +209,83 @@ public sealed partial class SchedulePage : Page
 
     private void Kind_Changed(object sender, RoutedEventArgs e)
     {
-        if (TimeRow is null || DayRow is null || EveryRow is null)
+        if (TimeRow is null || DayRow is null || EveryRow is null || IdleRow is null)
             return;
-        TimeRow.Visibility = EveryRadio.IsChecked == true ? Visibility.Collapsed : Visibility.Visible;
+        var strictTime = DailyRadio.IsChecked == true || WeeklyRadio.IsChecked == true;
+        TimeRow.Visibility = strictTime ? Visibility.Visible : Visibility.Collapsed;
         DayRow.Visibility = WeeklyRadio.IsChecked == true ? Visibility.Visible : Visibility.Collapsed;
         EveryRow.Visibility = EveryRadio.IsChecked == true ? Visibility.Visible : Visibility.Collapsed;
+        IdleRow.Visibility = IdleRadio.IsChecked == true ? Visibility.Visible : Visibility.Collapsed;
+    }
+
+    // ---------- свои папки расписания ----------
+
+    private void RenderSchedFolders()
+    {
+        SchedFoldersPanel.Children.Clear();
+        var dim = (Brush)Application.Current.Resources["EbTextDimBrush"];
+
+        if (_schedFolders.Count == 0)
+        {
+            SchedFoldersPanel.Children.Add(new TextBlock
+            {
+                Text = "пока пусто — список папок у каждого расписания свой",
+                FontSize = 12,
+                Foreground = dim
+            });
+            return;
+        }
+
+        foreach (var folder in _schedFolders)
+        {
+            var row = new Grid { ColumnSpacing = 8 };
+            row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+            row.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+
+            var text = new TextBlock
+            {
+                Text = folder,
+                FontSize = 12,
+                VerticalAlignment = VerticalAlignment.Center,
+                TextTrimming = TextTrimming.CharacterEllipsis
+            };
+            Grid.SetColumn(text, 0);
+            row.Children.Add(text);
+
+            var remove = new Button
+            {
+                Content = "✕",
+                Padding = new Thickness(8, 2, 8, 2),
+                CornerRadius = new CornerRadius(8)
+            };
+            remove.Click += (_, _) =>
+            {
+                _schedFolders.Remove(folder);
+                RenderSchedFolders();
+            };
+            Grid.SetColumn(remove, 1);
+            row.Children.Add(remove);
+
+            SchedFoldersPanel.Children.Add(row);
+        }
+    }
+
+    private async void AddSchedFolderBtn_Click(object sender, RoutedEventArgs e)
+    {
+        if (MainWindow.Instance is null)
+            return;
+
+        var picker = new Windows.Storage.Pickers.FolderPicker();
+        picker.FileTypeFilter.Add("*");
+        var hwnd = WinRT.Interop.WindowNative.GetWindowHandle(MainWindow.Instance);
+        WinRT.Interop.InitializeWithWindow.Initialize(picker, hwnd);
+
+        var folder = await picker.PickSingleFolderAsync();
+        if (folder is null || _schedFolders.Contains(folder.Path, StringComparer.OrdinalIgnoreCase))
+            return;
+
+        _schedFolders.Add(folder.Path);
+        RenderSchedFolders();
     }
 
     // ---------- сохранение / удаление ----------
@@ -218,10 +301,9 @@ public sealed partial class SchedulePage : Page
 
         var moduleIds = _moduleChecks.Where(cb => cb.IsChecked == true)
             .Select(cb => (string)cb.Tag).ToList();
-        var includeFolders = FoldersCheck.IsChecked == true;
-        if (moduleIds.Count == 0 && !includeFolders)
+        if (moduleIds.Count == 0 && _schedFolders.Count == 0)
         {
-            SetStatus("Выбери хотя бы один модуль или свои папки.", ok: false);
+            SetStatus("Выбери хотя бы один модуль или добавь папку.", ok: false);
             return;
         }
 
@@ -260,13 +342,22 @@ public sealed partial class SchedulePage : Page
 
         var kind = WeeklyRadio.IsChecked == true ? ScheduleKind.Weekly
                  : EveryRadio.IsChecked == true ? ScheduleKind.EveryHours
-                 : ScheduleKind.Daily;
+                 : DailyRadio.IsChecked == true ? ScheduleKind.Daily
+                 : ScheduleKind.DailyWhenIdle;
 
         var everyHours = _editing?.EveryHours ?? 6;
         if (kind == ScheduleKind.EveryHours &&
             (!int.TryParse(EveryBox.Text.Trim(), out everyHours) || everyHours is < 1 or > 168))
         {
             SetStatus("«Каждые N часов» — число от 1 до 168.", ok: false);
+            return;
+        }
+
+        var idleMinutes = _editing?.IdleMinutes ?? 5;
+        if (kind == ScheduleKind.DailyWhenIdle &&
+            (!int.TryParse(IdleBox.Text.Trim(), out idleMinutes) || idleMinutes is < 1 or > 240))
+        {
+            SetStatus("Минуты простоя — число от 1 до 240.", ok: false);
             return;
         }
 
@@ -278,7 +369,7 @@ public sealed partial class SchedulePage : Page
             Id = _editing?.Id ?? Guid.NewGuid().ToString("N")[..8],
             Name = name,
             ModuleIds = moduleIds,
-            IncludeCustomFolders = includeFolders,
+            CustomFolders = _schedFolders.ToList(),
             KeepLocal = keepLocal,
             TargetConnectionIds = targetIds,
             ProtectedPassphrase = protectedPassphrase,
@@ -287,9 +378,12 @@ public sealed partial class SchedulePage : Page
             Minute = time.Minutes,
             Day = day,
             EveryHours = everyHours,
+            IdleMinutes = idleMinutes,
             Enabled = EnabledToggle.IsOn,
-            // Новое расписание стартует «с этого момента», а не задним числом.
-            LastRunAt = _editing?.LastRunAt ?? DateTime.Now
+            // Точные расписания стартуют «с этого момента» (без задним-числом);
+            // «при простое» — без отметки, чтобы выполниться при первом же простое.
+            LastRunAt = _editing?.LastRunAt
+                ?? (kind == ScheduleKind.DailyWhenIdle ? null : DateTime.Now)
         };
 
         try
@@ -298,9 +392,11 @@ public sealed partial class SchedulePage : Page
             await _scheduleStore.SaveAllAsync(all);
             await ReloadAsync(selectId: schedule.Id);
             var next = ScheduleTiming.NextRun(schedule, DateTime.Now);
-            SetStatus(next is null
+            SetStatus(!schedule.Enabled
                 ? "✓ Сохранено (приостановлено)"
-                : $"✓ Сохранено · следующий запуск: {next:dd.MM.yyyy HH:mm}", ok: true);
+                : schedule.Kind == ScheduleKind.DailyWhenIdle
+                    ? "✓ Сохранено · выполнится при ближайшем простое ПК"
+                    : $"✓ Сохранено · следующий запуск: {next:dd.MM.yyyy HH:mm}", ok: true);
         }
         catch (Exception ex)
         {
