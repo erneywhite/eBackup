@@ -10,16 +10,6 @@
             <KeyboardAccelerator Key="Left" Modifiers="Menu" Invoked="BackAccel_Invoked" />
             <!-- Клавиша Browser Back (VK 166) добавляется в коде: в enum VirtualKey имени нет -->
         </Grid.KeyboardAccelerators>
-        <Grid.Resources>
-            <!-- Волны «жидкого» прогресса: бесконечный горизонтальный дрейф двух слоёв
-                 с разной скоростью и фазой. Запускается/останавливается из кода. -->
-            <Storyboard x:Name="WaveStoryboard">
-                <DoubleAnimation Storyboard.TargetName="Wave1T" Storyboard.TargetProperty="X"
-                                 From="0" To="-200" Duration="0:0:5" RepeatBehavior="Forever" />
-                <DoubleAnimation Storyboard.TargetName="Wave2T" Storyboard.TargetProperty="X"
-                                 From="-140" To="-420" Duration="0:0:7.5" RepeatBehavior="Forever" />
-            </Storyboard>
-        </Grid.Resources>
         <Grid.RowDefinitions>
             <RowDefinition Height="*" />
             <RowDefinition Height="76" />
@@ -187,25 +177,14 @@
                 Background="{StaticResource EbCardBrush}"
                 BorderBrush="{StaticResource EbCardBorderBrush}" BorderThickness="1">
             <Grid x:Name="BarRoot">
-                <!-- «Жидкий» прогресс: ширина контейнера = доля прогресса; внутри —
-                     тело-градиент и две дрейфующие волны (геометрия строится в коде).
-                     Контейнер обрезается скруглённым Composition-клипом (тоже в коде),
-                     чтобы волны не выпирали из углов панели. -->
-                <Grid x:Name="LiquidFill" Width="0" Opacity="0" IsHitTestVisible="False"
-                      HorizontalAlignment="Left" VerticalAlignment="Stretch">
-                    <Rectangle Fill="{StaticResource EbAccentGradient}" Opacity="0.18" />
-                    <Path x:Name="Wave1" Fill="#FFFFFF" Opacity="0.07" Width="5200" Height="64"
-                          HorizontalAlignment="Left" VerticalAlignment="Bottom">
-                        <Path.RenderTransform>
-                            <TranslateTransform x:Name="Wave1T" />
-                        </Path.RenderTransform>
-                    </Path>
-                    <Path x:Name="Wave2" Fill="#FF6DC8" Opacity="0.10" Width="5320" Height="64"
-                          HorizontalAlignment="Left" VerticalAlignment="Bottom">
-                        <Path.RenderTransform>
-                            <TranslateTransform x:Name="Wave2T" />
-                        </Path.RenderTransform>
-                    </Path>
+                <!-- «Жидкий» прогресс: вода с физикой. Поверхность — пружинная модель
+                     (60 fps, CompositionTarget.Rendering), геометрия обоих слоёв
+                     перестраивается кодом каждый кадр; при продвижении прогресса от
+                     фронта расходится всплеск. Скруглённый Composition-клип (в коде)
+                     прячет воду в углах панели. -->
+                <Grid x:Name="LiquidFill" Opacity="0" IsHitTestVisible="False">
+                    <Path x:Name="WaterBack" Fill="#FF6DC8" Opacity="0.10" />
+                    <Path x:Name="WaterFront" Fill="{StaticResource EbAccentGradient}" Opacity="0.22" />
                 </Grid>
 
                 <Grid VerticalAlignment="Center" Margin="20,0">

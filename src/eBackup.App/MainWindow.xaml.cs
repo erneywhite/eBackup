@@ -578,96 +578,43 @@ public sealed partial class MainWindow : Window
         }
     }
 
-    // ---------- «жидкая» заливка-прогресс нижней панели ----------
+    // ---------- «жидкая» заливка-прогресс нижней панели (вода с физикой) ----------
 
-    private bool _wavesRunning;
+    // Поверхность воды — пружинная модель: каждый узел тянется к уровню покоя,
+    // соседи обмениваются энергией (волны разбегаются), всё гасится трением.
+    private double[] _waveH = [];   // отклонение поверхности от уровня, px
+    private double[] _waveV = [];   // скорость узла
+    private double _fillCur;        // текущая ширина воды, px (догоняет цель плавно)
+    private double _simTime;
+    private bool _simRunning;
+    private const double NodeStep = 12;     // шаг узлов поверхности, px
+    private const double Spring = 0.022;    // жёсткость пружины к уровню покоя
+    private const double Damping = 0.965;   // трение
+    private const double Spread = 0.12;     // передача энергии соседям
 
-    /// <summary>
-    /// Подготовка жидкости: геометрия волн (синус из квадратичных Безье) и
-    /// скруглённый Composition-клип контейнера (XAML-клип умеет только прямые углы,
-    /// а волны шире контейнера и без клипа торчали бы из круглых углов панели).
-    /// </summary>
+    /// <summary>Скруглённый Composition-клип: вода не выпирает из углов панели.</summary>
     private void InitLiquidProgress()
     {
-        Wave1.Data = BuildWaveGeometry(period: 200, ctrlAmp: 14, baseline: 20, width: 5200, height: 64);
-        Wave2.Data = BuildWaveGeometry(period: 280, ctrlAmp: 20, baseline: 30, width: 5320, height: 64);
-
         var visual = Microsoft.UI.Xaml.Hosting.ElementCompositionPreview.GetElementVisual(LiquidFill);
         var compositor = visual.Compositor;
         var clipGeometry = compositor.CreateRoundedRectangleGeometry();
         clipGeometry.CornerRadius = new System.Numerics.Vector2(15f, 15f);
-        // Размер клипа следует за анимируемым размером контейнера покадрово.
         var sizeExpr = compositor.CreateExpressionAnimation("host.Size");
         sizeExpr.SetReferenceParameter("host", visual);
         clipGeometry.StartAnimation("Size", sizeExpr);
         visual.Clip = compositor.CreateGeometricClip(clipGeometry);
-
-        // При изменении размера окна заливка держит свою долю ширины.
-        BarRoot.SizeChanged += (_, e) =>
-        {
-            if (_fill > 0)
-                LiquidFill.Width = _fill * e.NewSize.Width;
-        };
     }
 
-    private static Microsoft.UI.Xaml.Media.PathGeometry BuildWaveGeometry(
-        int period, int ctrlAmp, int baseline, int width, int height)
-    {
-        var figure = new Microsoft.UI.Xaml.Media.PathFigure
-        {
-            StartPoint = new Windows.Foundation.Point(0, baseline),
-            IsClosed = true,
-            IsFilled = true
-        };
-
-        var half = period / 2;
-        var up = true;
-        for (var x = 0; x < width; x += half)
-        {
-            figure.Segments.Add(new Microsoft.UI.Xaml.Media.QuadraticBezierSegment
-            {
-                Point1 = new Windows.Foundation.Point(x + half / 2.0, up ? baseline - ctrlAmp : baseline + ctrlAmp),
-                Point2 = new Windows.Foundation.Point(x + half, baseline)
-            });
-            up = !up;
-        }
-        figure.Segments.Add(new Microsoft.UI.Xaml.Media.LineSegment
-        {
-            Point = new Windows.Foundation.Point(width, height)
-        });
-        figure.Segments.Add(new Microsoft.UI.Xaml.Media.LineSegment
-        {
-            Point = new Windows.Foundation.Point(0, height)
-        });
-
-        var geometry = new Microsoft.UI.Xaml.Media.PathGeometry();
-        geometry.Figures.Add(figure);
-        return geometry;
-    }
-
-    /// <summary>Плавно довести заливку до доли <paramref name="fraction"/> (0..1).</summary>
+    /// <summary>Довести воду до доли <paramref name="fraction"/> (0..1) — дольётся с всплеском.</summary>
     private void SetFill(double fraction)
     {
         _fill = Math.Clamp(fraction, 0, 1);
         LiquidFill.Opacity = 1;
-        if (!_wavesRunning)
+        if (!_simRunning)
         {
-            WaveStoryboard.Begin();
-            _wavesRunning = true;
+            _simRunning = true;
+            Microsoft.UI.Xaml.Media.CompositionTarget.Rendering += OnLiquidFrame;
         }
-
-        var anim = new DoubleAnimation
-        {
-            To = _fill * BarRoot.ActualWidth,
-            Duration = new Duration(TimeSpan.FromMilliseconds(400)),
-            EasingFunction = new QuadraticEase { EasingMode = EasingMode.EaseOut },
-            EnableDependentAnimation = true // Width — layout-свойство
-        };
-        Storyboard.SetTarget(anim, LiquidFill);
-        Storyboard.SetTargetProperty(anim, "Width");
-        var sb = new Storyboard();
-        sb.Children.Add(anim);
-        sb.Begin();
     }
 
     /// <summary>Небольшой сдвиг заливки вперёд внутри длинной фазы (асимптотически к её концу).</summary>
@@ -678,12 +625,120 @@ public sealed partial class MainWindow : Window
     {
         await Task.Delay(1200);
         LiquidFill.Opacity = 0;
-        LiquidFill.Width = 0;
         _fill = 0;
-        if (_wavesRunning)
+        _fillCur = 0;
+        Array.Clear(_waveH);
+        Array.Clear(_waveV);
+        if (_simRunning)
         {
-            WaveStoryboard.Stop();
-            _wavesRunning = false;
+            _simRunning = false;
+            Microsoft.UI.Xaml.Media.CompositionTarget.Rendering -= OnLiquidFrame;
         }
+        WaterFront.Data = null;
+        WaterBack.Data = null;
+    }
+
+    private void OnLiquidFrame(object? sender, object e)
+    {
+        var width = BarRoot.ActualWidth;
+        var height = BarRoot.ActualHeight;
+        if (width < 40 || height < 20)
+            return;
+
+        var nodes = (int)(width / NodeStep) + 3;
+        if (_waveH.Length != nodes)
+        {
+            _waveH = new double[nodes];
+            _waveV = new double[nodes];
+        }
+
+        // Вода догоняет целевой уровень; от точки долива расходится всплеск.
+        var target = _fill * width;
+        var advance = (target - _fillCur) * 0.055;
+        _fillCur += advance;
+        if (advance > 0.05)
+        {
+            var front = Math.Clamp((int)(_fillCur / NodeStep), 1, nodes - 2);
+            _waveV[front] += advance * 0.45;
+            _waveV[front - 1] += advance * 0.25;
+            if (front + 1 < nodes)
+                _waveV[front + 1] += advance * 0.25;
+        }
+
+        // Лёгкое фоновое волнение, чтобы вода никогда не застывала зеркалом.
+        _simTime += 1 / 60.0;
+        for (var i = 0; i < nodes; i++)
+            _waveV[i] += 0.010 * Math.Sin(_simTime * 1.9 + i * 0.55)
+                       + 0.007 * Math.Sin(_simTime * 1.1 - i * 0.33);
+
+        // Пружины + трение.
+        for (var i = 0; i < nodes; i++)
+        {
+            _waveV[i] += -_waveH[i] * Spring;
+            _waveV[i] *= Damping;
+            _waveH[i] += _waveV[i];
+        }
+
+        // Волны разбегаются к соседям (два прохода для гладкости).
+        for (var pass = 0; pass < 2; pass++)
+            for (var i = 0; i < nodes; i++)
+            {
+                if (i > 0)
+                {
+                    var d = (_waveH[i] - _waveH[i - 1]) * Spread;
+                    _waveV[i - 1] += d;
+                    _waveH[i - 1] += d * 0.5;
+                }
+                if (i < nodes - 1)
+                {
+                    var d = (_waveH[i] - _waveH[i + 1]) * Spread;
+                    _waveV[i + 1] += d;
+                    _waveH[i + 1] += d * 0.5;
+                }
+            }
+
+        var maxSwing = height * 0.22;
+        for (var i = 0; i < nodes; i++)
+            _waveH[i] = Math.Clamp(_waveH[i], -maxSwing, maxSwing);
+
+        // Передний слой — основная вода, задний — глубина (ниже и в противофазе).
+        var level = height * 0.34;
+        WaterFront.Data = BuildWater(level, 1.0, height);
+        WaterBack.Data = BuildWater(level + 6, -0.7, height);
+    }
+
+    /// <summary>Геометрия воды: поверхность по узлам симуляции от 0 до текущего фронта.</summary>
+    private Microsoft.UI.Xaml.Media.PathGeometry? BuildWater(double level, double phase, double height)
+    {
+        if (_fillCur < 6)
+            return null;
+
+        var figure = new Microsoft.UI.Xaml.Media.PathFigure
+        {
+            StartPoint = new Windows.Foundation.Point(0, level + _waveH[0] * phase),
+            IsClosed = true,
+            IsFilled = true
+        };
+
+        var lastNode = Math.Min((int)(_fillCur / NodeStep) + 1, _waveH.Length - 1);
+        for (var i = 1; i <= lastNode; i++)
+            figure.Segments.Add(new Microsoft.UI.Xaml.Media.LineSegment
+            {
+                Point = new Windows.Foundation.Point(
+                    Math.Min(i * NodeStep, _fillCur), level + _waveH[i] * phase)
+            });
+
+        figure.Segments.Add(new Microsoft.UI.Xaml.Media.LineSegment
+        {
+            Point = new Windows.Foundation.Point(_fillCur, height)
+        });
+        figure.Segments.Add(new Microsoft.UI.Xaml.Media.LineSegment
+        {
+            Point = new Windows.Foundation.Point(0, height)
+        });
+
+        var geometry = new Microsoft.UI.Xaml.Media.PathGeometry();
+        geometry.Figures.Add(figure);
+        return geometry;
     }
 }
