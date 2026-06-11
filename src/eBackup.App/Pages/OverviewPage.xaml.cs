@@ -25,6 +25,11 @@ public sealed partial class OverviewPage : Page
     public OverviewPage()
     {
         InitializeComponent();
+        // Контент следует за шириной окна до потолка 860. На MaxWidth положиться
+        // нельзя: ширину лево-выровненного StackPanel задаёт самый широкий ребёнок,
+        // а все дети теперь тянущиеся.
+        Scroller.SizeChanged += (_, e) =>
+            ContentPanel.Width = Math.Clamp(e.NewSize.Width, 0, 860);
         Loaded += async (_, _) =>
         {
             MainWindow.BackupCompleted += OnBackupCompleted;

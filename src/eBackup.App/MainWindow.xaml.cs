@@ -64,6 +64,13 @@ public sealed partial class MainWindow : Window
 
         AppWindow.Resize(new Windows.Graphics.SizeInt32(1180, 760));
 
+        // Минимальный размер окна: уже — и master-detail-страницы разваливаются.
+        if (AppWindow.Presenter is Microsoft.UI.Windowing.OverlappedPresenter presenter)
+        {
+            presenter.PreferredMinimumWidth = 940;
+            presenter.PreferredMinimumHeight = 600;
+        }
+
         ContentFrame.Navigate(typeof(OverviewPage));
 
         // Одноразово: хранилище «Локальная папка» по умолчанию.

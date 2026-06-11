@@ -16,8 +16,9 @@
         </Style>
     </Page.Resources>
 
-    <ScrollViewer>
-        <StackPanel Spacing="14" HorizontalAlignment="Left" MaxWidth="860">
+    <ScrollViewer x:Name="Scroller">
+        <!-- Ширина задаётся кодом: следует за окном до потолка 860 (SizeChanged). -->
+        <StackPanel x:Name="ContentPanel" Spacing="14" HorizontalAlignment="Left">
             <TextBlock Text="Обзор" FontSize="26" FontWeight="SemiBold" />
 
             <!-- Последний бэкап -->
@@ -33,10 +34,18 @@
                 </StackPanel>
             </Button>
 
-            <!-- Плитки: архивы и модули -->
-            <StackPanel Orientation="Horizontal" Spacing="14">
+            <!-- Плитки: архивы и модули. Звёздные колонки — сжимаются вместе с окном,
+                 а не обрезаются (как было с фиксированной шириной). -->
+            <Grid ColumnSpacing="14">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="*" />
+                </Grid.ColumnDefinitions>
+
                 <Button x:Name="ArchivesTile" Style="{StaticResource EbTileStyle}"
-                        Width="240" MinHeight="96" Click="GoArchives_Click">
+                        Grid.Column="0" MinHeight="96" HorizontalAlignment="Stretch"
+                        VerticalAlignment="Stretch" Click="GoArchives_Click">
                     <StackPanel Spacing="4">
                         <TextBlock Text="Архивы" FontWeight="SemiBold" />
                         <TextBlock x:Name="ArchivesTileText" FontSize="12" TextWrapping="Wrap"
@@ -45,7 +54,8 @@
                 </Button>
 
                 <Button x:Name="ModulesTile" Style="{StaticResource EbTileStyle}"
-                        Width="240" MinHeight="96" Click="GoModules_Click">
+                        Grid.Column="1" MinHeight="96" HorizontalAlignment="Stretch"
+                        VerticalAlignment="Stretch" Click="GoModules_Click">
                     <StackPanel Spacing="4">
                         <TextBlock Text="Модули" FontWeight="SemiBold" />
                         <TextBlock x:Name="ModulesTileText" FontSize="12" TextWrapping="Wrap"
@@ -54,14 +64,15 @@
                 </Button>
 
                 <Button x:Name="ScheduleTile" Style="{StaticResource EbTileStyle}"
-                        Width="240" MinHeight="96" Click="GoSchedule_Click">
+                        Grid.Column="2" MinHeight="96" HorizontalAlignment="Stretch"
+                        VerticalAlignment="Stretch" Click="GoSchedule_Click">
                     <StackPanel Spacing="4">
                         <TextBlock Text="Расписание" FontWeight="SemiBold" />
                         <TextBlock x:Name="ScheduleTileText" FontSize="12" TextWrapping="Wrap"
                                    Foreground="{StaticResource EbTextDimBrush}" Text="…" />
                     </StackPanel>
                 </Button>
-            </StackPanel>
+            </Grid>
 
             <!-- Хранилища с живыми статусами -->
             <Button x:Name="StorageTile" Style="{StaticResource EbTileStyle}"
