@@ -127,19 +127,19 @@ public class ModuleHardeningTests
     }
 
     [Theory]
-    [InlineData("{APPDATA}/MyApp/config.ini", true)]   // легитимный путь внутри токена
-    [InlineData("{APPDATA}/../../Windows/System32/x", false)] // побег через .. из токена
-    [InlineData("D:/Video/intro.mp4", false)]          // сырой абсолютный путь (как у OBS-ассета)
-    [InlineData("/etc/passwd", false)]                 // не-токен абсолютный
-    public void ResolvesWithinTokenRoot_Guards_Restore_Target(string tokenPath, bool expectedSafe)
-        => Assert.Equal(expectedSafe, PathTokens.ResolvesWithinTokenRoot(tokenPath, out _));
+    [InlineData("{APPDATA}/MyApp/config.ini", false)]       // легитимный путь — без «..»
+    [InlineData("D:/Video/intro.mp4", false)]               // сырой абсолютный (своя папка) — допустим
+    [InlineData("{APPDATA}/../../Windows/System32/x", true)] // побег через «..» — запрещён
+    [InlineData("folders/../../etc/passwd", true)]           // побег через «..» — запрещён
+    public void HasTraversal_Flags_Directory_Escapes(string tokenPath, bool expected)
+        => Assert.Equal(expected, PathTokens.HasTraversal(tokenPath));
 
     [Fact]
-    public async Task Selective_Restore_To_Original_Skips_Hostile_TokenPath()
+    public async Task Selective_Restore_To_Original_Does_Not_Write_Managed_Entry()
     {
         // Враждебный архив: managed-ассет с сырым абсолютным TokenPath. При выборочном
-        // восстановлении «в исходные места» движок ДОЛЖЕН пропустить его (а не записать
-        // по произвольному пути) и сообщить о пропуске через исключение.
+        // восстановлении «в исходные места» движок ДОЛЖЕН пропустить его (ассеты кладёт
+        // только restore-хук) — ничего не записав по произвольному пути из манифеста.
         var archivePath = Path.Combine(Path.GetTempPath(), $"ebk-evil2-{Guid.NewGuid():N}.ebk");
         var hostileTarget = Path.Combine(Path.GetTempPath(), $"ebk-pwn-{Guid.NewGuid():N}.txt");
         try
@@ -177,15 +177,63 @@ public class ModuleHardeningTests
                 await JsonSerializer.SerializeAsync(s, manifest, ManifestJson.Options);
             }
 
-            await Assert.ThrowsAsync<IOException>(() => new BackupEngine().RestoreAsync(
-                archivePath, destinationRootOverride: null,
-                entryFilter: _ => true)); // выбрано всё, «в исходные места»
+            // Выбрано всё, «в исходные места» — managed-запись молча пропускается.
+            await new BackupEngine().RestoreAsync(
+                archivePath, destinationRootOverride: null, entryFilter: _ => true);
             Assert.False(File.Exists(hostileTarget)); // ничего не записано по враждебному пути
         }
         finally
         {
             if (File.Exists(archivePath)) File.Delete(archivePath);
             if (File.Exists(hostileTarget)) File.Delete(hostileTarget);
+        }
+    }
+
+    [Fact]
+    public async Task Restore_Rejects_Traversal_In_TokenPath()
+    {
+        // Не-managed запись с «..» в TokenPath — полное восстановление должно отказать.
+        var archivePath = Path.Combine(Path.GetTempPath(), $"ebk-trav-{Guid.NewGuid():N}.ebk");
+        try
+        {
+            using (var zip = ZipFile.Open(archivePath, ZipArchiveMode.Create))
+            {
+                var data = zip.CreateEntry("data/x/payload");
+                await using (var ds = data.Open())
+                    await ds.WriteAsync(System.Text.Encoding.UTF8.GetBytes("x"));
+
+                var entry = zip.CreateEntry("manifest.json");
+                await using var s = entry.Open();
+                var manifest = new Manifest
+                {
+                    CreatedAt = default,
+                    Modules =
+                    [
+                        new ModuleEntry
+                        {
+                            ModuleId = "x",
+                            DisplayName = "x",
+                            Entries =
+                            [
+                                new PathEntry
+                                {
+                                    TokenPath = "{APPDATA}/../../../Windows/evil",
+                                    Type = PathEntryType.File,
+                                    ArchivePath = "x/payload"
+                                }
+                            ]
+                        }
+                    ]
+                };
+                await JsonSerializer.SerializeAsync(s, manifest, ManifestJson.Options);
+            }
+
+            await Assert.ThrowsAsync<InvalidDataException>(
+                () => new BackupEngine().RestoreAsync(archivePath));
+        }
+        finally
+        {
+            if (File.Exists(archivePath)) File.Delete(archivePath);
         }
     }
 }

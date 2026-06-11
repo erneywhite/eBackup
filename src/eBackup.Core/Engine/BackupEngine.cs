@@ -377,40 +377,38 @@ public sealed class BackupEngine
             {
                 ct.ThrowIfCancellationRequested();
 
-                // Управляемые модулем записи (напр. ассеты OBS) восстанавливает
-                // сам модуль через свой restore-хук — движок их пропускает.
-                // При ВЫБОРОЧНОМ восстановлении хуки не зовутся, поэтому такие
-                // записи извлекаются как обычные файлы по исходным путям.
-                if (entry.ManagedByModule && entryFilter is null)
+                // Управляемые модулем записи (ассеты OBS) раскладывает сам модуль через
+                // restore-хук. Движок пишет их ТОЛЬКО при извлечении в выбранную папку
+                // (путь — строго внутри неё). В исходные места и при полном восстановлении
+                // их пропускаем: сырой путь из манифеста как цель записи небезопасен — это
+                // работа хука. Иначе выборочное восстановление «в исходные места» писало бы
+                // ассет по произвольному пути из (недоверенного) манифеста.
+                if (entry.ManagedByModule && (entryFilter is null || destinationRootOverride is null))
                     continue;
 
-                // Корень записи — граница доверия (манифест из архива). В исходные
-                // места пускаем только пути внутри известного токен-корня; «в папку» —
-                // строго внутри выбранной папки. Сырые абсолютные пути и побеги через
-                // «..» отвергаются (в выборочном режиме — пропуск, в полном — отказ).
-                string target;
-                if (destinationRootOverride is null)
+                // Путь из манифеста — граница доверия: побеги через «..» запрещены всегда.
+                if (PathTokens.HasTraversal(entry.TokenPath))
                 {
-                    if (!PathTokens.ResolvesWithinTokenRoot(entry.TokenPath, out target))
+                    var msg = $"небезопасный путь в манифесте (обход каталога): {entry.TokenPath}";
+                    if (selectiveFailures is not null)
                     {
-                        var msg = $"небезопасный или непереносимый путь в манифесте: {entry.TokenPath}";
-                        if (selectiveFailures is not null)
-                        {
-                            selectiveFailures.Add($"{entry.ArchivePath}: {msg}");
-                            log?.Invoke($"  ✕ {msg}");
-                            continue;
-                        }
-                        throw new InvalidDataException(msg);
+                        selectiveFailures.Add($"{entry.ArchivePath}: {msg}");
+                        log?.Invoke($"  ✕ {msg}");
+                        continue;
                     }
+                    throw new InvalidDataException(msg);
                 }
-                else
-                {
-                    target = Path.Combine(destinationRootOverride,
+
+                // В исходные места — по токену/исходному пути; «в папку» — строго внутри неё.
+                var target = destinationRootOverride is null
+                    ? PathTokens.Resolve(entry.TokenPath)
+                    : Path.Combine(destinationRootOverride,
                         entry.ArchivePath.Replace('/', Path.DirectorySeparatorChar));
-                    if (!PathSafety.IsWithin(destinationRootOverride, target))
-                        throw new InvalidDataException(
-                            $"Запись выходит за пределы целевой папки: {entry.ArchivePath}");
-                }
+                if (destinationRootOverride is not null
+                    && !PathSafety.IsWithin(destinationRootOverride, target))
+                    throw new InvalidDataException(
+                        $"Запись выходит за пределы целевой папки: {entry.ArchivePath}");
+
                 var prefix = "data/" + entry.ArchivePath.Replace('\\', '/');
 
                 if (entry.Type == PathEntryType.File)

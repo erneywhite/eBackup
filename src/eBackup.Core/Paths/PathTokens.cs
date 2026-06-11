@@ -49,32 +49,17 @@ public static class PathTokens
     }
 
     /// <summary>
-    /// Безопасно ли восстанавливать <paramref name="tokenPath"/> в исходное место:
-    /// он ДОЛЖЕН начинаться с известного токена И после канонизации оставаться внутри
-    /// каталога этого токена (никаких сырых абсолютных путей и побегов через «..»).
-    /// Граница доверия — манифест архива: путь оттуда не должен указывать «куда угодно».
+    /// Содержит ли путь из манифеста сегмент «..» (обход каталога). В легитимных путях,
+    /// полученных через <see cref="Tokenize"/>, таких сегментов нет — наличие означает
+    /// попытку записать «куда угодно». Граница доверия — архив, поэтому проверяем при
+    /// восстановлении. Сырые абсолютные пути (свои папки на D:\ и т.п.) допустимы:
+    /// это переносимые данные пользователя, восстанавливаемые туда, откуда взяты.
     /// </summary>
-    public static bool ResolvesWithinTokenRoot(string tokenPath, out string resolved)
+    public static bool HasTraversal(string tokenPath)
     {
-        foreach (var (token, folder) in Map)
-        {
-            if (!tokenPath.StartsWith(token, StringComparison.Ordinal))
-                continue;
-
-            var baseDir = Environment.GetFolderPath(folder);
-            if (string.IsNullOrEmpty(baseDir))
-                break;
-
-            var rest = tokenPath[token.Length..].TrimStart('/', '\\');
-            resolved = Path.Combine(baseDir, rest.Replace('/', Path.DirectorySeparatorChar));
-
-            var fullBase = Path.GetFullPath(baseDir).TrimEnd(Path.DirectorySeparatorChar);
-            var fullTarget = Path.GetFullPath(resolved);
-            return fullTarget.Equals(fullBase, StringComparison.OrdinalIgnoreCase)
-                || fullTarget.StartsWith(fullBase + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase);
-        }
-
-        resolved = string.Empty;
+        foreach (var part in tokenPath.Replace('\\', '/').Split('/'))
+            if (part == "..")
+                return true;
         return false;
     }
 }
