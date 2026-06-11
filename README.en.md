@@ -156,9 +156,11 @@ Details: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) (in Russian).
 
 ## Roadmap
 
-- **Installer** as a single exe (self-contained — no .NET required on the user's machine) — next up
-- **v0.1 release** on GitHub Releases
-- The final logo (being drawn by an artist; the current one is temporary)
+Done: ✅ single-exe installer (self-contained), ✅
+[v0.1.0 release](https://github.com/erneywhite/eBackup/releases/latest), ✅ self-update.
+
+Ahead:
+- Final logo and README screenshots → version 1.0.0 (the logo is temporary for now)
 - Dynamic DLL plugins (with a trust model and signatures)
 - Windows registry key backup; more application modules
 - English UI; Windows Task Scheduler integration
