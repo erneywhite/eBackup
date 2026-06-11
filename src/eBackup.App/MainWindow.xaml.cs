@@ -238,6 +238,15 @@ public sealed partial class MainWindow : Window
             if (due is null)
                 return;
 
+            // «При простое» = не только нет ввода, но и система свободна: бэкап не должен
+            // стартовать поверх тяжёлой компиляции/рендера. Занято — попробуем через минуту.
+            if (due.Kind == ScheduleKind.DailyWhenIdle)
+            {
+                var load = await SystemLoadMonitor.SampleAsync(TimeSpan.FromSeconds(1));
+                if (!load.IsCalm())
+                    return;
+            }
+
             // Отмечаем запуск ДО выполнения: упавший бэкап не будет лупиться каждую минуту.
             await store.SaveAllAsync(schedules.Select(s => s.Id == due.Id ? s with { LastRunAt = now } : s));
 

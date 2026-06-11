@@ -41,7 +41,7 @@ public class ScheduleTimingTests
         // 2026-06-15 — понедельник.
         var s = Make(ScheduleKind.Weekly) with
         {
-            Day = DayOfWeek.Monday,
+            Days = [DayOfWeek.Monday],
             Hour = 12,
             Minute = 0,
             LastRunAt = new DateTime(2026, 6, 8, 12, 0, 0)
@@ -52,6 +52,25 @@ public class ScheduleTimingTests
         Assert.False(ScheduleTiming.IsDue(s, new DateTime(2026, 6, 15, 15, 0, 0), NoIdle));
         Assert.Equal(new DateTime(2026, 6, 22, 12, 0, 0),
             ScheduleTiming.NextRun(s, new DateTime(2026, 6, 15, 15, 0, 0)));
+    }
+
+    [Fact]
+    public void Weekly_Supports_Multiple_Days()
+    {
+        // Пн и пт. 2026-06-19 — пятница.
+        var s = Make(ScheduleKind.Weekly) with
+        {
+            Days = [DayOfWeek.Monday, DayOfWeek.Friday],
+            Hour = 12,
+            Minute = 0,
+            LastRunAt = new DateTime(2026, 6, 15, 12, 0, 0) // понедельник отработал
+        };
+
+        Assert.True(ScheduleTiming.IsDue(s, new DateTime(2026, 6, 19, 12, 10, 0), NoIdle)); // пятница
+        // После пятницы следующий — понедельник.
+        var ran = s with { LastRunAt = new DateTime(2026, 6, 19, 12, 10, 0) };
+        Assert.Equal(new DateTime(2026, 6, 22, 12, 0, 0),
+            ScheduleTiming.NextRun(ran, new DateTime(2026, 6, 19, 13, 0, 0)));
     }
 
     [Fact]

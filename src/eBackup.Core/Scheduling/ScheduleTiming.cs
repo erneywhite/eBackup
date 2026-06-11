@@ -61,8 +61,10 @@ public static class ScheduleTiming
             }
             case ScheduleKind.Weekly:
             {
+                if (s.Days.Count == 0)
+                    return null;
                 var occurrence = now.Date + new TimeSpan(s.Hour, s.Minute, 0);
-                while (occurrence.DayOfWeek != s.Day || occurrence < now)
+                while (!s.Days.Contains(occurrence.DayOfWeek) || occurrence < now)
                     occurrence = occurrence.AddDays(1);
                 return occurrence;
             }
@@ -89,8 +91,10 @@ public static class ScheduleTiming
             }
             case ScheduleKind.Weekly:
             {
+                if (s.Days.Count == 0)
+                    return null;
                 var occurrence = now.Date + time;
-                while (occurrence.DayOfWeek != s.Day || occurrence > now)
+                while (!s.Days.Contains(occurrence.DayOfWeek) || occurrence > now)
                     occurrence = occurrence.AddDays(-1);
                 return occurrence;
             }

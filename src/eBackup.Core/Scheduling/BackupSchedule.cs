@@ -41,8 +41,8 @@ public sealed record BackupSchedule
     public int Hour { get; init; } = 3;
     public int Minute { get; init; }
 
-    /// <summary>День недели (для Weekly).</summary>
-    public DayOfWeek Day { get; init; } = DayOfWeek.Monday;
+    /// <summary>Дни недели (для Weekly) — можно несколько.</summary>
+    public List<DayOfWeek> Days { get; init; } = [DayOfWeek.Monday];
 
     /// <summary>Интервал в часах (для EveryHours).</summary>
     public int EveryHours { get; init; } = 6;

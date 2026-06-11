@@ -37,8 +37,11 @@ public sealed class ScheduleItem(BackupSchedule schedule)
 
 public sealed partial class SchedulePage : Page
 {
-    private static readonly string[] DayNames =
-        ["понедельник", "вторник", "среда", "четверг", "пятница", "суббота", "воскресенье"];
+    private static readonly string[] ShortDays = ["пн", "вт", "ср", "чт", "пт", "сб", "вс"];
+
+    /// <summary>Индекс пн..вс → DayOfWeek (с воскресеньем в конце недели).</summary>
+    private static DayOfWeek DayFromIndex(int i) => (DayOfWeek)((i + 1) % 7);
+    private static int IndexFromDay(DayOfWeek d) => ((int)d + 6) % 7;
 
     private readonly ScheduleStore _scheduleStore = new(new DpapiSecretProtector());
     private readonly SftpConnectionStore _connStore = new(new DpapiSecretProtector());
@@ -54,13 +57,23 @@ public sealed partial class SchedulePage : Page
     private readonly List<CheckBox> _moduleChecks = [];
     private readonly List<CheckBox> _sftpChecks = [];
     private List<string> _schedFolders = [];   // свои папки ЭТОГО расписания
+    private readonly List<CheckBox> _dayChecks = [];
 
     public SchedulePage()
     {
         InitializeComponent();
-        foreach (var d in DayNames)
-            DayCombo.Items.Add(d);
-        DayCombo.SelectedIndex = 0;
+        for (var i = 0; i < 7; i++)
+        {
+            var cb = new CheckBox
+            {
+                Content = ShortDays[i],
+                Tag = i,
+                MinWidth = 0,
+                Padding = new Thickness(6, 4, 8, 4)
+            };
+            _dayChecks.Add(cb);
+            DaysPanel.Children.Add(cb);
+        }
         Loaded += async (_, _) => await ReloadAsync(selectId: null);
     }
 
@@ -68,7 +81,8 @@ public sealed partial class SchedulePage : Page
     public static string Describe(BackupSchedule s) => s.Kind switch
     {
         ScheduleKind.Daily => $"ежедневно в {s.Hour:00}:{s.Minute:00}",
-        ScheduleKind.Weekly => $"еженедельно, {DayNames[((int)s.Day + 6) % 7]} {s.Hour:00}:{s.Minute:00}",
+        ScheduleKind.Weekly =>
+            $"еженедельно: {string.Join(", ", s.Days.OrderBy(IndexFromDay).Select(d => ShortDays[IndexFromDay(d)]))} в {s.Hour:00}:{s.Minute:00}",
         ScheduleKind.EveryHours => $"каждые {s.EveryHours} ч",
         _ => "раз в день, при простое ПК"
     };
@@ -189,7 +203,9 @@ public sealed partial class SchedulePage : Page
         WeeklyRadio.IsChecked = s?.Kind == ScheduleKind.Weekly;
         EveryRadio.IsChecked = s?.Kind == ScheduleKind.EveryHours;
         TimeBox.SelectedTime = new TimeSpan(s?.Hour ?? 3, s?.Minute ?? 0, 0);
-        DayCombo.SelectedIndex = s is null ? 0 : ((int)s.Day + 6) % 7;
+        var days = s?.Days ?? [DayOfWeek.Monday];
+        foreach (var cb in _dayChecks)
+            cb.IsChecked = days.Contains(DayFromIndex((int)cb.Tag));
         EveryBox.Text = (s?.EveryHours ?? 6).ToString();
         IdleBox.Text = (s?.IdleMinutes ?? 5).ToString();
 
@@ -362,7 +378,16 @@ public sealed partial class SchedulePage : Page
         }
 
         var time = TimeBox.SelectedTime ?? new TimeSpan(3, 0, 0);
-        var day = (DayOfWeek)((DayCombo.SelectedIndex + 1) % 7);
+        var days = _dayChecks.Where(cb => cb.IsChecked == true)
+            .Select(cb => DayFromIndex((int)cb.Tag))
+            .ToList();
+        if (kind == ScheduleKind.Weekly && days.Count == 0)
+        {
+            SetStatus("Выбери хотя бы один день недели.", ok: false);
+            return;
+        }
+        if (days.Count == 0)
+            days = [DayOfWeek.Monday];
 
         var schedule = new BackupSchedule
         {
@@ -376,7 +401,7 @@ public sealed partial class SchedulePage : Page
             Kind = kind,
             Hour = time.Hours,
             Minute = time.Minutes,
-            Day = day,
+            Days = days,
             EveryHours = everyHours,
             IdleMinutes = idleMinutes,
             Enabled = EnabledToggle.IsOn,

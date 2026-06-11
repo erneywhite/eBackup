@@ -111,19 +111,23 @@
                                    FontSize="11" TextWrapping="Wrap"
                                    Foreground="{StaticResource EbTextDimBrush}" />
 
-                        <StackPanel x:Name="IdleRow" Orientation="Horizontal" Spacing="10">
-                            <TextBlock Text="Считать простоем" VerticalAlignment="Center" FontSize="12"
-                                       Foreground="{StaticResource EbTextDimBrush}" />
-                            <TextBox x:Name="IdleBox" Width="70" Text="5" />
-                            <TextBlock Text="минут без активности" VerticalAlignment="Center" FontSize="12"
+                        <StackPanel x:Name="IdleRow" Spacing="6">
+                            <StackPanel Orientation="Horizontal" Spacing="10">
+                                <TextBlock Text="Считать простоем" VerticalAlignment="Center" FontSize="12"
+                                           Foreground="{StaticResource EbTextDimBrush}" />
+                                <TextBox x:Name="IdleBox" Width="70" Text="5" />
+                                <TextBlock Text="минут без активности" VerticalAlignment="Center" FontSize="12"
+                                           Foreground="{StaticResource EbTextDimBrush}" />
+                            </StackPanel>
+                            <TextBlock Text="Учитывается и занятость системы: бэкап не стартует, пока ЦП/диск/сеть загружены более чем на 50% или ОЗУ — более 85% (например, идёт компиляция или рендер)."
+                                       FontSize="11" TextWrapping="Wrap"
                                        Foreground="{StaticResource EbTextDimBrush}" />
                         </StackPanel>
 
-                        <StackPanel x:Name="DayRow" Orientation="Horizontal" Spacing="10"
-                                    Visibility="Collapsed">
-                            <TextBlock Text="День недели" VerticalAlignment="Center" FontSize="12"
+                        <StackPanel x:Name="DayRow" Spacing="6" Visibility="Collapsed">
+                            <TextBlock Text="Дни недели (можно несколько)" FontSize="12"
                                        Foreground="{StaticResource EbTextDimBrush}" />
-                            <ComboBox x:Name="DayCombo" Width="160" />
+                            <StackPanel x:Name="DaysPanel" Orientation="Horizontal" Spacing="4" />
                         </StackPanel>
 
                         <StackPanel x:Name="TimeRow" Orientation="Horizontal" Spacing="10"
