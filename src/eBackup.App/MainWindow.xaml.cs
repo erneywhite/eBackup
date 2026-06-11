@@ -80,6 +80,19 @@ public sealed partial class MainWindow : Window
             ContentFrame.Navigate(typeof(BackupPage));
     }
 
+    /// <summary>Перейти на страницу из навигации с подсветкой её таба (для плиток дашборда).</summary>
+    public void SelectNav(string tag)
+    {
+        foreach (var item in Nav.Items.OfType<ListViewItem>())
+        {
+            if (item.Tag as string == tag)
+            {
+                Nav.SelectedItem = item; // SelectionChanged сам выполнит навигацию
+                return;
+            }
+        }
+    }
+
     private void SettingsBtn_Click(object sender, RoutedEventArgs e)
     {
         Nav.SelectedItem = null;
