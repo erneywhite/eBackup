@@ -594,7 +594,7 @@ public sealed partial class MainWindow : Window
     private const double NodeStep = 6;       // шаг узлов мениска по вертикали, px
     private const double Spring = 0.024;     // жёсткость пружины к ровной кромке
     private const double Damping = 0.955;    // трение (выше — колебания живут дольше)
-    private const double Spread = 0.18;      // передача энергии соседям
+    private const double Spread = 0.11;      // передача энергии соседям (меньше — рябь локальнее)
     private const double MaxSwing = 20;      // предел колебания мениска, px
 
     private sealed class Bubble
@@ -680,11 +680,13 @@ public sealed partial class MainWindow : Window
                 _waveV[i] += advance * 0.06; // инерция всей массы
         }
 
-        // Лёгкое фоновое колыхание мениска, чтобы он не застывал линейкой.
+        // Лёгкое фоновое колыхание + случайные микро-толчки: рябь без хорового движения.
         _simTime += 1 / 60.0;
         for (var i = 0; i < nodes; i++)
-            _waveV[i] += 0.026 * Math.Sin(_simTime * 2.1 + i * 0.9)
-                       + 0.018 * Math.Sin(_simTime * 1.3 - i * 0.6);
+            _waveV[i] += 0.020 * Math.Sin(_simTime * 2.1 + i * 0.9)
+                       + 0.014 * Math.Sin(_simTime * 1.3 - i * 0.6);
+        if (_rng.NextDouble() < 0.30)
+            _waveV[_rng.Next(nodes)] += (_rng.NextDouble() - 0.5) * 0.8;
 
         // Пружины + трение.
         for (var i = 0; i < nodes; i++)
@@ -694,23 +696,23 @@ public sealed partial class MainWindow : Window
             _waveH[i] += _waveV[i];
         }
 
-        // Волны разбегаются по мениску к соседям (два прохода для гладкости).
-        for (var pass = 0; pass < 2; pass++)
-            for (var i = 0; i < nodes; i++)
+        // Волны разбегаются по мениску к соседям (один проход: сильнее
+        // сглаживать нельзя — кромка начинает ходить хором, как натянутая плёнка).
+        for (var i = 0; i < nodes; i++)
+        {
+            if (i > 0)
             {
-                if (i > 0)
-                {
-                    var d = (_waveH[i] - _waveH[i - 1]) * Spread;
-                    _waveV[i - 1] += d;
-                    _waveH[i - 1] += d * 0.5;
-                }
-                if (i < nodes - 1)
-                {
-                    var d = (_waveH[i] - _waveH[i + 1]) * Spread;
-                    _waveV[i + 1] += d;
-                    _waveH[i + 1] += d * 0.5;
-                }
+                var d = (_waveH[i] - _waveH[i - 1]) * Spread;
+                _waveV[i - 1] += d;
+                _waveH[i - 1] += d * 0.5;
             }
+            if (i < nodes - 1)
+            {
+                var d = (_waveH[i] - _waveH[i + 1]) * Spread;
+                _waveV[i + 1] += d;
+                _waveH[i + 1] += d * 0.5;
+            }
+        }
 
         for (var i = 0; i < nodes; i++)
             _waveH[i] = Math.Clamp(_waveH[i], -MaxSwing, MaxSwing);
@@ -726,11 +728,28 @@ public sealed partial class MainWindow : Window
         UpdateBubbles(height);
     }
 
-    /// <summary>Заливка во всю высоту от левого края до волнистого фронта-мениска.</summary>
+    /// <summary>
+    /// Заливка во всю высоту от левого края до фронта-мениска. Поверх пружинной
+    /// динамики на кромку наложены две бегущие волны (вверх и вниз) — поверхность
+    /// рябит всегда, а не «дышит» целиком. Кромка рисуется гладкими кривыми
+    /// через середины отрезков.
+    /// </summary>
     private Microsoft.UI.Xaml.Media.PathGeometry? BuildWater(double xOffset, double phase, double height)
     {
         if (_fillCur < 4)
             return null;
+
+        var n = _waveH.Length;
+        var front = _fillCur + xOffset;
+        var points = new Windows.Foundation.Point[n];
+        for (var i = 0; i < n; i++)
+        {
+            var ripple = 3.2 * Math.Sin(_simTime * 1.7 + i * 0.65)
+                       + 2.1 * Math.Sin(-_simTime * 1.15 + i * 1.25);
+            points[i] = new Windows.Foundation.Point(
+                Math.Max(0, front + (_waveH[i] + ripple) * phase),
+                Math.Min(i * NodeStep, height));
+        }
 
         var figure = new Microsoft.UI.Xaml.Media.PathFigure
         {
@@ -738,20 +757,16 @@ public sealed partial class MainWindow : Window
             IsClosed = true,
             IsFilled = true
         };
-
-        var front = _fillCur + xOffset;
-        for (var i = 0; i < _waveH.Length; i++)
-            figure.Segments.Add(new Microsoft.UI.Xaml.Media.LineSegment
+        figure.Segments.Add(new Microsoft.UI.Xaml.Media.LineSegment { Point = points[0] });
+        for (var i = 1; i < n - 1; i++)
+            figure.Segments.Add(new Microsoft.UI.Xaml.Media.QuadraticBezierSegment
             {
-                Point = new Windows.Foundation.Point(
-                    Math.Max(0, front + _waveH[i] * phase),
-                    Math.Min(i * NodeStep, height))
+                Point1 = points[i],
+                Point2 = new Windows.Foundation.Point(
+                    (points[i].X + points[i + 1].X) / 2,
+                    (points[i].Y + points[i + 1].Y) / 2)
             });
-        figure.Segments.Add(new Microsoft.UI.Xaml.Media.LineSegment
-        {
-            Point = new Windows.Foundation.Point(
-                Math.Max(0, front + _waveH[^1] * phase), height)
-        });
+        figure.Segments.Add(new Microsoft.UI.Xaml.Media.LineSegment { Point = points[n - 1] });
         figure.Segments.Add(new Microsoft.UI.Xaml.Media.LineSegment
         {
             Point = new Windows.Foundation.Point(0, height)
