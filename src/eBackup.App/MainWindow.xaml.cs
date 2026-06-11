@@ -399,6 +399,27 @@ public sealed partial class MainWindow : Window
         var settings = AppSettings.Load();
         try
         {
+            // Место во временной папке: точный размер архива до сборки неизвестен —
+            // оцениваем по последнему успешному запуску (сборка с шифрованием
+            // держит на диске до двух копий архива одновременно).
+            if (DiskSpace.TryGetFreeBytes(Path.GetTempPath(), out var tempFree))
+            {
+                var estimate = (await history.LoadAsync())
+                    .FirstOrDefault(r => r.Success == true && r.SizeBytes > 0)?.SizeBytes ?? 0;
+                Log($"Место в temp: свободно {FormatBytes(tempFree)}"
+                    + (estimate > 0 ? $" · прошлый архив: {FormatBytes(estimate)}" : ""));
+                if (tempFree < 200L << 20)
+                    throw new IOException(
+                        $"Во временной папке почти нет места ({FormatBytes(tempFree)}) — "
+                        + "освободи системный диск и повтори.");
+                if (estimate > 0 && tempFree < estimate * 2)
+                {
+                    Log($"⚠ Места в temp может не хватить: свободно {FormatBytes(tempFree)}, "
+                        + $"сборка может занять до {FormatBytes(estimate * 2)}.");
+                    StatusSub.Text = "внимание: во временной папке мало места…";
+                }
+            }
+
             // Архив собирается во временной папке и раскладывается по всем целям одинаково.
             var buildDir = Path.Combine(Path.GetTempPath(), "eBackup");
             var name = BackupNaming.DefaultName(request.Modules,
@@ -425,6 +446,18 @@ public sealed partial class MainWindow : Window
                 Log($"«{target.Name}»: заливаю…");
                 try
                 {
+                    // Для папок и сетевых дисков размер архива уже точный — честно
+                    // отказываемся ДО заливки, если место не влезает.
+                    if (target.Kind == StorageKind.LocalFolder && target.Path is not null
+                        && DiskSpace.TryGetFreeBytes(target.Path, out var targetFree))
+                    {
+                        if (targetFree < archiveSize)
+                            throw new IOException(
+                                $"недостаточно места: нужно {FormatBytes(archiveSize)}, "
+                                + $"свободно {FormatBytes(targetFree)}");
+                        Log($"«{target.Name}»: свободно {FormatBytes(targetFree)} — архив влезает");
+                    }
+
                     var storage = StorageFactory.Create(target, _storages.Protector);
                     var uploadWatch = System.Diagnostics.Stopwatch.StartNew();
                     await storage.UploadAsync(archive, Path.GetFileName(archive));
@@ -527,6 +560,13 @@ public sealed partial class MainWindow : Window
         using var stream = File.OpenRead(path);
         return Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(stream));
     }
+
+    private static string FormatBytes(long bytes) => bytes switch
+    {
+        >= 1L << 30 => $"{bytes / 1024.0 / 1024 / 1024:0.##} ГБ",
+        >= 1L << 20 => $"{bytes / 1024.0 / 1024:0.#} МБ",
+        _ => $"{Math.Max(1, bytes / 1024)} КБ"
+    };
 
     /// <summary>
     /// Системное уведомление из трея. Цветной статус — эмодзи в заголовке
