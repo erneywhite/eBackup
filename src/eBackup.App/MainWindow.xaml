@@ -4,7 +4,11 @@
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:tb="using:H.NotifyIcon">
 
-    <Grid Background="{StaticResource EbBackgroundBrush}">
+    <Grid x:Name="RootGrid" Background="{StaticResource EbBackgroundBrush}">
+        <Grid.KeyboardAccelerators>
+            <KeyboardAccelerator Key="Left" Modifiers="Menu" Invoked="BackAccel_Invoked" />
+            <KeyboardAccelerator Key="GoBack" Invoked="BackAccel_Invoked" />
+        </Grid.KeyboardAccelerators>
         <Grid.RowDefinitions>
             <RowDefinition Height="*" />
             <RowDefinition Height="76" />
@@ -152,6 +156,17 @@
 
             <!-- Рабочая область: страницы (Обзор/Модули/Хранилища/Архивы) -->
             <Frame x:Name="ContentFrame" Grid.Column="1" Margin="8,36,24,8" />
+
+            <!-- Глобальная «назад» (Alt+←, Browser Back, боковая кнопка мыши) -->
+            <Button x:Name="GlobalBackBtn" Grid.Column="1" Width="36" Height="30"
+                    HorizontalAlignment="Left" VerticalAlignment="Top" Margin="8,4,0,0"
+                    CornerRadius="10" Padding="0" Visibility="Collapsed"
+                    Background="{StaticResource EbCardBrush}"
+                    BorderBrush="{StaticResource EbCardBorderBrush}" BorderThickness="1"
+                    Click="GlobalBack_Click"
+                    ToolTipService.ToolTip="Назад (Alt+← или боковая кнопка мыши)">
+                <FontIcon Glyph="&#xE72B;" FontSize="12" />
+            </Button>
         </Grid>
 
         <!-- ===== Нижняя панель-статус (аналог плеера eCoda) =====

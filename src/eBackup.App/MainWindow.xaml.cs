@@ -80,6 +80,74 @@ public sealed partial class MainWindow : Window
         TrayIcon.ForceCreate();
         AppWindow.Closing += OnAppWindowClosing;
         Closed += (_, _) => TrayIcon.Dispose();
+
+        // Глобальная «назад»: кнопка + Alt+←/BrowserBack + боковая кнопка мыши (XButton1).
+        ContentFrame.Navigated += OnFrameNavigated;
+        RootGrid.AddHandler(UIElement.PointerPressedEvent,
+            new Microsoft.UI.Xaml.Input.PointerEventHandler(OnRootPointerPressed),
+            handledEventsToo: true);
+    }
+
+    // ---------- глобальная «назад» ----------
+
+    private bool _syncingNav;
+
+    private bool TryGoBack()
+    {
+        if (!ContentFrame.CanGoBack)
+            return false;
+        ContentFrame.GoBack();
+        return true;
+    }
+
+    private void GlobalBack_Click(object sender, RoutedEventArgs e) => TryGoBack();
+
+    private void BackAccel_Invoked(Microsoft.UI.Xaml.Input.KeyboardAccelerator sender,
+        Microsoft.UI.Xaml.Input.KeyboardAcceleratorInvokedEventArgs args)
+        => args.Handled = TryGoBack();
+
+    private void OnRootPointerPressed(object sender, Microsoft.UI.Xaml.Input.PointerRoutedEventArgs e)
+    {
+        var props = e.GetCurrentPoint(RootGrid).Properties;
+        if (props.IsXButton1Pressed && TryGoBack())
+            e.Handled = true;
+    }
+
+    private void OnFrameNavigated(object sender, Microsoft.UI.Xaml.Navigation.NavigationEventArgs e)
+    {
+        GlobalBackBtn.Visibility = ContentFrame.CanGoBack ? Visibility.Visible : Visibility.Collapsed;
+
+        // Подсветка таба следует за фактической страницей (важно при переходах «назад»).
+        var tag = e.SourcePageType == typeof(OverviewPage) ? "overview"
+                : e.SourcePageType == typeof(ModulesPage) ? "modules"
+                : e.SourcePageType == typeof(StoragePage) ? "storage"
+                : e.SourcePageType == typeof(ArchivesPage) ? "archives"
+                : e.SourcePageType == typeof(SchedulePage) ? "schedule"
+                : null;
+
+        _syncingNav = true;
+        try
+        {
+            if (tag is null)
+            {
+                Nav.SelectedItem = null;
+            }
+            else
+            {
+                foreach (var item in Nav.Items.OfType<ListViewItem>())
+                {
+                    if (item.Tag as string == tag)
+                    {
+                        Nav.SelectedItem = item;
+                        break;
+                    }
+                }
+            }
+        }
+        finally
+        {
+            _syncingNav = false;
+        }
     }
 
     /// <summary>При первом запуске создаёт хранилище «Локальная папка» (один раз).</summary>
@@ -157,8 +225,9 @@ public sealed partial class MainWindow : Window
 
     private void Nav_SelectionChanged(object sender, SelectionChangedEventArgs e)
     {
-        // Событие может прилететь во время InitializeComponent, когда Frame ещё не создан.
-        if (ContentFrame is null || Nav.SelectedItem is not ListViewItem { Tag: string tag })
+        // Событие может прилететь во время InitializeComponent (Frame ещё не создан)
+        // или при программной синхронизации подсветки после «назад».
+        if (_syncingNav || ContentFrame is null || Nav.SelectedItem is not ListViewItem { Tag: string tag })
             return;
 
         var page = tag switch
