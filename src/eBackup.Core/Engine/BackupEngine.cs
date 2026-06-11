@@ -312,6 +312,11 @@ public sealed class BackupEngine
                     throw new InvalidDataException($"Небезопасный archivePath в манифесте: '{e.ArchivePath}'.");
         }
 
+        // Выборочный режим: сбой одного файла (например, ассет с исходным путём
+        // на диске, которого на этой машине нет) не должен ронять остальные —
+        // копим и отчитываемся в конце. Полное восстановление падает как раньше.
+        var selectiveFailures = entryFilter is null ? null : new List<string>();
+
         foreach (var module in manifest.Modules)
         {
             progress?.Report($"Восстанавливаю: {module.DisplayName}…");
@@ -335,7 +340,7 @@ public sealed class BackupEngine
                 {
                     var ze = zip.GetEntry(prefix);
                     if (ze is not null && (entryFilter is null || entryFilter(ze.FullName)))
-                        ExtractFile(ze, target, conflictPolicy);
+                        ExtractTolerant(ze, target, conflictPolicy, selectiveFailures);
                 }
                 else if (entry.Type == PathEntryType.Directory)
                 {
@@ -349,12 +354,18 @@ public sealed class BackupEngine
                         var dest = Path.Combine(target, rel.Replace('/', Path.DirectorySeparatorChar));
                         if (!PathSafety.IsWithin(target, dest))
                             throw new InvalidDataException($"Запись выходит за пределы целевой папки (zip-slip): {ze.FullName}");
-                        ExtractFile(ze, dest, conflictPolicy);
+                        ExtractTolerant(ze, dest, conflictPolicy, selectiveFailures);
                     }
                 }
                 // TODO(v1+): RegistryKey — импорт ветки реестра.
             }
         }
+
+        if (selectiveFailures is { Count: > 0 })
+            throw new IOException(
+                $"Восстановлено не всё: пропущено файлов — {selectiveFailures.Count}. "
+                + string.Join("; ", selectiveFailures.Take(3))
+                + (selectiveFailures.Count > 3 ? " …" : ""));
 
         // Модульные restore-хуки: размещение ассетов и пост-обработка.
         // Вся специфика приложения — внутри модуля; движок лишь зовёт хук.
@@ -419,6 +430,26 @@ public sealed class BackupEngine
     private static string DefaultAssetsDirectory()
         => Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments), "eBackup", "Assets");
+
+    /// <summary>В выборочном режиме (failures != null) сбой файла копится, не роняя остальное.</summary>
+    private static void ExtractTolerant(
+        ZipArchiveEntry entry, string destinationPath, ConflictPolicy policy, List<string>? failures)
+    {
+        if (failures is null)
+        {
+            ExtractFile(entry, destinationPath, policy);
+            return;
+        }
+
+        try
+        {
+            ExtractFile(entry, destinationPath, policy);
+        }
+        catch (Exception ex)
+        {
+            failures.Add($"{entry.FullName}: {ex.Message}");
+        }
+    }
 
     private static void ExtractFile(ZipArchiveEntry entry, string destinationPath, ConflictPolicy policy)
     {
