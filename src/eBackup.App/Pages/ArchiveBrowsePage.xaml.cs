@@ -43,11 +43,21 @@ public sealed partial class ArchiveBrowsePage : Page
     private string? _tempDownloaded; // скачанная с сервера копия (удаляется при уходе)
     private string? _tempDecrypted;  // расшифрованная копия (удаляется при уходе)
     private bool _busy;
+    private bool _unloaded;
+    private readonly CancellationTokenSource _cts = new();
 
     public ArchiveBrowsePage()
     {
         InitializeComponent();
-        Unloaded += (_, _) => Cleanup();
+        // Уход со страницы отменяет скачивание/расшифровку и подчищает временные
+        // файлы. Обрыв не мгновенный, поэтому после каждого await в загрузочных
+        // путях стоит проверка _unloaded с повторной чисткой.
+        Unloaded += (_, _) =>
+        {
+            _unloaded = true;
+            try { _cts.Cancel(); } catch { }
+            Cleanup();
+        };
     }
 
     protected override async void OnNavigatedTo(NavigationEventArgs e)
@@ -76,10 +86,17 @@ public sealed partial class ArchiveBrowsePage : Page
                     ?? throw new InvalidOperationException("Хранилище-источник не найдено.");
                 SetStatus($"Скачиваю {_source.RemoteName} из «{saved.Name}»…", dim: true);
                 var storage = StorageFactory.Create(saved, _store.Protector);
-                _tempDownloaded = Path.Combine(
-                    Path.GetTempPath(), "eBackup", "browse-" + _source.RemoteName);
+                // GUID в имени: повторное открытие того же архива не должно
+                // столкнуться с файлом, который ещё дописывает брошенная загрузка.
+                _tempDownloaded = Path.Combine(Path.GetTempPath(), "eBackup",
+                    $"browse-{Guid.NewGuid():N}-{_source.RemoteName}");
                 Directory.CreateDirectory(Path.GetDirectoryName(_tempDownloaded)!);
-                await storage.DownloadAsync(_source.RemoteName!, _tempDownloaded);
+                await storage.DownloadAsync(_source.RemoteName!, _tempDownloaded, _cts.Token);
+                if (_unloaded)
+                {
+                    Cleanup();
+                    return;
+                }
                 path = _tempDownloaded;
             }
 
@@ -94,17 +111,23 @@ public sealed partial class ArchiveBrowsePage : Page
             }
 
             _zipPath = path;
-            BuildTree();
+            await BuildTreeAsync();
+        }
+        catch (OperationCanceledException)
+        {
+            Cleanup(); // ушли со страницы во время скачивания
         }
         catch (Exception ex)
         {
             SetStatus("✕ " + ex.Message, dim: false);
+            if (_unloaded)
+                Cleanup();
         }
     }
 
     private async void Decrypt_Click(object sender, RoutedEventArgs e)
     {
-        if (_encryptedPath is null)
+        if (_busy || _encryptedPath is null)
             return;
         if (PassBox.Password.Length == 0)
         {
@@ -112,42 +135,72 @@ public sealed partial class ArchiveBrowsePage : Page
             return;
         }
 
+        _busy = true;
         try
         {
             SetStatus("Расшифровываю…", dim: true);
             var temp = Path.Combine(
                 Path.GetTempPath(), "eBackup", $"browse-dec-{Guid.NewGuid():N}.ebk");
             Directory.CreateDirectory(Path.GetDirectoryName(temp)!);
-            await ArchiveCipher.DecryptAsync(_encryptedPath, temp, PassBox.Password);
+            // Путь запоминается ДО await: уйдём со страницы посреди расшифровки —
+            // чистка всё равно будет знать, что удалять (открытый текст
+            // зашифрованного архива не должен задерживаться в temp).
             _tempDecrypted = temp;
+            await ArchiveCipher.DecryptAsync(_encryptedPath, temp, PassBox.Password, _cts.Token);
+            if (_unloaded)
+            {
+                Cleanup();
+                return;
+            }
             _zipPath = temp;
             PassPanel.Visibility = Visibility.Collapsed;
-            BuildTree();
+            await BuildTreeAsync();
+        }
+        catch (OperationCanceledException)
+        {
+            Cleanup();
         }
         catch (Exception ex)
         {
             SetStatus("✕ Не удалось расшифровать: " + ex.Message, dim: false);
+            if (_unloaded)
+                Cleanup();
+        }
+        finally
+        {
+            _busy = false;
         }
     }
 
-    /// <summary>Дерево содержимого: только data/… (манифест — служебный, не показываем).</summary>
-    private void BuildTree()
+    /// <summary>
+    /// Дерево содержимого: только data/… (манифест — служебный, не показываем).
+    /// Чтение ZIP — в фоне; узлы строятся в отсоединённый список и цепляются к
+    /// живому дереву одним заходом — UI не виснет даже на десятках тысяч файлов.
+    /// </summary>
+    private async Task BuildTreeAsync()
     {
-        using var zip = System.IO.Compression.ZipFile.OpenRead(_zipPath!);
+        var zipPath = _zipPath!;
+        var entries = await Task.Run(() =>
+        {
+            using var zip = System.IO.Compression.ZipFile.OpenRead(zipPath);
+            return zip.Entries
+                .Where(en => !string.IsNullOrEmpty(en.Name)
+                    && en.FullName.StartsWith("data/", StringComparison.Ordinal))
+                .OrderBy(en => en.FullName, StringComparer.OrdinalIgnoreCase)
+                .Select(en => (en.FullName, en.Length))
+                .ToList();
+        });
+        if (_unloaded)
+            return;
 
-        Tree.RootNodes.Clear();
+        var roots = new List<TreeViewNode>();
         var folders = new Dictionary<string, TreeViewNode>(StringComparer.Ordinal);
         var files = 0;
         long totalBytes = 0;
 
-        foreach (var entry in zip.Entries.OrderBy(en => en.FullName, StringComparer.OrdinalIgnoreCase))
+        foreach (var (fullName, length) in entries)
         {
-            if (string.IsNullOrEmpty(entry.Name))
-                continue; // маркер папки
-            if (!entry.FullName.StartsWith("data/", StringComparison.Ordinal))
-                continue; // manifest.json и прочее служебное
-
-            var parts = entry.FullName["data/".Length..].Split('/');
+            var parts = fullName["data/".Length..].Split('/');
 
             TreeViewNode? parent = null;
             var key = string.Empty;
@@ -162,23 +215,39 @@ public sealed partial class ArchiveBrowsePage : Page
                         IsExpanded = i == 0 // модули раскрыты, глубже — по клику
                     };
                     folders[key] = folder;
-                    (parent?.Children ?? Tree.RootNodes).Add(folder);
+                    if (parent is null)
+                        roots.Add(folder);
+                    else
+                        parent.Children.Add(folder);
                 }
                 parent = folder;
             }
 
-            (parent?.Children ?? Tree.RootNodes).Add(new TreeViewNode
+            var fileNode = new TreeViewNode
             {
                 Content = new ArchiveNode
                 {
                     Name = parts[^1],
-                    EntryFullName = entry.FullName,
-                    Size = entry.Length
+                    EntryFullName = fullName,
+                    Size = length
                 }
-            });
+            };
+            if (parent is null)
+                roots.Add(fileNode);
+            else
+                parent.Children.Add(fileNode);
+
             files++;
-            totalBytes += entry.Length;
+            totalBytes += length;
+            if (files % 2000 == 0)
+                await Task.Yield(); // дышим, чтобы окно не помечалось «не отвечает»
         }
+        if (_unloaded)
+            return;
+
+        Tree.RootNodes.Clear();
+        foreach (var root in roots)
+            Tree.RootNodes.Add(root);
 
         RestoreBtn.IsEnabled = DownloadBtn.IsEnabled = files > 0;
         SetStatus(files == 0

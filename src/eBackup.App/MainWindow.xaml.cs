@@ -74,6 +74,22 @@ public sealed partial class MainWindow : Window
 
         InitLiquidProgress();
 
+        // Хвосты браузера архивов (browse-*): при закрытии окна WinUI не гарантирует
+        // Unloaded страницы, так что подчищаем при старте — свежий процесс ничего
+        // из этого не держит. Занятые файлы (вторая копия приложения) пропускаются.
+        _ = Task.Run(() =>
+        {
+            try
+            {
+                var dir = Path.Combine(Path.GetTempPath(), "eBackup");
+                if (!Directory.Exists(dir))
+                    return;
+                foreach (var file in Directory.EnumerateFiles(dir, "browse-*"))
+                    try { File.Delete(file); } catch { }
+            }
+            catch { }
+        });
+
         ContentFrame.Navigate(typeof(OverviewPage));
 
         // Одноразово: хранилище «Локальная папка» по умолчанию.
