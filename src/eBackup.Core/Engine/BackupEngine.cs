@@ -53,6 +53,7 @@ public sealed class BackupEngine
 
         log?.Invoke($"Сборка ZIP: {buildPath} · сжатие: {DescribeCompression(compression)}");
 
+        var skippedFiles = 0;   // нечитаемые/занятые файлы пропускаем, не валя весь бэкап
         using (var zip = ZipFile.Open(buildPath, ZipArchiveMode.Create))
         {
             foreach (var module in modules)
@@ -97,13 +98,21 @@ public sealed class BackupEngine
                     if (entry.Type == PathEntryType.File && File.Exists(source))
                     {
                         var archiveEntryPath = "data/" + entry.ArchivePath.Replace('\\', '/');
-                        zip.CreateEntryFromFile(source, archiveEntryPath, compression);
-                        var length = new FileInfo(source).Length;
-                        moduleBytes += length;
-                        fileCount++;
-                        var sha = await Sha256OfFileAsync(source, ct).ConfigureAwait(false);
-                        log?.Invoke($"  + {archiveEntryPath} ({FormatSize(length)}) · sha256 {sha[..12]}…");
-                        moduleEntry.Entries.Add(entry with { Sha256 = sha });
+                        try
+                        {
+                            zip.CreateEntryFromFile(source, archiveEntryPath, compression);
+                            var length = new FileInfo(source).Length;
+                            moduleBytes += length;
+                            fileCount++;
+                            var sha = await Sha256OfFileAsync(source, ct).ConfigureAwait(false);
+                            log?.Invoke($"  + {archiveEntryPath} ({FormatSize(length)}) · sha256 {sha[..12]}…");
+                            moduleEntry.Entries.Add(entry with { Sha256 = sha });
+                        }
+                        catch (Exception ex) when (ex is UnauthorizedAccessException or IOException)
+                        {
+                            skippedFiles++;
+                            log?.Invoke($"  ✕ пропущен (нет доступа/занят): {source} — {ex.Message}");
+                        }
                     }
                     else if (entry.Type == PathEntryType.Directory && Directory.Exists(source))
                     {
@@ -123,14 +132,22 @@ public sealed class BackupEngine
                         {
                             ct.ThrowIfCancellationRequested();
                             var rel = Path.GetRelativePath(source, file).Replace('\\', '/');
-                            zip.CreateEntryFromFile(file, basePrefix + "/" + rel, compression);
-                            long length = 0;
-                            try { length = new FileInfo(file).Length; } catch { }
-                            moduleBytes += length;
-                            dirFiles++;
-                            log?.Invoke($"  + {basePrefix}/{rel} ({FormatSize(length)})");
-                            if (++fileCount % 250 == 0)
-                                progress?.Report($"{module.DisplayName}: {fileCount} файлов…");
+                            try
+                            {
+                                zip.CreateEntryFromFile(file, basePrefix + "/" + rel, compression);
+                                long length = 0;
+                                try { length = new FileInfo(file).Length; } catch { }
+                                moduleBytes += length;
+                                dirFiles++;
+                                log?.Invoke($"  + {basePrefix}/{rel} ({FormatSize(length)})");
+                                if (++fileCount % 250 == 0)
+                                    progress?.Report($"{module.DisplayName}: {fileCount} файлов…");
+                            }
+                            catch (Exception ex) when (ex is UnauthorizedAccessException or IOException)
+                            {
+                                skippedFiles++;
+                                log?.Invoke($"  ✕ пропущен (нет доступа/занят): {file} — {ex.Message}");
+                            }
                         }
                         log?.Invoke($"  Папка {entry.TokenPath}: {dirFiles} файлов");
                         moduleEntry.Entries.Add(entry);
@@ -162,6 +179,8 @@ public sealed class BackupEngine
         }
 
         log?.Invoke($"ZIP готов: {FormatSize(new FileInfo(buildPath).Length)}");
+        if (skippedFiles > 0)
+            log?.Invoke($"⚠ Пропущено файлов (нет доступа/заняты): {skippedFiles} — не вошли в архив.");
 
         // Верификация до того, как архив уйдёт из временной папки: битые данные
         // не должны добраться ни до одного хранилища.
