@@ -24,10 +24,11 @@ Windows 10/11 (x64). Installing into Program Files needs administrator rights.
 
 ## Screenshots
 
-<!-- TODO: add UI screenshots (Overview, Backup, Storage, History). Put images
-     under docs/screenshots/ and embed them here after the final logo lands. -->
+The main dashboard — "Overview": your latest backup, storages with their status, and one-click backup.
 
-> Screenshots will appear here in an upcoming README update.
+![eBackup — Overview screen](docs/screenshots/overview.png)
+
+<!-- More screens (Backup, Storage, History) to be added later under docs/screenshots/. -->
 
 ## Storage — 7 kinds, as many as you like at once
 
