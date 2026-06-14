@@ -19,7 +19,7 @@ public class DeclarativeModuleTests
     }
 
     [Fact]
-    public async Task Valid_Descriptor_Loads_Trusted_With_Prefixed_Path_And_Denylist()
+    public async Task Valid_Descriptor_Loads_Trusted_With_Prefixed_Path()
     {
         var dir = Path.Combine(Path.GetTempPath(), $"ebk-mods-{Guid.NewGuid():N}");
         try
@@ -43,8 +43,8 @@ public class DeclarativeModuleTests
             var entry = entries.Single();
             Assert.Equal("myapp/config", entry.ArchivePath);     // под data/<id>/
             Assert.False(entry.ManagedByModule);                 // декларативный никогда не управляет restore
-            Assert.Contains("**/Cache/**", entry.ExcludeGlobs);  // свои маски
-            Assert.Contains("**/.ssh/**", entry.ExcludeGlobs);   // + денлист
+            Assert.Contains("**/Cache/**", entry.ExcludeGlobs);      // свои маски сохраняются
+            Assert.DoesNotContain("**/.ssh/**", entry.ExcludeGlobs); // форс-денлиста больше нет
         }
         finally
         {
@@ -53,11 +53,9 @@ public class DeclarativeModuleTests
     }
 
     [Theory]
-    [InlineData("{USERPROFILE}/.ssh")]   // чувствительный подкаталог профиля — запрещён явно
-    [InlineData("{PROGRAMFILES}/x")]     // вне разрешённых корней
-    [InlineData("C:/Windows")]           // raw absolute
-    [InlineData("{APPDATA}/../x")]       // обход
-    public void Unsafe_Token_Path_Is_Blocked(string tokenPath)
+    [InlineData("{APPDATA}/../x")]            // обход вверх
+    [InlineData("{LOCALAPPDATA}/a/../../b")]  // обход в середине
+    public void Traversal_Path_Is_Blocked(string tokenPath)
     {
         var dir = Path.Combine(Path.GetTempPath(), $"ebk-mods-{Guid.NewGuid():N}");
         try
@@ -76,16 +74,19 @@ public class DeclarativeModuleTests
         }
     }
 
-    [Fact]
-    public void UserProfile_GameLauncher_Path_Is_Allowed()
+    [Theory]
+    [InlineData("{USERPROFILE}/curseforge/minecraft/Instances")]  // игровой лаунчер вне app-data
+    [InlineData("{USERPROFILE}/.ssh")]                            // ключи — бэкап-тул вправе
+    [InlineData("{PROGRAMFILES}/MyGameServer")]                   // вне app-data
+    [InlineData("C:/Servers/mc")]                                 // raw absolute (личный модуль)
+    public void Any_NonTraversal_Path_Is_Allowed(string tokenPath)
     {
-        // Игровые лаунчеры (CurseForge и т.п.) хранят данные вне app-data — путь под
-        // {USERPROFILE} (кроме чувствительных подкаталогов) разрешён.
+        // eBackup — бэкап-тул: модуль вправе собирать любой путь без «..».
         var dir = Path.Combine(Path.GetTempPath(), $"ebk-mods-{Guid.NewGuid():N}");
         try
         {
-            WriteDescriptor(dir, "g.module.json", """
-                { "id": "g", "entries": [ { "tokenPath": "{USERPROFILE}/curseforge/minecraft/Instances", "type": "Directory", "archivePath": "cf" } ] }
+            WriteDescriptor(dir, "g.module.json", $$"""
+                { "id": "g", "entries": [ { "tokenPath": "{{tokenPath}}", "type": "Directory", "archivePath": "d" } ] }
                 """);
 
             var desc = new DeclarativeModuleSource(dir).Discover().Single();

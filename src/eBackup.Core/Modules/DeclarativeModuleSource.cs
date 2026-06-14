@@ -1,6 +1,7 @@
 using System.Text.Json;
 using eBackup.Core.Abstractions;
 using eBackup.Core.Model;
+using eBackup.Core.Paths;
 
 namespace eBackup.Core.Modules;
 
@@ -14,20 +15,11 @@ public sealed class DeclarativeModuleSource(string? modulesDirectory = null) : I
 {
     private readonly string _dir = modulesDirectory ?? ModulePaths.ModulesDirectory;
 
-    // Разрешённые корни: app-data + профиль пользователя ({USERPROFILE}). Последнее — для
-    // игровых лаунчеров (CurseForge и т.п.), хранящих данные вне app-data. Доступ к профилю
-    // шире обычного, поэтому: (1) чувствительные подкаталоги профиля запрещены явно
-    // (DeniedTokenPrefixes); (2) денлист-маски ниже отсекают ключи и в содержимом любых папок.
-    private static readonly string[] AllowedTokens =
-        ["{APPDATA}", "{LOCALAPPDATA}", "{PROGRAMDATA}", "{USERPROFILE}"];
-
-    // Точки в профиле, на которые модуль не имеет права указывать даже корнем.
-    private static readonly string[] DeniedTokenPrefixes =
-        ["{USERPROFILE}/.ssh", "{USERPROFILE}/.aws", "{USERPROFILE}/.gnupg"];
-
-    private static readonly string[] DenyGlobs =
-        ["**/.ssh/**", "**/.aws/**", "**/.gnupg/**", "**/*.key", "**/*.pfx", "**/*.pem", "**/*.ppk"];
-
+    // eBackup — инструмент бэкапа: модуль вправе собирать ЛЮБЫЕ пути (ssh-ключи, папки вне
+    // app-data и т.д.). Это безопасно по дизайну: модуль НЕ задаёт хранилище-цель — он лишь
+    // перечисляет, ЧТО собрать; куда уйдёт архив, выбирает пользователь. Доверие к каталогу —
+    // через ревью PR; личные модули человек держит у себя. Единственная проверка источника —
+    // запрет «..» (остальной containment живёт на ВОССТАНОВЛЕНИИ — это анти-zip-slip, не лимит).
     public ModuleSource Kind => ModuleSource.Declarative;
 
     public IEnumerable<ModuleDescriptor> Discover()
@@ -74,14 +66,14 @@ public sealed class DeclarativeModuleSource(string? modulesDirectory = null) : I
             if (e.Type == PathEntryType.RegistryKey)
                 continue; // реестр движком пока не поддерживается — пропускаем
 
-            if (string.IsNullOrWhiteSpace(e.TokenPath) || !IsAllowedToken(e.TokenPath!))
-                return Blocked(id, file, $"путь вне разрешённых app-data корней: {e.TokenPath}");
+            if (string.IsNullOrWhiteSpace(e.TokenPath) || PathTokens.HasTraversal(e.TokenPath!))
+                return Blocked(id, file, $"недопустимый путь (пустой или содержит «..»): {e.TokenPath}");
 
             if (string.IsNullOrWhiteSpace(e.ArchivePath) || !ModuleValidation.IsSafeArchivePath(e.ArchivePath))
                 return Blocked(id, file, $"недопустимый archivePath: {e.ArchivePath}");
 
             IReadOnlyList<string> excludes = e.Type == PathEntryType.Directory
-                ? e.ExcludeGlobs.Concat(DenyGlobs).ToList()
+                ? e.ExcludeGlobs
                 : [];
 
             entries.Add(new PathEntry
@@ -108,17 +100,6 @@ public sealed class DeclarativeModuleSource(string? modulesDirectory = null) : I
             Trust = ModuleTrust.Trusted,
             Instance = new DeclarativeModule(id, name, entries)
         };
-    }
-
-    private static bool IsAllowedToken(string tokenPath)
-    {
-        if (tokenPath.Contains(".."))
-            return false;
-        if (DeniedTokenPrefixes.Any(p =>
-                tokenPath.Equals(p, StringComparison.OrdinalIgnoreCase) ||
-                tokenPath.StartsWith(p + "/", StringComparison.OrdinalIgnoreCase)))
-            return false;
-        return AllowedTokens.Any(t => tokenPath == t || tokenPath.StartsWith(t + "/", StringComparison.Ordinal));
     }
 
     private static ModuleDescriptor Blocked(string id, string file, string problem) => new()
