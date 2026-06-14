@@ -465,7 +465,7 @@ public sealed partial class ModulesPage : Page
     private static string CategoryLabel(string? category) => category switch
     {
         "game" => "игра",
-        "app" => "приложение",
+        "app" => "софт",
         "server" => "сервер",
         _ => "модуль"
     };
