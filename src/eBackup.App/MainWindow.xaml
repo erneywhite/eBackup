@@ -15,8 +15,8 @@
             <RowDefinition Height="76" />
         </Grid.RowDefinitions>
 
-        <!-- Иконка в трее: живёт, пока работает приложение (в т.ч. со скрытым окном) -->
-        <!-- Временное лого (ico — png-источник трей не переваривает); заменим на финальное -->
+        <!-- Иконка в трее: живёт, пока работает приложение (в т.ч. со скрытым окном).
+             Трей принимает только .ico (png-источник не переваривает). -->
         <tb:TaskbarIcon x:Name="TrayIcon"
                         IconSource="ms-appx:///Assets/app.ico"
                         ToolTipText="eBackup"
@@ -81,8 +81,7 @@
                     <RowDefinition Height="Auto" />
                 </Grid.RowDefinitions>
 
-                <!-- Брендинг: крупное лого (временное, me_dev.png), вордмарк и слоган;
-                     табы — ниже. Заменим картинку, когда художница дорисует. -->
+                <!-- Брендинг: крупное лого, вордмарк и слоган; табы — ниже. -->
                 <StackPanel Grid.Row="0" Spacing="8" Margin="6,10,6,18"
                             IsHitTestVisible="False" HorizontalAlignment="Center">
                     <Border Width="96" Height="96" CornerRadius="22" HorizontalAlignment="Center">

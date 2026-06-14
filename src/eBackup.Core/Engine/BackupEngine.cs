@@ -15,7 +15,7 @@ namespace eBackup.Core.Engine;
 /// Собирает архивы .ebk из модулей и восстанавливает их обратно по манифесту.
 ///
 /// Формат v1: ZIP-контейнер — manifest.json в корне + data/&lt;module&gt;/... .
-/// Опциональное шифрование (AES-256-GCM поверх готового ZIP) — TODO следующего этапа.
+/// Опциональное шифрование (AES-256-GCM поверх готового ZIP) поддержано (см. ArchiveCipher).
 /// </summary>
 public sealed class BackupEngine
 {

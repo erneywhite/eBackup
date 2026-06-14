@@ -5,11 +5,11 @@
 ; ───────────────────────────────────────────────────────────────────────────
 
 #ifndef AppVersion
-  #define AppVersion "0.1.0"
+  #define AppVersion "1.0.0"
 #endif
 
 #define AppName "eBackup"
-#define AppPublisher "Erney"
+#define AppPublisher "Erney White"
 #define AppExe "eBackup.App.exe"
 #define AppUrl "https://github.com/erneywhite/eBackup"
 
