@@ -18,6 +18,18 @@
       ]
     },
     {
+      "tokenPath": "{USERPROFILE}/curseforge/minecraft/Instances",
+      "type": "Directory",
+      "archivePath": "curseforge",
+      "excludeGlobs": [
+        "**/logs/**",
+        "**/crash-reports/**",
+        "**/.mixin.out/**",
+        "**/downloads/**",
+        "**/*.log"
+      ]
+    },
+    {
       "tokenPath": "{APPDATA}/PrismLauncher/instances",
       "type": "Directory",
       "archivePath": "prism",

@@ -53,8 +53,8 @@ public class DeclarativeModuleTests
     }
 
     [Theory]
-    [InlineData("{USERPROFILE}/.ssh")]   // вне app-data
-    [InlineData("{PROGRAMFILES}/x")]     // вне app-data
+    [InlineData("{USERPROFILE}/.ssh")]   // чувствительный подкаталог профиля — запрещён явно
+    [InlineData("{PROGRAMFILES}/x")]     // вне разрешённых корней
     [InlineData("C:/Windows")]           // raw absolute
     [InlineData("{APPDATA}/../x")]       // обход
     public void Unsafe_Token_Path_Is_Blocked(string tokenPath)
@@ -69,6 +69,28 @@ public class DeclarativeModuleTests
             var desc = new DeclarativeModuleSource(dir).Discover().Single();
             Assert.Equal(ModuleTrust.Blocked, desc.Trust);
             Assert.NotNull(desc.Problem);
+        }
+        finally
+        {
+            if (Directory.Exists(dir)) Directory.Delete(dir, recursive: true);
+        }
+    }
+
+    [Fact]
+    public void UserProfile_GameLauncher_Path_Is_Allowed()
+    {
+        // Игровые лаунчеры (CurseForge и т.п.) хранят данные вне app-data — путь под
+        // {USERPROFILE} (кроме чувствительных подкаталогов) разрешён.
+        var dir = Path.Combine(Path.GetTempPath(), $"ebk-mods-{Guid.NewGuid():N}");
+        try
+        {
+            WriteDescriptor(dir, "g.module.json", """
+                { "id": "g", "entries": [ { "tokenPath": "{USERPROFILE}/curseforge/minecraft/Instances", "type": "Directory", "archivePath": "cf" } ] }
+                """);
+
+            var desc = new DeclarativeModuleSource(dir).Discover().Single();
+            Assert.Equal(ModuleTrust.Trusted, desc.Trust);
+            Assert.Null(desc.Problem);
         }
         finally
         {

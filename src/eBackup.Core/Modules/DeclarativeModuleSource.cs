@@ -14,10 +14,19 @@ public sealed class DeclarativeModuleSource(string? modulesDirectory = null) : I
 {
     private readonly string _dir = modulesDirectory ?? ModulePaths.ModulesDirectory;
 
-    // Декларативным модулям разрешены ТОЛЬКО app-data корни (никаких профилей/Program Files/ключей).
-    private static readonly string[] AllowedTokens = ["{APPDATA}", "{LOCALAPPDATA}", "{PROGRAMDATA}"];
+    // Разрешённые корни: app-data + профиль пользователя ({USERPROFILE}). Последнее — для
+    // игровых лаунчеров (CurseForge и т.п.), хранящих данные вне app-data. Доступ к профилю
+    // шире обычного, поэтому: (1) чувствительные подкаталоги профиля запрещены явно
+    // (DeniedTokenPrefixes); (2) денлист-маски ниже отсекают ключи и в содержимом любых папок.
+    private static readonly string[] AllowedTokens =
+        ["{APPDATA}", "{LOCALAPPDATA}", "{PROGRAMDATA}", "{USERPROFILE}"];
+
+    // Точки в профиле, на которые модуль не имеет права указывать даже корнем.
+    private static readonly string[] DeniedTokenPrefixes =
+        ["{USERPROFILE}/.ssh", "{USERPROFILE}/.aws", "{USERPROFILE}/.gnupg"];
+
     private static readonly string[] DenyGlobs =
-        ["**/.ssh/**", "**/.aws/**", "**/.gnupg/**", "**/*.key", "**/*.pfx"];
+        ["**/.ssh/**", "**/.aws/**", "**/.gnupg/**", "**/*.key", "**/*.pfx", "**/*.pem", "**/*.ppk"];
 
     public ModuleSource Kind => ModuleSource.Declarative;
 
@@ -104,6 +113,10 @@ public sealed class DeclarativeModuleSource(string? modulesDirectory = null) : I
     private static bool IsAllowedToken(string tokenPath)
     {
         if (tokenPath.Contains(".."))
+            return false;
+        if (DeniedTokenPrefixes.Any(p =>
+                tokenPath.Equals(p, StringComparison.OrdinalIgnoreCase) ||
+                tokenPath.StartsWith(p + "/", StringComparison.OrdinalIgnoreCase)))
             return false;
         return AllowedTokens.Any(t => tokenPath == t || tokenPath.StartsWith(t + "/", StringComparison.Ordinal));
     }
