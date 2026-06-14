@@ -21,6 +21,26 @@
       "version": "1.0",
       "file": "modules/vintage-story.module.json",
       "tokens": ["{APPDATA}"]
+    },
+    {
+      "id": "ssh",
+      "name": "SSH (ключи и конфиг)",
+      "description": "Клиентские ключи и настройки из .ssh (config, known_hosts, приватные ключи) и, если установлен, конфиг сервера OpenSSH (sshd_config + хост-ключи из ProgramData). Удобно для переезда на новый ПК.",
+      "category": "app",
+      "author": "eBackup",
+      "version": "1.0",
+      "file": "modules/ssh.module.json",
+      "tokens": ["{USERPROFILE}", "{PROGRAMDATA}"]
+    },
+    {
+      "id": "vscode",
+      "name": "Visual Studio Code",
+      "description": "Настройки, горячие клавиши и сниппеты VS Code (settings.json, keybindings.json, snippets). Кэш расширений и история не бэкапятся.",
+      "category": "app",
+      "author": "eBackup",
+      "version": "1.0",
+      "file": "modules/vscode.module.json",
+      "tokens": ["{APPDATA}"]
     }
   ]
 }

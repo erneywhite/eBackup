@@ -1,0 +1,21 @@
+{
+  "id": "ssh",
+  "displayName": "SSH (ключи и конфиг)",
+  "minApiVersion": "1.0",
+  "entries": [
+    {
+      "tokenPath": "{USERPROFILE}/.ssh",
+      "type": "Directory",
+      "archivePath": "client",
+      "excludeGlobs": []
+    },
+    {
+      "tokenPath": "{PROGRAMDATA}/ssh",
+      "type": "Directory",
+      "archivePath": "server-openssh",
+      "excludeGlobs": [
+        "logs/**"
+      ]
+    }
+  ]
+}

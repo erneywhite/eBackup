@@ -1,0 +1,18 @@
+{
+  "id": "vscode",
+  "displayName": "Visual Studio Code",
+  "minApiVersion": "1.0",
+  "entries": [
+    {
+      "tokenPath": "{APPDATA}/Code/User",
+      "type": "Directory",
+      "archivePath": "user",
+      "excludeGlobs": [
+        "globalStorage/**",
+        "workspaceStorage/**",
+        "History/**",
+        "logs/**"
+      ]
+    }
+  ]
+}
