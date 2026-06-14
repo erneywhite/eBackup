@@ -1,3 +1,5 @@
+using System.Text.Json;
+using eBackup.Core.Abstractions;
 using eBackup.Core.Model;
 using eBackup.Core.Modules;
 using eBackup.Modules.Obs;
@@ -292,6 +294,165 @@ public sealed partial class ModulesPage : Page
             await ShowErrorAsync("Не удалось удалить: " + ex.Message);
         }
     }
+
+    // ---------- каталог ----------
+
+    private void InstalledTab_Click(object sender, RoutedEventArgs e) => SetCatalogMode(false);
+
+    private async void CatalogTab_Click(object sender, RoutedEventArgs e)
+    {
+        SetCatalogMode(true);
+        await LoadCatalogAsync();
+    }
+
+    private void SetCatalogMode(bool catalog)
+    {
+        InstalledTab.IsChecked = !catalog;
+        CatalogTab.IsChecked = catalog;
+        InstalledRoot.Visibility = catalog ? Visibility.Collapsed : Visibility.Visible;
+        CatalogRoot.Visibility = catalog ? Visibility.Visible : Visibility.Collapsed;
+        if (catalog)
+        {
+            // Деталь-панель относится к установленным — в каталоге сбрасываем выбор.
+            _selected = null;
+            Detail.Visibility = Visibility.Collapsed;
+            EmptyHint.Visibility = Visibility.Visible;
+        }
+    }
+
+    private async Task LoadCatalogAsync()
+    {
+        CatalogPanel.Children.Clear();
+        CatalogStatus.Text = "Загружаю каталог…";
+
+        CatalogResult result;
+        try
+        {
+            result = await CatalogService.LoadAsync();
+        }
+        catch (Exception ex)
+        {
+            CatalogStatus.Text = "⚠ не удалось загрузить каталог: " + ex.Message;
+            return;
+        }
+
+        if (result.Index is null)
+        {
+            CatalogStatus.Text = "⚠ " + (result.Error ?? "каталог недоступен");
+            return;
+        }
+
+        var installed = _registry.Discover().Select(d => d.Id).ToHashSet(StringComparer.OrdinalIgnoreCase);
+        foreach (var m in result.Index.Modules)
+            CatalogPanel.Children.Add(MakeCatalogCard(m, installed));
+
+        CatalogStatus.Text = result.Source == CatalogSource.Cache
+            ? $"⚠ нет сети — показан сохранённый список ({result.Index.Modules.Count})"
+            : $"Доступно модулей: {result.Index.Modules.Count}";
+    }
+
+    private FrameworkElement MakeCatalogCard(CatalogModule m, HashSet<string> installedIds)
+    {
+        var appRes = Application.Current.Resources;
+        var dim = (Brush)appRes["EbTextDimBrush"];
+        var installed = installedIds.Contains(m.Id);
+
+        var panel = new StackPanel { Spacing = 6 };
+        panel.Children.Add(new TextBlock
+        {
+            Text = m.Name,
+            FontWeight = Microsoft.UI.Text.FontWeights.SemiBold,
+            TextWrapping = TextWrapping.Wrap
+        });
+        if (!string.IsNullOrWhiteSpace(m.Description))
+            panel.Children.Add(new TextBlock
+            {
+                Text = m.Description,
+                FontSize = 12,
+                TextWrapping = TextWrapping.Wrap,
+                Foreground = dim
+            });
+        panel.Children.Add(new TextBlock
+        {
+            Text = $"{CategoryLabel(m.Category)} · трогает: {PrettyTokens(m.Tokens)}",
+            FontSize = 11,
+            TextWrapping = TextWrapping.Wrap,
+            Foreground = dim
+        });
+
+        if (installed)
+            panel.Children.Add(new TextBlock
+            {
+                Text = "✓ установлен",
+                FontSize = 12,
+                Margin = new Thickness(0, 2, 0, 0),
+                Foreground = (Brush)appRes["EbOkBrush"]
+            });
+
+        var btn = new Button
+        {
+            Content = installed ? "Обновить" : "Загрузить",
+            CornerRadius = new CornerRadius(10),
+            Padding = new Thickness(16, 6, 16, 6),
+            Margin = new Thickness(0, 6, 0, 0)
+        };
+        btn.Click += async (_, _) => await InstallFromCatalogAsync(m, btn);
+        panel.Children.Add(btn);
+
+        return new Border
+        {
+            Width = 260,
+            CornerRadius = new CornerRadius(16),
+            Background = (Brush)appRes["EbCardBrush"],
+            BorderBrush = (Brush)appRes["EbCardBorderBrush"],
+            BorderThickness = new Thickness(1),
+            Padding = new Thickness(16, 14, 16, 14),
+            Margin = new Thickness(0, 0, 12, 12),
+            Child = panel
+        };
+    }
+
+    private async Task InstallFromCatalogAsync(CatalogModule m, Button btn)
+    {
+        btn.IsEnabled = false;
+        btn.Content = "Загружаю…";
+        try
+        {
+            var json = await CatalogService.DownloadModuleJsonAsync(m);
+
+            // Валидация скачанного: это декларативный модуль с тем же id и корректным форматом.
+            var parsed = JsonSerializer.Deserialize<DeclarativeModuleJson>(json, ManifestJson.Options);
+            if (parsed is null || !ModuleValidation.IsValidId(parsed.Id)
+                || !string.Equals(parsed.Id, m.Id, StringComparison.OrdinalIgnoreCase))
+                throw new InvalidOperationException(
+                    "файл модуля не прошёл проверку (id не совпадает или формат неверен)");
+
+            Directory.CreateDirectory(ModulePaths.ModulesDirectory);
+            File.WriteAllText(Path.Combine(ModulePaths.ModulesDirectory, m.Id + ".module.json"), json);
+
+            RefreshCards();           // обновить «Установленные»
+            await LoadCatalogAsync(); // обновить статусы каталога (теперь «✓ установлен»)
+        }
+        catch (Exception ex)
+        {
+            btn.IsEnabled = true;
+            btn.Content = "Загрузить";
+            await ShowErrorAsync("Не удалось установить модуль: " + ex.Message);
+        }
+    }
+
+    private static string CategoryLabel(string? category) => category switch
+    {
+        "game" => "игра",
+        "app" => "приложение",
+        "server" => "сервер",
+        _ => "модуль"
+    };
+
+    private static string PrettyTokens(List<string> tokens)
+        => tokens.Count == 0
+            ? "—"
+            : string.Join(", ", tokens.Select(t => t.Replace("{", "%").Replace("}", "%")));
 
     private async Task ShowErrorAsync(string message)
     {

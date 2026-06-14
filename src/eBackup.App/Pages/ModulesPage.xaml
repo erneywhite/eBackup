@@ -9,9 +9,10 @@
             <ColumnDefinition Width="350" />
         </Grid.ColumnDefinitions>
 
-        <!-- ===== Левая часть: карточки модулей ===== -->
+        <!-- ===== Левая часть: модули (установленные / каталог) ===== -->
         <Grid Grid.Column="0">
             <Grid.RowDefinitions>
+                <RowDefinition Height="Auto" />
                 <RowDefinition Height="Auto" />
                 <RowDefinition Height="*" />
             </Grid.RowDefinitions>
@@ -28,13 +29,29 @@
                 </Button>
             </Grid>
 
-            <ScrollViewer Grid.Row="1">
-                <StackPanel Spacing="10">
-                    <VariableSizedWrapGrid x:Name="CardsPanel" Orientation="Horizontal" />
-                    <TextBlock x:Name="HintText" FontSize="12" TextWrapping="Wrap"
-                               Foreground="{StaticResource EbTextDimBrush}" />
-                </StackPanel>
-            </ScrollViewer>
+            <StackPanel Grid.Row="1" Orientation="Horizontal" Spacing="8" Margin="0,0,0,12">
+                <ToggleButton x:Name="InstalledTab" Content="Установленные" IsChecked="True"
+                              CornerRadius="10" Click="InstalledTab_Click" />
+                <ToggleButton x:Name="CatalogTab" Content="Каталог"
+                              CornerRadius="10" Click="CatalogTab_Click" />
+            </StackPanel>
+
+            <Grid Grid.Row="2">
+                <ScrollViewer x:Name="InstalledRoot">
+                    <StackPanel Spacing="10">
+                        <VariableSizedWrapGrid x:Name="CardsPanel" Orientation="Horizontal" />
+                        <TextBlock x:Name="HintText" FontSize="12" TextWrapping="Wrap"
+                                   Foreground="{StaticResource EbTextDimBrush}" />
+                    </StackPanel>
+                </ScrollViewer>
+                <ScrollViewer x:Name="CatalogRoot" Visibility="Collapsed">
+                    <StackPanel Spacing="10">
+                        <TextBlock x:Name="CatalogStatus" FontSize="12" TextWrapping="Wrap"
+                                   Foreground="{StaticResource EbTextDimBrush}" />
+                        <VariableSizedWrapGrid x:Name="CatalogPanel" Orientation="Horizontal" />
+                    </StackPanel>
+                </ScrollViewer>
+            </Grid>
         </Grid>
 
         <!-- ===== Правая часть: деталь выбранного модуля ===== -->
