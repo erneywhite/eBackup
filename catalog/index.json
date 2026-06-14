@@ -25,7 +25,7 @@
     {
       "id": "ssh",
       "name": "SSH (ключи и конфиг)",
-      "description": "Клиентские ключи и настройки из .ssh (config, known_hosts, приватные ключи) и, если установлен, конфиг сервера OpenSSH (sshd_config + хост-ключи из ProgramData). Удобно для переезда на новый ПК.",
+      "description": "Клиентские ключи и настройки из .ssh (config, known_hosts, приватные ключи) и, если установлен, конфиг сервера OpenSSH (sshd_config + хост-ключи из ProgramData; хост-ключи читаются только при запуске eBackup от администратора). Удобно для переезда на новый ПК.",
       "category": "app",
       "author": "eBackup",
       "version": "1.0",

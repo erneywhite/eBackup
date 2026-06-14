@@ -14,7 +14,8 @@
       "type": "Directory",
       "archivePath": "server-openssh",
       "excludeGlobs": [
-        "logs/**"
+        "logs/**",
+        "**/*.pid"
       ]
     }
   ]
