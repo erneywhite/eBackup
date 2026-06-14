@@ -40,7 +40,7 @@ public sealed partial class BackupPage : Page
         _moduleChecks.Clear();
         foreach (var d in _registry.Discover().Where(d => d.Problem is null && d.Instance is not null && d.Enabled))
         {
-            var cb = new CheckBox { Content = d.DisplayName, IsChecked = true, Tag = d.Instance };
+            var cb = new CheckBox { Content = d.DisplayName, IsChecked = false, Tag = d.Instance };
             _moduleChecks.Add(cb);
             ModulesPanel.Children.Add(cb);
         }

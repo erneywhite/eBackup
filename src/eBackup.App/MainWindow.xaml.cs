@@ -274,6 +274,10 @@ public sealed partial class MainWindow : Window
                 await _storages.SaveAllAsync(list);
             }
 
+            // Свежая установка: встроенный модуль OBS выключен по умолчанию — база не
+            // навязывает модули; нужный пользователь включит его тумблером в «Модулях».
+            new eBackup.Core.Modules.ModuleRegistry([]).SetEnabled("obs", false);
+
             settings.DefaultStorageCreated = true;
             settings.Save();
         }
