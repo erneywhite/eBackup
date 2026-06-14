@@ -49,7 +49,7 @@ public sealed partial class ModulesPage : Page
             + $"или вручную в {ModulePaths.ModulesDirectory}";
     }
 
-    private Button MakeCard(ModuleDescriptor d)
+    private FrameworkElement MakeCard(ModuleDescriptor d)
     {
         var appRes = Application.Current.Resources;
 
@@ -87,7 +87,6 @@ public sealed partial class ModulesPage : Page
         {
             Width = 210,
             Height = 110,
-            Margin = new Thickness(0, 0, 12, 12),
             CornerRadius = new CornerRadius(16),
             Background = (Brush)appRes["EbCardBrush"],
             BorderBrush = (Brush)appRes["EbCardBorderBrush"],
@@ -99,6 +98,33 @@ public sealed partial class ModulesPage : Page
             Tag = d
         };
         card.Click += async (_, _) => await ShowDetailAsync(d);
+
+        // Удаление декларативных модулей — маленькая корзина в углу карточки (как в архивах).
+        // Встроенные модули удалять нельзя — у них корзины нет.
+        if (d.Source == ModuleSource.Declarative && d.Origin is not null)
+        {
+            var del = new Button
+            {
+                Content = new FontIcon { Glyph = "", FontSize = 12 },
+                CornerRadius = new CornerRadius(8),
+                Padding = new Thickness(7, 5, 7, 5),
+                Background = new SolidColorBrush(Microsoft.UI.Colors.Transparent),
+                BorderThickness = new Thickness(0),
+                HorizontalAlignment = HorizontalAlignment.Right,
+                VerticalAlignment = VerticalAlignment.Top,
+                Margin = new Thickness(0, 6, 6, 0),
+                Foreground = new SolidColorBrush(Microsoft.UI.ColorHelper.FromArgb(0xFF, 0xFF, 0x8A, 0x9C))
+            };
+            ToolTipService.SetToolTip(del, "Удалить модуль");
+            del.Click += async (_, _) => await DeleteModuleAsync(d);
+
+            var host = new Grid { Margin = new Thickness(0, 0, 12, 12) };
+            host.Children.Add(card);
+            host.Children.Add(del);
+            return host;
+        }
+
+        card.Margin = new Thickness(0, 0, 12, 12);
         return card;
     }
 
@@ -122,10 +148,6 @@ public sealed partial class ModulesPage : Page
         EnableToggle.Visibility = d.Problem is null ? Visibility.Visible : Visibility.Collapsed;
         EnableToggle.IsOn = d.Enabled;
         _suppressToggle = false;
-
-        DeleteModuleBtn.Visibility = d.Source == ModuleSource.Declarative && d.Origin is not null
-            ? Visibility.Visible
-            : Visibility.Collapsed;
 
         // Живой список того, что модуль соберёт прямо сейчас.
         DetailEntries.Children.Clear();
@@ -236,9 +258,9 @@ public sealed partial class ModulesPage : Page
         }
     }
 
-    private async void DeleteModuleBtn_Click(object sender, RoutedEventArgs e)
+    private async Task DeleteModuleAsync(ModuleDescriptor d)
     {
-        if (_selected is not { Source: ModuleSource.Declarative, Origin: not null } d)
+        if (d is not { Source: ModuleSource.Declarative, Origin: not null })
             return;
 
         var appRes = Application.Current.Resources;
