@@ -1,0 +1,18 @@
+{
+  "id": "vintage-story",
+  "displayName": "Vintage Story",
+  "minApiVersion": "1.0",
+  "entries": [
+    {
+      "tokenPath": "{APPDATA}/VintagestoryData",
+      "type": "Directory",
+      "archivePath": "vintagestory",
+      "excludeGlobs": [
+        "Logs/**",
+        "Cache/**",
+        "Backups/**",
+        "**/*.log"
+      ]
+    }
+  ]
+}

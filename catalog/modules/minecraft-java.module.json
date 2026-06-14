@@ -1,0 +1,20 @@
+{
+  "id": "minecraft-java",
+  "displayName": "Minecraft (Java Edition)",
+  "minApiVersion": "1.0",
+  "entries": [
+    {
+      "tokenPath": "{APPDATA}/.minecraft",
+      "type": "Directory",
+      "archivePath": "minecraft",
+      "excludeGlobs": [
+        "assets/**",
+        "versions/**",
+        "libraries/**",
+        "logs/**",
+        "crash-reports/**",
+        "**/*.log"
+      ]
+    }
+  ]
+}

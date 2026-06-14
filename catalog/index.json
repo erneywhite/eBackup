@@ -1,0 +1,26 @@
+{
+  "schemaVersion": 1,
+  "updated": "2026-06-14",
+  "modules": [
+    {
+      "id": "minecraft-java",
+      "name": "Minecraft (Java Edition)",
+      "description": "Миры, моды, ресурспаки, шейдеры, настройки (options.txt), список серверов и скриншоты из папки .minecraft. Кэш, ассеты и версии игры не бэкапятся — они скачиваются заново.",
+      "category": "game",
+      "author": "eBackup",
+      "version": "1.0",
+      "file": "modules/minecraft-java.module.json",
+      "tokens": ["{APPDATA}"]
+    },
+    {
+      "id": "vintage-story",
+      "name": "Vintage Story",
+      "description": "Сохранения, моды, конфиги модов и настройки клиента из папки VintagestoryData. Логи и кэш не бэкапятся.",
+      "category": "game",
+      "author": "eBackup",
+      "version": "1.0",
+      "file": "modules/vintage-story.module.json",
+      "tokens": ["{APPDATA}"]
+    }
+  ]
+}
