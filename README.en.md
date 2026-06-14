@@ -10,8 +10,8 @@ another PC or after an OS reinstall. Branded dark UI plus a full CLI.
 Free, open source, no subscriptions. If eBackup turns out useful, you can
 [buy the author a coffee ☕](https://dalink.to/toristarm).
 
-> 🎉 **Version 1.0.0** — stable release. Everything below works;
-> new modules (games and servers) and DLL plugins are next.
+> 🎉 **Version 1.1.0** — a one-click module catalog, cancellable backups and more.
+> Everything below works; a background backup service is next (1.2).
 
 ## Install
 
@@ -157,15 +157,14 @@ Details: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) (in Russian).
 
 ## Roadmap
 
-Done: ✅ single-exe installer (self-contained), ✅
-[v1.0.0 release](https://github.com/erneywhite/eBackup/releases/latest), ✅ self-update,
-✅ final logo.
+Done: ✅ [v1.1.0 release](https://github.com/erneywhite/eBackup/releases/latest),
+✅ module catalog (one-click install), ✅ cancellable backups, ✅ self-update.
 
 Ahead:
-- New modules — apps and games (Minecraft, Vintage Story, etc.), game servers
+- Background Windows Service — backups always run with the needed rights, schedules without an open window (1.2)
 - Dynamic DLL plugins (with a trust model and signatures)
 - Windows registry key backup
-- English UI; Windows Task Scheduler integration
+- English UI
 - Selective reads of **encrypted** archives without a full download
 
 ## License
