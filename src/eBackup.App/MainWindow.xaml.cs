@@ -63,6 +63,10 @@ public sealed partial class MainWindow : Window
         ExtendsContentIntoTitleBar = true;
         SetTitleBar(TitleBarDragArea);
 
+        // Иконка окна (таскбар / Alt+Tab): задаём явно. WinUI 3 не берёт её из exe
+        // надёжно — после обновления версии Windows иначе показывает старую из кэша.
+        AppWindow.SetIcon(System.IO.Path.Combine(AppContext.BaseDirectory, "Assets", "app.ico"));
+
         AppWindow.Resize(new Windows.Graphics.SizeInt32(1180, 760));
 
         // Минимальный размер окна: уже — и master-detail-страницы разваливаются.
