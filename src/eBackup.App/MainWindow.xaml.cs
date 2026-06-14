@@ -43,6 +43,7 @@ public sealed partial class MainWindow : Window
         new DeclarativeModuleSource(),
     ]);
     private bool _operationRunning; // бэкап или восстановление — одновременно только одно
+    private CancellationTokenSource? _backupCts; // отмена текущего бэкапа (null — бэкап не идёт)
     private double _fill;           // текущая доля заливки-прогресса нижней панели (0..1)
     private DispatcherTimer? _scheduleTimer;
     private bool _checkingSchedules;
@@ -357,6 +358,16 @@ public sealed partial class MainWindow : Window
 
     private void BackupBtn_Click(object sender, RoutedEventArgs e)
     {
+        // Во время бэкапа та же кнопка работает на отмену.
+        if (_backupCts is { IsCancellationRequested: false })
+        {
+            _backupCts.Cancel();
+            BackupBtnText.Text = "Отменяю…";
+            BackupBtn.IsEnabled = false;
+            StatusSub.Text = "отмена…";
+            return;
+        }
+
         // Настройка бэкапа — обычная страница интерфейса, а не модальный диалог.
         Nav.SelectedItem = null;
         if (ContentFrame.CurrentSourcePageType != typeof(BackupPage))
@@ -391,7 +402,10 @@ public sealed partial class MainWindow : Window
             return;
 
         _operationRunning = true;
-        BackupBtn.IsEnabled = false;
+        _backupCts = new CancellationTokenSource();
+        var ct = _backupCts.Token;
+        var cancelled = false;
+        BackupBtnText.Text = "Отменить"; // во время бэкапа кнопка отменяет операцию
         StatusTitle.Text = "Делаю бэкап…";
         StatusSub.Text = "подготовка…";
 
@@ -430,6 +444,9 @@ public sealed partial class MainWindow : Window
         });
 
         var settings = AppSettings.Load();
+        var buildDir = Path.Combine(Path.GetTempPath(), "eBackup");
+        var name = BackupNaming.DefaultName(request.Modules,
+            machineTag: settings.IncludeMachineNameInArchive ? Environment.MachineName : null);
         try
         {
             // Место во временной папке: точный размер архива до сборки неизвестен —
@@ -454,14 +471,10 @@ public sealed partial class MainWindow : Window
             }
 
             // Архив собирается во временной папке и раскладывается по всем целям одинаково.
-            var buildDir = Path.Combine(Path.GetTempPath(), "eBackup");
-            var name = BackupNaming.DefaultName(request.Modules,
-                machineTag: settings.IncludeMachineNameInArchive ? Environment.MachineName : null);
-
             var engine = new BackupEngine();
             var archive = await Task.Run(() =>
                 engine.CreateBackupAsync(request.Modules, buildDir, name, request.Passphrase,
-                    progress, settings.CompressionLevel, Log));
+                    progress, settings.CompressionLevel, Log, ct));
             SetFill(0.70);
 
             run.ArchiveName = Path.GetFileName(archive);
@@ -475,6 +488,7 @@ public sealed partial class MainWindow : Window
             for (var i = 0; i < request.Targets.Count; i++)
             {
                 var target = request.Targets[i];
+                ct.ThrowIfCancellationRequested();
                 StatusSub.Text = $"Сохраняю в «{target.Name}»…";
                 Log($"«{target.Name}»: заливаю…");
                 try
@@ -493,7 +507,7 @@ public sealed partial class MainWindow : Window
 
                     var storage = StorageFactory.Create(target, _storages.Protector);
                     var uploadWatch = System.Diagnostics.Stopwatch.StartNew();
-                    await storage.UploadAsync(archive, Path.GetFileName(archive));
+                    await storage.UploadAsync(archive, Path.GetFileName(archive), ct);
                     var seconds = Math.Max(0.1, uploadWatch.Elapsed.TotalSeconds);
                     Log($"«{target.Name}»: сохранено за {seconds:0.#} с"
                         + (archiveSize > 0 ? $" ({archiveSize / 1024.0 / 1024.0 / seconds:0.#} МБ/с)" : ""));
@@ -538,6 +552,10 @@ public sealed partial class MainWindow : Window
                         }
                     }
                 }
+                catch (OperationCanceledException)
+                {
+                    throw; // отмена — не ошибка цели, пробрасываем наверх
+                }
                 catch (Exception ex)
                 {
                     failed.Add($"{target.Name}: {ex.Message}");
@@ -555,6 +573,34 @@ public sealed partial class MainWindow : Window
             StatusSub.Text = $"последний бэкап: {DateTime.Now:HH:mm}  → {string.Join(", ", done)}"
                 + (failed.Count > 0 ? $"  ✕ {string.Join("; ", failed)}" : string.Empty);
         }
+        catch (OperationCanceledException)
+        {
+            cancelled = true;
+            run.Success = false;
+            run.Error = "Отменено пользователем";
+            Log("⏹ Бэкап отменён пользователем.");
+            // Недостроенный временный архив не оставляем в temp — логируем, что именно убрали.
+            var removedAny = false;
+            void TryDel(string p)
+            {
+                try
+                {
+                    if (!File.Exists(p)) return;
+                    var size = new FileInfo(p).Length;
+                    File.Delete(p);
+                    removedAny = true;
+                    Log($"  Удалён временный файл: {p} ({FormatBytes(size)})");
+                }
+                catch (Exception ex) { Log($"  Не удалось удалить временный файл {p}: {ex.Message}"); }
+            }
+            var stub = Path.Combine(buildDir, name + ".ebk");
+            TryDel(stub);
+            TryDel(stub + ".plain");
+            if (!removedAny)
+                Log($"  Временный архив не создавался (отмена до сборки): {stub}");
+            StatusTitle.Text = "Бэкап отменён";
+            StatusSub.Text = removedAny ? "временный архив удалён" : "ничего не осталось во временной папке";
+        }
         catch (Exception ex)
         {
             run.Success = false;
@@ -569,12 +615,14 @@ public sealed partial class MainWindow : Window
             var elapsed = run.FinishedAt.Value - run.StartedAt;
             Log(run.Success == true
                 ? $"Готово за {elapsed:mm\\:ss}."
-                : $"Завершено с ошибками за {elapsed:mm\\:ss}.");
+                : cancelled
+                    ? $"Отменено за {elapsed:mm\\:ss}."
+                    : $"Завершено с ошибками за {elapsed:mm\\:ss}.");
             await history.SaveRunAsync(run);
 
             // Итог — системным уведомлением (по просьбе пользователя — всегда,
-            // не только при скрытом окне).
-            if (settings.NotifyOnBackgroundBackup)
+            // не только при скрытом окне). При отмене пользователем не уведомляем.
+            if (settings.NotifyOnBackgroundBackup && !cancelled)
                 TryNotify(run.Success == true,
                     run.Success == true ? "✅ Бэкап выполнен" : "❌ Бэкап завершён с ошибками",
                     run.Success == true
@@ -582,6 +630,9 @@ public sealed partial class MainWindow : Window
                         : run.Error ?? "подробности — на странице «История»");
 
             _operationRunning = false;
+            _backupCts?.Dispose();
+            _backupCts = null;
+            BackupBtnText.Text = "Сделать бэкап";
             BackupBtn.IsEnabled = true;
             BackupCompleted?.Invoke();
             await FadeOutFillAsync();
