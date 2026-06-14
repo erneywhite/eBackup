@@ -88,16 +88,20 @@
                                 Click="OpenLogFile_Click" />
                     </StackPanel>
 
-                    <!-- Полный лог с таймкодами -->
+                    <!-- Полный лог с таймкодами. Нативный read-only TextBox рендерит только
+                         видимую область — и колесо, и ползунок, и горизонтальная прокрутка
+                         работают плавно даже на десятках тысяч строк (в отличие от TextBlock,
+                         который раскладывал весь текст сразу). Полный текст — «Открыть лог-файл». -->
                     <Border Grid.Row="3" CornerRadius="12" Background="#0DFFFFFF"
                             BorderBrush="{StaticResource EbCardBorderBrush}" BorderThickness="1"
-                            Padding="10">
-                        <ScrollViewer VerticalScrollBarVisibility="Auto"
-                                      HorizontalScrollBarVisibility="Auto">
-                            <TextBlock x:Name="LogText" FontFamily="Consolas" FontSize="12"
-                                       IsTextSelectionEnabled="True"
-                                       Foreground="{StaticResource EbTextDimBrush}" />
-                        </ScrollViewer>
+                            Padding="6">
+                        <TextBox x:Name="LogText" IsReadOnly="True" IsSpellCheckEnabled="False"
+                                 FontFamily="Consolas" FontSize="12"
+                                 AcceptsReturn="True" TextWrapping="NoWrap"
+                                 BorderThickness="0" Background="Transparent"
+                                 Foreground="{StaticResource EbTextDimBrush}"
+                                 ScrollViewer.HorizontalScrollBarVisibility="Auto"
+                                 ScrollViewer.VerticalScrollBarVisibility="Auto" />
                     </Border>
                 </Grid>
             </Border>
