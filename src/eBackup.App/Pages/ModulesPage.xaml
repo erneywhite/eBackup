@@ -46,8 +46,17 @@
                 </ScrollViewer>
                 <ScrollViewer x:Name="CatalogRoot" Visibility="Collapsed">
                     <StackPanel Spacing="10">
-                        <TextBlock x:Name="CatalogStatus" FontSize="12" TextWrapping="Wrap"
-                                   Foreground="{StaticResource EbTextDimBrush}" />
+                        <StackPanel Orientation="Horizontal" Spacing="10">
+                            <ComboBox x:Name="CategoryFilter" MinWidth="150" SelectedIndex="0"
+                                      SelectionChanged="CategoryFilter_SelectionChanged">
+                                <ComboBoxItem Content="Все" Tag="" />
+                                <ComboBoxItem Content="Игры" Tag="game" />
+                                <ComboBoxItem Content="Софт" Tag="app" />
+                                <ComboBoxItem Content="Прочее" Tag="other" />
+                            </ComboBox>
+                            <TextBlock x:Name="CatalogStatus" FontSize="12" VerticalAlignment="Center"
+                                       TextWrapping="Wrap" Foreground="{StaticResource EbTextDimBrush}" />
+                        </StackPanel>
                         <VariableSizedWrapGrid x:Name="CatalogPanel" Orientation="Horizontal" />
                     </StackPanel>
                 </ScrollViewer>

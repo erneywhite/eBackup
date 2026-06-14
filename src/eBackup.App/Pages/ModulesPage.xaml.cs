@@ -24,6 +24,7 @@ public sealed partial class ModulesPage : Page
 
     private ModuleDescriptor? _selected;
     private bool _suppressToggle;
+    private CatalogIndex? _catalog;   // загруженный каталог (для фильтра без повторной загрузки)
 
     public ModulesPage()
     {
@@ -342,13 +343,33 @@ public sealed partial class ModulesPage : Page
             return;
         }
 
-        var installed = _registry.Discover().Select(d => d.Id).ToHashSet(StringComparer.OrdinalIgnoreCase);
-        foreach (var m in result.Index.Modules)
-            CatalogPanel.Children.Add(MakeCatalogCard(m, installed));
-
+        _catalog = result.Index;
         CatalogStatus.Text = result.Source == CatalogSource.Cache
-            ? $"⚠ нет сети — показан сохранённый список ({result.Index.Modules.Count})"
-            : $"Доступно модулей: {result.Index.Modules.Count}";
+            ? $"⚠ нет сети — сохранённый список ({_catalog.Modules.Count})"
+            : $"Доступно: {_catalog.Modules.Count}";
+        RenderCatalog();
+    }
+
+    private void CategoryFilter_SelectionChanged(object sender, SelectionChangedEventArgs e) => RenderCatalog();
+
+    private void RenderCatalog()
+    {
+        if (_catalog is null)
+            return;
+
+        CatalogPanel.Children.Clear();
+        var tag = (CategoryFilter.SelectedItem as ComboBoxItem)?.Tag as string ?? "";
+        IEnumerable<CatalogModule> shown = tag switch
+        {
+            "game" => _catalog.Modules.Where(m => m.Category == "game"),
+            "app" => _catalog.Modules.Where(m => m.Category == "app"),
+            "other" => _catalog.Modules.Where(m => m.Category is not "game" and not "app"),
+            _ => _catalog.Modules
+        };
+
+        var installed = _registry.Discover().Select(d => d.Id).ToHashSet(StringComparer.OrdinalIgnoreCase);
+        foreach (var m in shown)
+            CatalogPanel.Children.Add(MakeCatalogCard(m, installed));
     }
 
     private FrameworkElement MakeCatalogCard(CatalogModule m, HashSet<string> installedIds)
@@ -430,8 +451,8 @@ public sealed partial class ModulesPage : Page
             Directory.CreateDirectory(ModulePaths.ModulesDirectory);
             File.WriteAllText(Path.Combine(ModulePaths.ModulesDirectory, m.Id + ".module.json"), json);
 
-            RefreshCards();           // обновить «Установленные»
-            await LoadCatalogAsync(); // обновить статусы каталога (теперь «✓ установлен»)
+            RefreshCards();   // обновить «Установленные»
+            RenderCatalog();  // обновить статусы каталога (теперь «✓ установлен»)
         }
         catch (Exception ex)
         {
