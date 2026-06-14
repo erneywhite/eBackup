@@ -479,6 +479,7 @@ public sealed partial class MainWindow : Window
 
             run.ArchiveName = Path.GetFileName(archive);
             try { run.SizeBytes = new FileInfo(archive).Length; } catch { }
+            run.SkippedFiles = engine.LastSkippedCount;
             Log($"Архив собран: {run.ArchiveName} · {run.SizeBytes / 1024.0 / 1024.0:0.#} МБ");
 
             var done = new List<string>();
@@ -578,6 +579,7 @@ public sealed partial class MainWindow : Window
 
             StatusTitle.Text = failed.Count == 0 ? "Готов к работе" : "Бэкап завершён с ошибками";
             StatusSub.Text = $"последний бэкап: {DateTime.Now:HH:mm}  → {string.Join(", ", done)}"
+                + (run.SkippedFiles > 0 ? $"  ⚠ пропущено файлов: {run.SkippedFiles}" : string.Empty)
                 + (failed.Count > 0 ? $"  ✕ {string.Join("; ", failed)}" : string.Empty);
         }
         catch (OperationCanceledException)
@@ -631,7 +633,9 @@ public sealed partial class MainWindow : Window
             // не только при скрытом окне). При отмене пользователем не уведомляем.
             if (settings.NotifyOnBackgroundBackup && !cancelled)
                 TryNotify(run.Success == true,
-                    run.Success == true ? "✅ Бэкап выполнен" : "❌ Бэкап завершён с ошибками",
+                    run.Success == true
+                        ? (run.SkippedFiles > 0 ? "⚠ Бэкап выполнен (есть пропуски)" : "✅ Бэкап выполнен")
+                        : "❌ Бэкап завершён с ошибками",
                     run.Success == true
                         ? $"{run.ArchiveName} · {run.SizeBytes / 1024.0 / 1024.0:0.#} МБ → {string.Join(", ", run.Targets)}"
                         : run.Error ?? "подробности — на странице «История»");

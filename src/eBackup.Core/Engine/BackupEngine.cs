@@ -19,6 +19,9 @@ namespace eBackup.Core.Engine;
 /// </summary>
 public sealed class BackupEngine
 {
+    /// <summary>Сколько файлов пропущено в последнем бэкапе (нет доступа/заняты).</summary>
+    public int LastSkippedCount { get; private set; }
+
     /// <summary>
     /// Создать архив из набора модулей. Возвращает путь к готовому .ebk.
     /// </summary>
@@ -179,6 +182,7 @@ public sealed class BackupEngine
         }
 
         log?.Invoke($"ZIP готов: {FormatSize(new FileInfo(buildPath).Length)}");
+        LastSkippedCount = skippedFiles;
         if (skippedFiles > 0)
             log?.Invoke($"⚠ Пропущено файлов (нет доступа/заняты): {skippedFiles} — не вошли в архив.");
 

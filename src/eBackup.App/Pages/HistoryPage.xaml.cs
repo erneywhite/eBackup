@@ -18,17 +18,20 @@ public sealed class RunItem(BackupRunRecord run)
 
     public string StatusGlyph => Run.Success switch
     {
-        true => "✓",
+        true => Run.SkippedFiles > 0 ? "⚠" : "✓",
         false => "✕",
         null => "⏸"
     };
 
-    public Brush StatusBrush => (Brush)Application.Current.Resources[Run.Success switch
-    {
-        true => "EbOkBrush",
-        false => "EbErrBrush",
-        null => "EbTextDimBrush"
-    }];
+    public Brush StatusBrush =>
+        Run.Success == true && Run.SkippedFiles > 0
+            ? new SolidColorBrush(Microsoft.UI.ColorHelper.FromArgb(0xFF, 0xF5, 0xB7, 0x4D)) // янтарный — есть пропуски
+            : (Brush)Application.Current.Resources[Run.Success switch
+            {
+                true => "EbOkBrush",
+                false => "EbErrBrush",
+                null => "EbTextDimBrush"
+            }];
 }
 
 /// <summary>История бэкапов: список запусков + полный лог каждого с таймкодами.</summary>
@@ -98,6 +101,9 @@ public sealed partial class HistoryPage : Page
 
         (DetailStatus.Text, DetailStatus.Foreground) = run.Success switch
         {
+            true when run.SkippedFiles > 0 => (
+                $"⚠ выполнен, но пропущено файлов: {run.SkippedFiles} (нет доступа/заняты)",
+                (Brush)new SolidColorBrush(Microsoft.UI.ColorHelper.FromArgb(0xFF, 0xF5, 0xB7, 0x4D))),
             true => ("✓ выполнен успешно",
                 (Brush)Application.Current.Resources["EbOkBrush"]),
             false => ("✕ " + (run.Error ?? "завершён с ошибками"),

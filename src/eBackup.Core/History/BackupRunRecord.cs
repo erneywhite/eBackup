@@ -28,4 +28,7 @@ public sealed class BackupRunRecord
     public bool? Success { get; set; }
 
     public string? Error { get; set; }
+
+    /// <summary>Сколько файлов пропущено (нет доступа/заняты) — бэкап успешен, но неполный.</summary>
+    public int SkippedFiles { get; set; }
 }
