@@ -6,13 +6,35 @@
     {
       "tokenPath": "{APPDATA}/.minecraft",
       "type": "Directory",
-      "archivePath": "minecraft",
+      "archivePath": "vanilla",
       "excludeGlobs": [
         "assets/**",
         "versions/**",
         "libraries/**",
+        "bin/**",
         "logs/**",
         "crash-reports/**",
+        "**/*.log"
+      ]
+    },
+    {
+      "tokenPath": "{APPDATA}/PrismLauncher/instances",
+      "type": "Directory",
+      "archivePath": "prism",
+      "excludeGlobs": [
+        "**/logs/**",
+        "**/crash-reports/**",
+        "**/.mixin.out/**",
+        "**/*.log"
+      ]
+    },
+    {
+      "tokenPath": "{APPDATA}/ModrinthApp/profiles",
+      "type": "Directory",
+      "archivePath": "modrinth",
+      "excludeGlobs": [
+        "**/logs/**",
+        "**/crash-reports/**",
         "**/*.log"
       ]
     }

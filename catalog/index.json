@@ -5,7 +5,7 @@
     {
       "id": "minecraft-java",
       "name": "Minecraft (Java Edition)",
-      "description": "Миры, моды, ресурспаки, шейдеры, настройки (options.txt), список серверов и скриншоты из папки .minecraft. Кэш, ассеты и версии игры не бэкапятся — они скачиваются заново.",
+      "description": "Сохранения, моды, ресурспаки, шейдеры, конфиги и настройки Minecraft (Java). Поддерживает официальный лаунчер (.minecraft), Prism и Modrinth. CurseForge и MultiMC хранят данные вне app-data — их бэкапь через «Свои папки». Ассеты и версии игры не бэкапятся (качаются заново).",
       "category": "game",
       "author": "eBackup",
       "version": "1.0",
