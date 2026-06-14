@@ -1,3 +1,4 @@
+using System.Text.RegularExpressions;
 using eBackup.Core.Abstractions;
 
 namespace eBackup.Core.Engine;
@@ -26,6 +27,20 @@ public static class BackupNaming
         var machine = string.IsNullOrWhiteSpace(machineTag) ? string.Empty : "_" + Sanitize(machineTag);
 
         return $"ebackup{machine}{tag}_{now ?? DateTime.Now:yyyy-MM-dd_HH-mm-ss}";
+    }
+
+    private static readonly Regex TimestampSuffix =
+        new(@"_\d{4}-\d{2}-\d{2}_\d{2}-\d{2}-\d{2}(\.ebk)?$", RegexOptions.IgnoreCase | RegexOptions.Compiled);
+
+    /// <summary>
+    /// Ключ группы для retention: имя архива без хвоста «_дата_время[.ebk]». Архивы одного
+    /// набора модулей (ebackup_ПК_модули_…) дают один ключ — «хранить последние N» считается
+    /// в пределах группы, чтобы бэкапы разных модулей не вытесняли друг друга.
+    /// </summary>
+    public static string RetentionGroupKey(string archiveName)
+    {
+        var stripped = TimestampSuffix.Replace(archiveName, "");
+        return stripped.Length == 0 ? archiveName : stripped;
     }
 
     /// <summary>Только буквы/цифры/дефис: имя машины попадает в имя файла.</summary>

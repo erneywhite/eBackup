@@ -541,14 +541,21 @@ public sealed partial class MainWindow : Window
 
                     done.Add(target.Name);
 
-                    // Хранение версий — на уже полученном листинге.
+                    // Хранение версий — по ГРУППАМ (набор модулей закодирован в имени):
+                    // считаем «последние N» только среди архивов той же группы, что текущий,
+                    // новейшие сверху. Так бэкапы разных модулей не вытесняют друг друга.
                     if (settings.RetentionCount > 0)
                     {
                         StatusSub.Text = $"{target.Name}: убираю старые архивы…";
-                        foreach (var old in files.Skip(settings.RetentionCount))
+                        var groupKey = BackupNaming.RetentionGroupKey(Path.GetFileName(archive));
+                        var sameGroup = files
+                            .Where(f => BackupNaming.RetentionGroupKey(f.Name) == groupKey)
+                            .OrderByDescending(f => f.LastWriteTime)
+                            .ToList();
+                        foreach (var old in sameGroup.Skip(settings.RetentionCount))
                         {
                             await storage.DeleteAsync(old.Name);
-                            Log($"«{target.Name}»: retention — удалил {old.Name}");
+                            Log($"«{target.Name}»: retention (группа {groupKey}) — удалил {old.Name}");
                         }
                     }
                 }
