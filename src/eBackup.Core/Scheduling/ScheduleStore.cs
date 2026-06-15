@@ -1,6 +1,7 @@
 using System.Text.Json;
 using eBackup.Core.Model;
 using eBackup.Core.Security;
+using eBackup.Platform;
 
 namespace eBackup.Core.Scheduling;
 
@@ -12,9 +13,7 @@ public sealed class ScheduleStore(ISecretProtector protector, string? filePath =
 {
     private readonly string _filePath = filePath ?? DefaultFilePath();
 
-    public static string DefaultFilePath() => Path.Combine(
-        Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
-        "eBackup", "schedules.json");
+    public static string DefaultFilePath() => AppPaths.SchedulesFile;
 
     public async Task<IReadOnlyList<BackupSchedule>> LoadAsync(CancellationToken ct = default)
     {

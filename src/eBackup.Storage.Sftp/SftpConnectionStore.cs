@@ -28,10 +28,7 @@ public sealed class SftpConnectionStore
     }
 
     /// <summary>Путь к файлу подключений по умолчанию.</summary>
-    public static string DefaultFilePath()
-        => Path.Combine(
-            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-            "eBackup", "connections.json");
+    public static string DefaultFilePath() => eBackup.Platform.AppPaths.LegacyConnectionsFile;
 
     /// <summary>Прочитать все сохранённые подключения (секреты остаются зашифрованными).</summary>
     public async Task<IReadOnlyList<SavedSftpConnection>> LoadAsync(CancellationToken ct = default)

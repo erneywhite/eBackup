@@ -1,4 +1,5 @@
 using System.Text.Json;
+using eBackup.Platform;
 
 namespace eBackup.App;
 
@@ -50,14 +51,11 @@ public sealed class AppSettings
         _ => System.IO.Compression.CompressionLevel.Optimal
     };
 
-    public static string DefaultAssetsDirPath => Path.Combine(
-        Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments), "eBackup", "Assets");
+    public static string DefaultAssetsDirPath => AppPaths.DefaultAssetsDir;
 
-    public static string DefaultLocalBackupDir => Path.Combine(
-        Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments), "eBackup", "Backups");
+    public static string DefaultLocalBackupDir => AppPaths.DefaultBackupsDir;
 
-    private static string ConfigPath => Path.Combine(
-        Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "eBackup", "settings.json");
+    private static string ConfigPath => AppPaths.SettingsFile;
 
     public static AppSettings Load()
     {

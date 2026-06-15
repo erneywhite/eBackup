@@ -1,4 +1,5 @@
 using System.Text.Json;
+using eBackup.Platform;
 
 namespace eBackup.Core.History;
 
@@ -18,8 +19,7 @@ public sealed class HistoryStore
 
     public HistoryStore(string? directory = null) => _dir = directory ?? DefaultDirectory;
 
-    public static string DefaultDirectory => Path.Combine(
-        Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "eBackup", "history");
+    public static string DefaultDirectory => AppPaths.HistoryDir;
 
     private string IndexPath => Path.Combine(_dir, "runs.json");
 

@@ -1,3 +1,4 @@
+using eBackup.Platform;
 using Microsoft.UI.Xaml;
 
 namespace eBackup.App;
@@ -17,9 +18,7 @@ public partial class App : Application
             e.Handled = true;
             try
             {
-                var dir = Path.Combine(
-                    Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-                    "eBackup", "logs");
+                var dir = AppPaths.LogsDir;
                 Directory.CreateDirectory(dir);
                 File.AppendAllText(
                     Path.Combine(dir, "app.log"),

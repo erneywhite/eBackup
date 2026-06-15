@@ -7,6 +7,7 @@ using eBackup.Core.Crypto;
 using eBackup.Core.Model;
 using eBackup.Core.Modules;
 using eBackup.Core.Paths;
+using eBackup.Platform;
 using Microsoft.Extensions.FileSystemGlobbing;
 
 namespace eBackup.Core.Engine;
@@ -520,9 +521,7 @@ public sealed class BackupEngine
         }
     }
 
-    private static string DefaultAssetsDirectory()
-        => Path.Combine(
-            Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments), "eBackup", "Assets");
+    private static string DefaultAssetsDirectory() => AppPaths.DefaultAssetsDir;
 
     /// <summary>В выборочном режиме (failures != null) сбой файла копится, не роняя остальное.</summary>
     private static void ExtractTolerant(

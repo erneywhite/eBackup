@@ -1,6 +1,7 @@
 using System.Net.Http;
 using System.Net.Http.Headers;
 using System.Text.Json;
+using eBackup.Platform;
 
 namespace eBackup.App;
 
@@ -54,9 +55,7 @@ public static class CatalogService
         PropertyNameCaseInsensitive = true
     };
 
-    private static string CachePath => Path.Combine(
-        Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-        "eBackup", "catalog-cache.json");
+    private static string CachePath => AppPaths.CatalogCacheFile;
 
     private static HttpClient CreateClient()
     {

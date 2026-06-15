@@ -4,6 +4,7 @@ using eBackup.Core.Crypto;
 using eBackup.Core.Engine;
 using eBackup.Core.Modules;
 using eBackup.Modules.Obs;
+using eBackup.Platform;
 using eBackup.Security;
 using eBackup.Storage;
 
@@ -99,7 +100,7 @@ switch (command)
         }
 
         var assetsDir = GetOption(args, "--assets-dir")
-            ?? Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments), "eBackup", "Assets");
+            ?? AppPaths.DefaultAssetsDir;
 
         // Режим разрешения конфликтов: replace (с .bak) / overwrite / add-missing.
         var conflict = (GetOption(args, "--conflict") ?? "backup").ToLowerInvariant() switch

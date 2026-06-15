@@ -1,6 +1,7 @@
 using System.Text.Json;
 using eBackup.Core.Model;
 using eBackup.Core.Security;
+using eBackup.Platform;
 using eBackup.Storage.Sftp;
 
 namespace eBackup.Storage;
@@ -20,9 +21,7 @@ public sealed class StorageStore(
 
     public ISecretProtector Protector => protector;
 
-    public static string DefaultFilePath() => Path.Combine(
-        Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-        "eBackup", "storages.json");
+    public static string DefaultFilePath() => AppPaths.StoragesFile;
 
     public async Task<IReadOnlyList<SavedStorage>> LoadAsync(CancellationToken ct = default)
     {

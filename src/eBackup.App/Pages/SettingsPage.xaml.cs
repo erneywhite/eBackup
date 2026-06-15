@@ -1,3 +1,4 @@
+using eBackup.Platform;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Media;
@@ -139,16 +140,13 @@ public sealed partial class SettingsPage : Page
         => await Windows.System.Launcher.LaunchUriAsync(new Uri("https://github.com/erneywhite/eBackup"));
 
     private void OpenConfig_Click(object sender, RoutedEventArgs e)
-        => OpenFolder(Path.Combine(
-            Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "eBackup"));
+        => OpenFolder(AppPaths.Roaming);
 
     private void OpenModules_Click(object sender, RoutedEventArgs e)
-        => OpenFolder(Path.Combine(
-            Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "eBackup", "modules"));
+        => OpenFolder(AppPaths.ModulesDir);
 
     private void OpenLog_Click(object sender, RoutedEventArgs e)
-        => OpenFolder(Path.Combine(
-            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "eBackup", "logs"));
+        => OpenFolder(AppPaths.LogsDir);
 
     private void OpenFolder(string path)
     {

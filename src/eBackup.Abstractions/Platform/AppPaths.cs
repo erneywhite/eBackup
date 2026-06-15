@@ -1,0 +1,40 @@
+namespace eBackup.Platform;
+
+/// <summary>
+/// Единая точка истины для расположений конфигов и данных eBackup.
+/// До 1.2 пути были разбросаны по проектам — здесь сведены, чтобы служба
+/// (LocalSystem) и GUI переключали раскладку в одном месте.
+/// Поведение пока 1:1 со старыми путями (чистый рефактор S0).
+/// </summary>
+public static class AppPaths
+{
+    public const string AppFolderName = "eBackup";
+
+    // Два корня (per-user). Позже служба сможет резолвить их по профилю SID.
+    public static string Roaming => Path.Combine(
+        Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), AppFolderName);
+
+    public static string Local => Path.Combine(
+        Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), AppFolderName);
+
+    public static string Documents => Path.Combine(
+        Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments), AppFolderName);
+
+    // --- Roaming (%APPDATA%\eBackup) ---
+    public static string SettingsFile        => Path.Combine(Roaming, "settings.json");
+    public static string CustomFoldersFile   => Path.Combine(Roaming, "custom-folders.json");
+    public static string SchedulesFile       => Path.Combine(Roaming, "schedules.json");
+    public static string ModulesDir          => Path.Combine(Roaming, "modules");
+    public static string DisabledModulesFile => Path.Combine(Roaming, "disabled-modules.json");
+
+    // --- Local (%LOCALAPPDATA%\eBackup) ---
+    public static string HistoryDir            => Path.Combine(Local, "history");
+    public static string StoragesFile          => Path.Combine(Local, "storages.json");
+    public static string LegacyConnectionsFile => Path.Combine(Local, "connections.json");
+    public static string CatalogCacheFile      => Path.Combine(Local, "catalog-cache.json");
+    public static string LogsDir               => Path.Combine(Local, "logs");
+
+    // --- Documents\eBackup (дефолтные дата-папки) ---
+    public static string DefaultAssetsDir  => Path.Combine(Documents, "Assets");
+    public static string DefaultBackupsDir => Path.Combine(Documents, "Backups");
+}
