@@ -18,6 +18,9 @@ public static class IpcContractInfo
     /// <summary>4-байтная преамбула перед первым фреймом — несовпадение формата конверта ловится сразу.</summary>
     public static readonly byte[] Preamble = "EBKI"u8.ToArray();
 
+    /// <summary>Байт формата конверта (идёт сразу после преамбулы). Несовпадение = чистый VersionMismatch.</summary>
+    public const byte EnvelopeFormat = 1;
+
     /// <summary>Токены возможностей (append-only). Гейтят опциональные операции/поля.</summary>
     public static class Capabilities
     {
