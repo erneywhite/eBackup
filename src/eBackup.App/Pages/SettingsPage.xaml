@@ -114,6 +114,9 @@
                     <Button x:Name="UpdActionBtn" Content="Проверить обновления"
                             CornerRadius="10" Padding="16,7" Click="UpdAction_Click"
                             HorizontalAlignment="Left" />
+                    <ProgressBar x:Name="UpdProgress" Visibility="Collapsed"
+                                 Minimum="0" Maximum="100" Width="280"
+                                 HorizontalAlignment="Left" />
                 </StackPanel>
             </Border>
 

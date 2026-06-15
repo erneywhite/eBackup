@@ -677,42 +677,24 @@ public sealed partial class MainWindow : Window
     {
         DispatcherQueue.TryEnqueue(() =>
         {
-            switch (s.Stage)
-            {
-                case UpdateStage.Available:
-                    if (s.Version == AppSettings.Load().DismissedUpdateVersion)
-                    {
-                        UpdateBanner.Visibility = Visibility.Collapsed;
-                        break;
-                    }
-                    UpdateText.Text = $"Доступна новая версия eBackup {s.Version} (у вас {UpdateService.AppVersion()}).";
-                    UpdateGetBtn.Content = "Скачать и установить";
-                    UpdateGetBtn.IsEnabled = true;
-                    UpdateBanner.Visibility = Visibility.Visible;
-                    break;
-                case UpdateStage.Downloading:
-                    UpdateText.Text = $"Скачиваю обновление… {s.Progress * 100:0}%";
-                    UpdateGetBtn.IsEnabled = false;
-                    UpdateBanner.Visibility = Visibility.Visible;
-                    break;
-                case UpdateStage.ReadyToInstall:
-                    UpdateText.Text = "Готово — устанавливаю и перезапускаю…";
-                    UpdateGetBtn.IsEnabled = false;
-                    break;
-                case UpdateStage.Failed:
-                    UpdateText.Text = "✕ " + (s.Error ?? "не удалось обновиться");
-                    UpdateGetBtn.Content = "Повторить";
-                    UpdateGetBtn.IsEnabled = true;
-                    break;
-            }
+            // Уведомление об обновлении живёт в нижней панели (центр уведомлений) и ведёт в
+            // «Настройки», где есть «Скачать и установить». Показываем только при наличии
+            // новой версии; прогресс установки отображается уже на странице настроек.
+            var available = s.Stage == UpdateStage.Available
+                && s.Version != AppSettings.Load().DismissedUpdateVersion;
+            UpdateHintBtn.Content = available
+                ? $"🆕 Доступна версия {s.Version} — открыть «Настройки»"
+                : string.Empty;
+            UpdateHintBtn.Visibility = available ? Visibility.Visible : Visibility.Collapsed;
         });
     }
 
-    private async void UpdateGet_Click(object sender, RoutedEventArgs e)
+    private void UpdateHint_Click(object sender, RoutedEventArgs e)
     {
-        if (UpdateService.Current.Stage == UpdateStage.Failed)
-            await UpdateService.CheckAsync(quiet: false);
-        await StartUpdateInstallAsync();
+        // Подсказка об обновлении в нижней панели ведёт в «Настройки → Обновления».
+        Nav.SelectedItem = null;
+        if (ContentFrame.CurrentSourcePageType != typeof(SettingsPage))
+            ContentFrame.Navigate(typeof(SettingsPage));
     }
 
     /// <summary>Скачать установщик и запустить его с перезапуском (зовётся баннером и настройками).</summary>
@@ -723,18 +705,6 @@ public sealed partial class MainWindow : Window
         var path = await UpdateService.DownloadAsync();
         if (path is not null && UpdateService.LaunchInstaller())
             QuitForUpdate();
-    }
-
-    private void UpdateDismiss_Click(object sender, RoutedEventArgs e)
-    {
-        // Скрыть и не напоминать именно про эту версию (следующая — снова покажем).
-        if (UpdateService.Current.Version is { } v)
-        {
-            var settings = AppSettings.Load();
-            settings.DismissedUpdateVersion = v;
-            settings.Save();
-        }
-        UpdateBanner.Visibility = Visibility.Collapsed;
     }
 
     /// <summary>Чистый выход перед запуском установщика (чтобы он заменил файлы).</summary>

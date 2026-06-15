@@ -33,6 +33,7 @@ public sealed partial class SettingsPage : Page
     {
         DispatcherQueue.TryEnqueue(() =>
         {
+            UpdProgress.Visibility = Visibility.Collapsed;  // прогрессбар показываем только при скачивании
             switch (s.Stage)
             {
                 case UpdateStage.Checking:
@@ -46,7 +47,9 @@ public sealed partial class SettingsPage : Page
                     UpdActionBtn.IsEnabled = true;
                     break;
                 case UpdateStage.Downloading:
-                    UpdStatusText.Text = $"Скачиваю обновление: {s.Progress * 100:0}%";
+                    UpdStatusText.Text = $"Скачиваю обновление… {s.Progress * 100:0}%";
+                    UpdProgress.Value = s.Progress * 100;
+                    UpdProgress.Visibility = Visibility.Visible;
                     UpdActionBtn.Content = "Скачиваю…";
                     UpdActionBtn.IsEnabled = false;
                     break;
