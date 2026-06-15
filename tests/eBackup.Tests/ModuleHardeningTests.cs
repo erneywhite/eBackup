@@ -236,4 +236,116 @@ public class ModuleHardeningTests
             if (File.Exists(archivePath)) File.Delete(archivePath);
         }
     }
+
+    // ---------- S1: containment при restore-в-исходные места ----------
+
+    /// <summary>Собрать архив из одной файловой записи с заданным TokenPath (для тестов containment).</summary>
+    private static async Task WriteSingleFileArchive(string archivePath, string tokenPath, string archiveRel, byte[] payload)
+    {
+        using var zip = ZipFile.Open(archivePath, ZipArchiveMode.Create);
+        var data = zip.CreateEntry("data/" + archiveRel);
+        await using (var ds = data.Open())
+            await ds.WriteAsync(payload);
+
+        var entry = zip.CreateEntry("manifest.json");
+        await using var s = entry.Open();
+        var manifest = new Manifest
+        {
+            CreatedAt = default,
+            Modules =
+            [
+                new ModuleEntry
+                {
+                    ModuleId = "m",
+                    DisplayName = "m",
+                    Entries =
+                    [
+                        new PathEntry { TokenPath = tokenPath, Type = PathEntryType.File, ArchivePath = archiveRel }
+                    ]
+                }
+            ]
+        };
+        await JsonSerializer.SerializeAsync(s, manifest, ManifestJson.Options);
+    }
+
+    [Fact]
+    public async Task Restore_Rejects_DriveAbsolute_Tail_After_Token()
+    {
+        // «{APPDATA}/C:/…» проходит HasTraversal (нет «..»), но Path.Combine отдаёт
+        // абсолютный хвост наружу. Канонизированный containment должен это отклонить.
+        var realAppData = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData);
+        var escaped = Path.Combine(Path.GetDirectoryName(realAppData)!, $"ebk-escape-{Guid.NewGuid():N}.txt");
+        var archivePath = Path.Combine(Path.GetTempPath(), $"ebk-esc-{Guid.NewGuid():N}.ebk");
+        try
+        {
+            await WriteSingleFileArchive(archivePath, "{APPDATA}/" + escaped.Replace('\\', '/'),
+                "m/payload", System.Text.Encoding.UTF8.GetBytes("pwned"));
+
+            await Assert.ThrowsAsync<InvalidDataException>(
+                () => new BackupEngine().RestoreAsync(archivePath));
+            Assert.False(File.Exists(escaped)); // ничего не записано за пределами корня токена
+        }
+        finally
+        {
+            if (File.Exists(archivePath)) File.Delete(archivePath);
+            if (File.Exists(escaped)) File.Delete(escaped);
+        }
+    }
+
+    [Fact]
+    public async Task Restore_Allows_RawAbsolute_To_Original()
+    {
+        // Сырой абсолютный путь (как D:\Servers\… — игросервер): токенового корня нет,
+        // граница — сам архив, restore разрешён. Не должен ломаться нашей проверкой.
+        var destDir = Path.Combine(Path.GetTempPath(), $"ebk-srv-{Guid.NewGuid():N}");
+        var destFile = Path.Combine(destDir, "server.properties");
+        var archivePath = Path.Combine(Path.GetTempPath(), $"ebk-raw-{Guid.NewGuid():N}.ebk");
+        try
+        {
+            await WriteSingleFileArchive(archivePath, destFile.Replace('\\', '/'),
+                "m/server.properties", System.Text.Encoding.UTF8.GetBytes("level-name=world"));
+
+            await new BackupEngine().RestoreAsync(archivePath);
+            Assert.True(File.Exists(destFile));
+        }
+        finally
+        {
+            if (File.Exists(archivePath)) File.Delete(archivePath);
+            if (Directory.Exists(destDir)) Directory.Delete(destDir, recursive: true);
+        }
+    }
+
+    [Fact]
+    public async Task Restore_Allows_Tokenized_Within_Root()
+    {
+        // Легитимный токенизированный путь без «..» — restore-в-исходные работает как раньше.
+        var sub = $"ebk-test-{Guid.NewGuid():N}";
+        var localAppData = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
+        var destFile = Path.Combine(localAppData, sub, "config.ini");
+        var archivePath = Path.Combine(Path.GetTempPath(), $"ebk-tok-{Guid.NewGuid():N}.ebk");
+        try
+        {
+            await WriteSingleFileArchive(archivePath, "{LOCALAPPDATA}/" + sub + "/config.ini",
+                "m/config.ini", System.Text.Encoding.UTF8.GetBytes("ok=1"));
+
+            await new BackupEngine().RestoreAsync(archivePath);
+            Assert.True(File.Exists(destFile));
+        }
+        finally
+        {
+            if (File.Exists(archivePath)) File.Delete(archivePath);
+            var dir = Path.Combine(localAppData, sub);
+            if (Directory.Exists(dir)) Directory.Delete(dir, recursive: true);
+        }
+    }
+
+    [Theory]
+    [InlineData("{APPDATA}/x", true)]
+    [InlineData("{LOCALAPPDATA}", true)]
+    [InlineData("{PROGRAMDATA}/ssh", true)]
+    [InlineData("D:/Servers/mc", false)]      // сырой абсолютный — токенового корня нет
+    [InlineData("C:/Windows", false)]
+    [InlineData("plain/rel", false)]
+    public void TryGetTokenRoot_Detects_Tokenized_Paths(string tokenPath, bool expected)
+        => Assert.Equal(expected, PathTokens.TryGetTokenRoot(tokenPath, out _));
 }

@@ -433,6 +433,16 @@ public sealed class BackupEngine
                     throw new InvalidDataException(
                         $"Запись выходит за пределы целевой папки: {entry.ArchivePath}");
 
+                // restore-в-исходные для токенизированных путей — канонизированный containment
+                // (надёжнее строковой HasTraversal: ловит абсолютный «хвост» вроде
+                // «{APPDATA}/C:/Windows», который Path.Combine пропускает наружу). Сырые
+                // абсолютные пути токенового корня не имеют — их граница сам архив (S4).
+                else if (destinationRootOverride is null
+                    && PathTokens.TryGetTokenRoot(entry.TokenPath, out var tokenRoot)
+                    && !PathSafety.IsWithin(tokenRoot, target))
+                    throw new InvalidDataException(
+                        $"Запись выходит за пределы корня токена: {entry.TokenPath}");
+
                 var prefix = "data/" + entry.ArchivePath.Replace('\\', '/');
 
                 if (entry.Type == PathEntryType.File)

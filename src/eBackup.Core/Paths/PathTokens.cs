@@ -33,6 +33,28 @@ public static class PathTokens
         return normalized;
     }
 
+    /// <summary>
+    /// Если путь начинается с известного токена ({APPDATA} и т.п.) — вернуть true и
+    /// абсолютный корень этого токена на текущей машине. Нужно для канонизированного
+    /// containment при restore-в-исходные: <see cref="HasTraversal"/> ловит только «..»,
+    /// но <see cref="Resolve"/> через Path.Combine пропускает абсолютный «хвост»
+    /// (напр. «{APPDATA}/C:/Windows» → C:\Windows). Сырые абсолютные пути токенового
+    /// корня не имеют (граница — сам архив, см. трастовое обсуждение).
+    /// </summary>
+    public static bool TryGetTokenRoot(string tokenPath, out string root)
+    {
+        foreach (var (token, folder) in Map)
+        {
+            if (tokenPath.StartsWith(token, StringComparison.Ordinal))
+            {
+                root = Environment.GetFolderPath(folder);
+                return root.Length > 0;
+            }
+        }
+        root = string.Empty;
+        return false;
+    }
+
     /// <summary>Развернуть токен обратно в абсолютный путь на текущей машине.</summary>
     public static string Resolve(string tokenPath)
     {
