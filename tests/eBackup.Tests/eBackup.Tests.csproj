@@ -1,7 +1,8 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <TargetFramework>net9.0</TargetFramework>
+    <!-- net9.0-windows: тесты машинного ключа используют DPAPI/DACL из eBackup.Security -->
+    <TargetFramework>net9.0-windows</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <IsPackable>false</IsPackable>
@@ -23,6 +24,7 @@
     <ProjectReference Include="..\..\src\eBackup.Storage.Sftp\eBackup.Storage.Sftp.csproj" />
     <ProjectReference Include="..\..\src\eBackup.Modules.Obs\eBackup.Modules.Obs.csproj" />
     <ProjectReference Include="..\..\src\eBackup.Storage\eBackup.Storage.csproj" />
+    <ProjectReference Include="..\..\src\eBackup.Security\eBackup.Security.csproj" />
   </ItemGroup>
 
 </Project>
