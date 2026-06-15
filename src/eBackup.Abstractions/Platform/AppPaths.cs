@@ -20,6 +20,10 @@ public static class AppPaths
     public static string Documents => Path.Combine(
         Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments), AppFolderName);
 
+    // Машинный (не per-user) корень — нужен службе под SYSTEM (1.2).
+    public static string ProgramData => Path.Combine(
+        Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData), AppFolderName);
+
     // --- Roaming (%APPDATA%\eBackup) ---
     public static string SettingsFile        => Path.Combine(Roaming, "settings.json");
     public static string CustomFoldersFile   => Path.Combine(Roaming, "custom-folders.json");
@@ -37,4 +41,12 @@ public static class AppPaths
     // --- Documents\eBackup (дефолтные дата-папки) ---
     public static string DefaultAssetsDir  => Path.Combine(Documents, "Assets");
     public static string DefaultBackupsDir => Path.Combine(Documents, "Backups");
+
+    // --- Машинный ключ (%ProgramData%\eBackup\keys, 1.2) ---
+    // Папка с born-locked DACL (SYSTEM+Администраторы) — создаётся привилегированно.
+    public static string KeysDir        => Path.Combine(ProgramData, "keys");
+    public static string MachineKeyFile => Path.Combine(KeysDir, "machine.key");
+
+    /// <summary>Папки, которые движок НИКОГДА не бэкапит (тул не должен архивировать свой ключ).</summary>
+    public static IReadOnlyList<string> SecretBackupExclusions => [KeysDir];
 }
