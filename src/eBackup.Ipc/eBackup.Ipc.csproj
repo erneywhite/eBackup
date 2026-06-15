@@ -1,0 +1,15 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <!-- net9.0-windows: серверная часть использует PipeSecurity/WindowsIdentity (только Windows) -->
+    <TargetFramework>net9.0-windows</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- Только Abstractions: контракт DTO не зависит от Core/Storage/Security -->
+    <ProjectReference Include="..\eBackup.Abstractions\eBackup.Abstractions.csproj" />
+  </ItemGroup>
+
+</Project>
