@@ -39,21 +39,22 @@ public sealed class IpcWorker : BackgroundService
             new BuiltInModuleSource([new ObsBackupModule()]), // OBS читает per-user конфиг — под службой ограничен (нужен profile-context, отложено)
             new DeclarativeModuleSource(AppPaths.MachineModulesDir),
         ], disabledConfigPath: AppPaths.MachineDisabledModulesFile);
+        // Машинный ключ (служба = SYSTEM, создаёт/читает его в ProgramData) + конфиг хранилищ.
+        var machineProtector = new MachineKeyProtector(new MachineKeyStore());
+        var storages = new StorageStore(machineProtector, AppPaths.MachineStoragesFile,
+            Path.Combine(AppPaths.MachineConfigDir, "connections.json")); // legacy-путь машинный → авто-миграция per-user не сработает
+
         var folders = new CustomFolderStore(); // реестр «своих папок» (ProgramData) — общий для бэкапа и IPC
         var runner = new BackupRunner(
             ids => registry.LoadEnabled().Where(m => ids.Contains(m.Id)).ToList(),
-            resolveFolders: ids => ids.Where(folders.Contains).ToList()); // бэкапим только зарегистрированные
+            resolveFolders: ids => ids.Where(folders.Contains).ToList(), // бэкапим только зарегистрированные
+            storages: storages);                                          // заливка/verify/retention на выбранные хранилища
         var historyWriter = new JobHistoryWriter(history);
 
         await using var jobs = new JobManager(
             runner,
             channelFactory: runId => new JobChannel(history, runId),
             onStateChanged: historyWriter.OnStateChanged);
-
-        // Машинный ключ (служба = SYSTEM, создаёт/читает его в ProgramData) + конфиг хранилищ.
-        var machineProtector = new MachineKeyProtector(new MachineKeyStore());
-        var storages = new StorageStore(machineProtector, AppPaths.MachineStoragesFile,
-            Path.Combine(AppPaths.MachineConfigDir, "connections.json")); // legacy-путь машинный → авто-миграция per-user не сработает
 
         var build = Assembly.GetExecutingAssembly().GetName().Version?.ToString(3) ?? "0.0.0";
         var handlers = new ServiceHandlers(jobs, history, registry, storages, Guid.NewGuid().ToString("N"), build, folders);

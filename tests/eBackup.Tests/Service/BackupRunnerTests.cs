@@ -9,7 +9,9 @@ using eBackup.Core.Abstractions;
 using eBackup.Core.History;
 using eBackup.Core.Model;
 using eBackup.Ipc.Contracts;
+using eBackup.Security;
 using eBackup.Service.Jobs;
+using eBackup.Storage;
 using Xunit;
 
 namespace eBackup.Tests.Service;
@@ -93,6 +95,36 @@ public class BackupRunnerTests : IDisposable
         Assert.True(outcome.SizeBytes > 0);
         using var zip = ZipFile.OpenRead(Path.Combine(buildDir, outcome.ArchiveName!));
         Assert.Contains(zip.Entries, e => e.FullName.Contains("doc.txt"));
+    }
+
+    [Fact]
+    public async Task Uploads_And_Verifies_To_Local_Folder_Storage()
+    {
+        var src = Path.Combine(_root, "myfolder");
+        Directory.CreateDirectory(src);
+        await File.WriteAllTextAsync(Path.Combine(src, "doc.txt"), "hi");
+
+        var remote = Path.Combine(_root, "remote"); // «хранилище» — локальная папка-назначение
+        Directory.CreateDirectory(remote);
+
+        var history = new HistoryStore(Path.Combine(_root, "hist"));
+        var buildDir = Path.Combine(_root, "build");
+
+        var store = new StorageStore(
+            new MachineKeyProtector(new MachineKeyStore(Path.Combine(_root, "key", "machine.key"))),
+            Path.Combine(_root, "cfg", "storages.json"), Path.Combine(_root, "cfg", "connections.json"));
+        await store.SaveAllAsync(
+            [new SavedStorage { Id = "dest", Name = "Папка", Kind = StorageKind.LocalFolder, Path = remote }]);
+
+        var runner = new BackupRunner(_ => [], buildDir, resolveFolders: ids => ids.ToList(), storages: store);
+
+        var job = MakeJob(
+            new StartBackupRequest { CustomFolderIds = [src], TargetStorageIds = ["dest"] }, history);
+        var outcome = await runner.RunAsync(job, CancellationToken.None);
+
+        Assert.True(outcome.Success);
+        Assert.True(File.Exists(Path.Combine(remote, outcome.ArchiveName!)));   // архив залит в хранилище
+        Assert.False(File.Exists(Path.Combine(buildDir, outcome.ArchiveName!))); // временную сборку убрали
     }
 
     [Fact]

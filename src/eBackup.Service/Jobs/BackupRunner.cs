@@ -1,6 +1,8 @@
 using System.IO.Compression;
+using System.Security.Cryptography;
 using eBackup.Core.Abstractions;
 using eBackup.Core.Engine;
+using eBackup.Storage;
 
 namespace eBackup.Service.Jobs;
 
@@ -11,23 +13,27 @@ namespace eBackup.Service.Jobs;
 /// подробный лог в журнал истории (seq-строки). Читает источники как есть (служба под SYSTEM —
 /// в этом смысл, граница безопасности на стороне доверенных модулей/папок).
 ///
-/// S4c-3a: только ЛОКАЛЬНАЯ сборка .ebk без шифрования. Аплоад/verify/retention на хранилища и
-/// шифрование переедут сюда позже — им нужны секреты под машинным ключом (активация на S7).
+/// Сборка .ebk → заливка на выбранные хранилища (по id из машинного конфига) с верификацией и
+/// retention. Если хранилища не выбраны — архив остаётся в build-папке (локальный режим).
+/// Шифрование архива пока выключено (passphrase=null) — активация на S7 (машинный ключ).
 /// </summary>
 public sealed class BackupRunner : IJobRunner
 {
     private readonly Func<IReadOnlyList<string>, IReadOnlyList<IBackupModule>> _resolveModules;
     private readonly Func<IReadOnlyList<string>, IReadOnlyList<string>>? _resolveFolders;
+    private readonly StorageStore? _storages;   // машинный конфиг хранилищ (null в тестах сборки = локальный режим)
     private readonly string _buildDir;
 
     public BackupRunner(
         Func<IReadOnlyList<string>, IReadOnlyList<IBackupModule>> resolveModules,
         string? buildDir = null,
-        Func<IReadOnlyList<string>, IReadOnlyList<string>>? resolveFolders = null)
+        Func<IReadOnlyList<string>, IReadOnlyList<string>>? resolveFolders = null,
+        StorageStore? storages = null)
     {
         _resolveModules = resolveModules;
         _buildDir = buildDir ?? Path.Combine(Path.GetTempPath(), "eBackup", "build");
         _resolveFolders = resolveFolders;
+        _storages = storages;
     }
 
     public async Task<JobOutcome> RunAsync(Job job, CancellationToken ct)
@@ -68,7 +74,126 @@ public sealed class BackupRunner : IJobRunner
             .ConfigureAwait(false);
 
         var size = new FileInfo(archive).Length;
-        Log($"Готово: {Path.GetFileName(archive)} — {size} байт, пропущено файлов: {engine.LastSkippedCount}");
-        return new JobOutcome(true, engine.LastSkippedCount, size, Path.GetFileName(archive), null);
+        var archiveName = Path.GetFileName(archive);
+        Log($"Архив собран: {archiveName} — {Mb(size)} МБ, пропущено файлов: {engine.LastSkippedCount}");
+
+        var targetIds = job.Request.TargetStorageIds;
+        if (_storages is null || targetIds.Length == 0)
+        {
+            // Локальный режим: хранилища не выбраны — оставляем архив в build-папке.
+            Log("Хранилища не выбраны — архив сохранён локально.");
+            return new JobOutcome(true, engine.LastSkippedCount, size, archiveName, null);
+        }
+
+        // Заливка на выбранные хранилища (порядок — как у пользователя в запросе) + верификация + retention.
+        var all = await _storages.LoadAsync(ct).ConfigureAwait(false);
+        var targets = targetIds
+            .Select(id => all.FirstOrDefault(s => s.Id == id))
+            .Where(s => s is not null).Select(s => s!)
+            .ToList();
+        var missing = targetIds.Length - targets.Count;
+        if (missing > 0) Log($"⚠ Пропущено хранилищ (не найдены в конфиге службы): {missing}");
+
+        var done = new List<string>();
+        var failed = new List<string>();
+        var retention = job.Request.RetentionCount ?? 0;
+        string? localSha = null;
+        var step = 0;
+
+        foreach (var target in targets)
+        {
+            ct.ThrowIfCancellationRequested();
+            sink.Phase($"Сохраняю в «{target.Name}»…", 0);
+            Log($"«{target.Name}»: заливаю…");
+            try
+            {
+                // Для локальной папки честно отказываемся ДО заливки, если место не влезает.
+                if (target.Kind == StorageKind.LocalFolder && target.Path is { } tp
+                    && TryFreeBytes(tp, out var free) && free < size)
+                    throw new IOException($"недостаточно места: нужно {Mb(size)} МБ, свободно {Mb(free)} МБ");
+
+                var storage = StorageFactory.Create(target, _storages.Protector);
+                await storage.UploadAsync(archive, archiveName, ct).ConfigureAwait(false);
+
+                // Верификация: файл появился в листинге с верным размером; для папок — ещё сверка SHA-256.
+                var files = await storage.ListDetailedAsync(ct).ConfigureAwait(false);
+                var remote = files.FirstOrDefault(f => f.Name == archiveName);
+                if (remote is null)
+                    throw new IOException("верификация: файл не появился в листинге после заливки");
+                if (remote.Length > 0 && remote.Length != size)
+                    throw new IOException($"верификация: размер не совпал (локально {size} Б, в хранилище {remote.Length} Б)");
+
+                if (storage is FolderStorage folder)
+                {
+                    localSha ??= await Task.Run(() => Sha256(archive), ct).ConfigureAwait(false);
+                    var copySha = await Task.Run(() => Sha256(folder.GetLocalPath(archiveName)), ct).ConfigureAwait(false);
+                    if (!copySha.Equals(localSha, StringComparison.OrdinalIgnoreCase))
+                        throw new IOException("верификация: SHA-256 копии не совпал с архивом");
+                    Log($"«{target.Name}»: верификация ✓ SHA-256 копии совпадает");
+                }
+                else
+                {
+                    Log(remote.Length > 0
+                        ? $"«{target.Name}»: верификация ✓ размер совпадает ({Mb(remote.Length)} МБ)"
+                        : $"«{target.Name}»: верификация — хранилище не сообщает размер, сверка пропущена");
+                }
+
+                done.Add(target.Name);
+
+                // Retention по ГРУППАМ (набор модулей закодирован в имени): «последние N» в своей группе.
+                if (retention > 0)
+                {
+                    var groupKey = BackupNaming.RetentionGroupKey(archiveName);
+                    var sameGroup = files
+                        .Where(f => BackupNaming.RetentionGroupKey(f.Name) == groupKey)
+                        .OrderByDescending(f => f.LastWriteTime)
+                        .ToList();
+                    foreach (var old in sameGroup.Skip(retention))
+                    {
+                        await storage.DeleteAsync(old.Name, ct).ConfigureAwait(false);
+                        Log($"«{target.Name}»: retention (группа {groupKey}) — удалил {old.Name}");
+                    }
+                }
+            }
+            catch (OperationCanceledException)
+            {
+                throw; // отмена — не ошибка цели, пробрасываем наверх
+            }
+            catch (Exception ex)
+            {
+                failed.Add($"{target.Name}: {ex.Message}");
+                Log($"«{target.Name}»: ✕ {ex.Message}");
+            }
+            sink.Phase("Заливка…", (double)(++step) / targets.Count);
+        }
+
+        try { File.Delete(archive); } catch { /* temp build */ }
+
+        var ok = failed.Count == 0;
+        var error = ok ? null : string.Join("; ", failed);
+        Log(ok ? $"Готово → {string.Join(", ", done)}" : $"Завершено с ошибками: {error}");
+        return new JobOutcome(ok, engine.LastSkippedCount, size, archiveName, error);
+    }
+
+    private static string Mb(long bytes) => (bytes / 1024.0 / 1024.0).ToString("0.#");
+
+    private static string Sha256(string path)
+    {
+        using var sha = SHA256.Create();
+        using var fs = File.OpenRead(path);
+        return Convert.ToHexString(sha.ComputeHash(fs));
+    }
+
+    private static bool TryFreeBytes(string path, out long free)
+    {
+        free = 0;
+        try
+        {
+            var root = Path.GetPathRoot(Path.GetFullPath(path));
+            if (string.IsNullOrEmpty(root)) return false; // UNC и т.п. — проверку пропускаем
+            free = new DriveInfo(root).AvailableFreeSpace;
+            return true;
+        }
+        catch { return false; }
     }
 }
