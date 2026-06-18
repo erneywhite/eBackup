@@ -33,6 +33,8 @@ namespace eBackup.Ipc.Contracts;
 [JsonSerializable(typeof(ScheduleInput))]
 [JsonSerializable(typeof(SetModuleEnabledRequest))]
 [JsonSerializable(typeof(InstallModuleRequest))]
+[JsonSerializable(typeof(UpsertCustomFolderRequest))]
+[JsonSerializable(typeof(string[]))]
 [JsonSerializable(typeof(ListHistoryRequest))]
 [JsonSerializable(typeof(GetRunLogRequest))]
 [JsonSerializable(typeof(GetRunLogResponse))]

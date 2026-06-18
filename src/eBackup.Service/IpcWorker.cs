@@ -39,8 +39,10 @@ public sealed class IpcWorker : BackgroundService
             new BuiltInModuleSource([new ObsBackupModule()]), // OBS читает per-user конфиг — под службой ограничен (нужен profile-context, отложено)
             new DeclarativeModuleSource(AppPaths.MachineModulesDir),
         ], disabledConfigPath: AppPaths.MachineDisabledModulesFile);
+        var folders = new CustomFolderStore(); // реестр «своих папок» (ProgramData) — общий для бэкапа и IPC
         var runner = new BackupRunner(
-            ids => registry.LoadEnabled().Where(m => ids.Contains(m.Id)).ToList());
+            ids => registry.LoadEnabled().Where(m => ids.Contains(m.Id)).ToList(),
+            resolveFolders: ids => ids.Where(folders.Contains).ToList()); // бэкапим только зарегистрированные
         var historyWriter = new JobHistoryWriter(history);
 
         await using var jobs = new JobManager(
@@ -54,7 +56,7 @@ public sealed class IpcWorker : BackgroundService
             Path.Combine(AppPaths.MachineConfigDir, "connections.json")); // legacy-путь машинный → авто-миграция per-user не сработает
 
         var build = Assembly.GetExecutingAssembly().GetName().Version?.ToString(3) ?? "0.0.0";
-        var handlers = new ServiceHandlers(jobs, history, registry, storages, Guid.NewGuid().ToString("N"), build);
+        var handlers = new ServiceHandlers(jobs, history, registry, storages, Guid.NewGuid().ToString("N"), build, folders);
         var jobStream = new JobStreamAdapter(jobs);
 
         _log.LogInformation(@"eBackup IPC: accept-цикл на \\.\pipe\{Pipe} (build {Build})",

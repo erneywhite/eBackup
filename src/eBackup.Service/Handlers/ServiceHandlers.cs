@@ -17,16 +17,18 @@ public sealed class ServiceHandlers : IIpcHandlers
     private readonly Core.History.HistoryStore _history;
     private readonly ModuleRegistry _registry;
     private readonly StorageStore _storages;   // машинный конфиг хранилищ (машинный ключ, ProgramData)
+    private readonly CustomFolderStore _folders; // реестр «своих папок» (ProgramData)
     private readonly string _instanceId;
     private readonly string _build;
 
     public ServiceHandlers(JobManager jobs, Core.History.HistoryStore history, ModuleRegistry registry,
-        StorageStore storages, string instanceId, string build)
+        StorageStore storages, string instanceId, string build, CustomFolderStore? folders = null)
     {
         _jobs = jobs;
         _history = history;
         _registry = registry;
         _storages = storages;
+        _folders = folders ?? new CustomFolderStore();
         _instanceId = instanceId;
         _build = build;
     }
@@ -116,6 +118,25 @@ public sealed class ServiceHandlers : IIpcHandlers
 
     public Task<Ack> InstallModuleAsync(InstallModuleRequest req, CallerContext caller, CancellationToken ct)
         => throw new IpcFaultException(IpcErrorCodes.Unsupported, "Установка модулей через службу (admin-only) — позже.");
+
+    // ---- «свои папки» (реестр в ProgramData; бэкап включает только зарегистрированные) ----
+
+    public Task<string[]> ListCustomFoldersAsync(CallerContext caller, CancellationToken ct)
+        => Task.FromResult(_folders.List().ToArray());
+
+    public Task<Ack> UpsertCustomFolderAsync(UpsertCustomFolderRequest req, CallerContext caller, CancellationToken ct)
+    {
+        if (string.IsNullOrWhiteSpace(req.Path))
+            throw new IpcFaultException(IpcErrorCodes.BadRequest, "Пустой путь папки.");
+        _folders.Upsert(req.Path);
+        return Task.FromResult(new Ack());
+    }
+
+    public Task<Ack> DeleteCustomFolderAsync(DeleteByIdRequest req, CallerContext caller, CancellationToken ct)
+    {
+        _folders.Remove(req.Id);
+        return Task.FromResult(new Ack());
+    }
 
     // ---- хранилища (машинный конфиг, секреты под машинным ключом) ----
 

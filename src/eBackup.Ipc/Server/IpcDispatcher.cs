@@ -45,6 +45,10 @@ public static class IpcDispatcher
                 IpcOps.SetModuleEnabled => Resp(req.Id, await h.SetModuleEnabledAsync(Decode(req, Ctx.SetModuleEnabledRequest), caller, ct), Ctx.Ack),
                 IpcOps.InstallModule => Resp(req.Id, await h.InstallModuleAsync(Decode(req, Ctx.InstallModuleRequest), caller, ct), Ctx.Ack),
 
+                IpcOps.ListCustomFolders => Resp(req.Id, await h.ListCustomFoldersAsync(caller, ct), Ctx.StringArray),
+                IpcOps.UpsertCustomFolder => Resp(req.Id, await h.UpsertCustomFolderAsync(Decode(req, Ctx.UpsertCustomFolderRequest), caller, ct), Ctx.Ack),
+                IpcOps.DeleteCustomFolder => Resp(req.Id, await h.DeleteCustomFolderAsync(Decode(req, Ctx.DeleteByIdRequest), caller, ct), Ctx.Ack),
+
                 IpcOps.ListHistory => Resp(req.Id, await h.ListHistoryAsync(Decode(req, Ctx.ListHistoryRequest), caller, ct), Ctx.BackupRunRecordDtoArray),
                 IpcOps.GetRunLog => Resp(req.Id, await h.GetRunLogAsync(Decode(req, Ctx.GetRunLogRequest), caller, ct), Ctx.GetRunLogResponse),
 

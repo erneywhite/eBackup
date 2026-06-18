@@ -52,6 +52,9 @@ public sealed class InMemoryHandlers : IIpcHandlers
     public Task<ModuleSummary[]> ListModulesAsync(CallerContext caller, CancellationToken ct) => Task.FromResult(Array.Empty<ModuleSummary>());
     public Task<Ack> SetModuleEnabledAsync(SetModuleEnabledRequest req, CallerContext caller, CancellationToken ct) => Task.FromResult(new Ack());
     public Task<Ack> InstallModuleAsync(InstallModuleRequest req, CallerContext caller, CancellationToken ct) => Task.FromResult(new Ack());
+    public Task<string[]> ListCustomFoldersAsync(CallerContext caller, CancellationToken ct) => Task.FromResult(Array.Empty<string>());
+    public Task<Ack> UpsertCustomFolderAsync(UpsertCustomFolderRequest req, CallerContext caller, CancellationToken ct) => Task.FromResult(new Ack());
+    public Task<Ack> DeleteCustomFolderAsync(DeleteByIdRequest req, CallerContext caller, CancellationToken ct) => Task.FromResult(new Ack());
     public Task<BackupRunRecordDto[]> ListHistoryAsync(ListHistoryRequest req, CallerContext caller, CancellationToken ct) => Task.FromResult(Array.Empty<BackupRunRecordDto>());
     public Task<GetRunLogResponse> GetRunLogAsync(GetRunLogRequest req, CallerContext caller, CancellationToken ct) => Task.FromResult(new GetRunLogResponse());
 }

@@ -142,6 +142,15 @@ public sealed class IpcClient : IDisposable
     public Task<ModuleSummary[]> ListModulesAsync(CancellationToken ct = default)
         => RequestNoBodyAsync(IpcOps.ListModules, Ctx.ModuleSummaryArray, ct);
 
+    public Task<string[]> ListCustomFoldersAsync(CancellationToken ct = default)
+        => RequestNoBodyAsync(IpcOps.ListCustomFolders, Ctx.StringArray, ct);
+
+    public Task<Ack> UpsertCustomFolderAsync(string path, CancellationToken ct = default)
+        => RequestAsync(IpcOps.UpsertCustomFolder, new UpsertCustomFolderRequest { Path = path }, Ctx.UpsertCustomFolderRequest, Ctx.Ack, ct);
+
+    public Task<Ack> DeleteCustomFolderAsync(string path, CancellationToken ct = default)
+        => RequestAsync(IpcOps.DeleteCustomFolder, new DeleteByIdRequest { Id = path }, Ctx.DeleteByIdRequest, Ctx.Ack, ct);
+
     public Task<BackupRunRecordDto[]> ListHistoryAsync(int limit = 100, CancellationToken ct = default)
         => RequestAsync(IpcOps.ListHistory, new ListHistoryRequest { Limit = limit }, Ctx.ListHistoryRequest, Ctx.BackupRunRecordDtoArray, ct);
 

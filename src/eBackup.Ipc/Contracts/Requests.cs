@@ -25,6 +25,9 @@ public static class IpcOps
     public const string ListModules = "listModules";
     public const string SetModuleEnabled = "setModuleEnabled";
     public const string InstallModule = "installModule";
+    public const string ListCustomFolders = "listCustomFolders";
+    public const string UpsertCustomFolder = "upsertCustomFolder";
+    public const string DeleteCustomFolder = "deleteCustomFolder";
     public const string ListHistory = "listHistory";
     public const string GetRunLog = "getRunLog";
 }
@@ -101,6 +104,9 @@ public sealed record ScheduleInput
 
 public sealed record SetModuleEnabledRequest { public string Id { get; init; } = ""; public bool Enabled { get; init; } }
 public sealed record InstallModuleRequest { public string? CatalogRef { get; init; } public string? DeclarativeJson { get; init; } }
+
+/// <summary>Зарегистрировать «свою папку» (id = путь). Удаление — через DeleteByIdRequest (Id = путь).</summary>
+public sealed record UpsertCustomFolderRequest { public string Path { get; init; } = ""; }
 
 public sealed record ListHistoryRequest { public int Limit { get; init; } = 100; }
 public sealed record GetRunLogRequest { public string RunId { get; init; } = ""; public long FromSeq { get; init; } public int MaxLines { get; init; } = 500; }

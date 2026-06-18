@@ -31,6 +31,10 @@ public interface IIpcHandlers
     Task<Ack> SetModuleEnabledAsync(SetModuleEnabledRequest req, CallerContext caller, CancellationToken ct);
     Task<Ack> InstallModuleAsync(InstallModuleRequest req, CallerContext caller, CancellationToken ct);
 
+    Task<string[]> ListCustomFoldersAsync(CallerContext caller, CancellationToken ct);
+    Task<Ack> UpsertCustomFolderAsync(UpsertCustomFolderRequest req, CallerContext caller, CancellationToken ct);
+    Task<Ack> DeleteCustomFolderAsync(DeleteByIdRequest req, CallerContext caller, CancellationToken ct);
+
     Task<BackupRunRecordDto[]> ListHistoryAsync(ListHistoryRequest req, CallerContext caller, CancellationToken ct);
     Task<GetRunLogResponse> GetRunLogAsync(GetRunLogRequest req, CallerContext caller, CancellationToken ct);
 }
