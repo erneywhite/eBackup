@@ -17,14 +17,17 @@ namespace eBackup.Service.Jobs;
 public sealed class BackupRunner : IJobRunner
 {
     private readonly Func<IReadOnlyList<string>, IReadOnlyList<IBackupModule>> _resolveModules;
+    private readonly Func<IReadOnlyList<string>, IReadOnlyList<string>>? _resolveFolders;
     private readonly string _buildDir;
 
     public BackupRunner(
         Func<IReadOnlyList<string>, IReadOnlyList<IBackupModule>> resolveModules,
-        string? buildDir = null)
+        string? buildDir = null,
+        Func<IReadOnlyList<string>, IReadOnlyList<string>>? resolveFolders = null)
     {
         _resolveModules = resolveModules;
         _buildDir = buildDir ?? Path.Combine(Path.GetTempPath(), "eBackup", "build");
+        _resolveFolders = resolveFolders;
     }
 
     public async Task<JobOutcome> RunAsync(Job job, CancellationToken ct)
@@ -32,15 +35,17 @@ public sealed class BackupRunner : IJobRunner
         var sink = job.Channel;            // прогресс/лог идут в шину задачи (журнал + живые подписчики)
         void Log(string m) => sink.Log(m);
 
-        var modules = _resolveModules(job.Request.ModuleIds);
-        if (modules.Count == 0)
+        var allModules = new List<IBackupModule>(_resolveModules(job.Request.ModuleIds));
+        var folders = _resolveFolders?.Invoke(job.Request.CustomFolderIds) ?? [];
+        if (folders.Count > 0) allModules.Add(new CustomFoldersModule(folders));
+        if (allModules.Count == 0)
         {
-            Log("Бэкап отменён: не найдено ни одного модуля по заданным id.");
-            return new JobOutcome(false, 0, 0, null, "Не выбрано ни одного модуля.");
+            Log("Бэкап отменён: не выбрано ни модулей, ни папок.");
+            return new JobOutcome(false, 0, 0, null, "Не выбрано ни модулей, ни папок.");
         }
 
         Directory.CreateDirectory(_buildDir);
-        var name = BackupNaming.DefaultName(modules,
+        var name = BackupNaming.DefaultName(allModules,
             machineTag: job.Request.IncludeMachineName ? Environment.MachineName : null);
         var compression = job.Request.CompressionMode switch
         {
@@ -50,7 +55,7 @@ public sealed class BackupRunner : IJobRunner
         };
 
         Log($"Запуск: {job.Trigger}");
-        Log("Модули: " + string.Join(", ", modules.Select(m => m.Id)));
+        Log("В бэкапе: " + string.Join(", ", allModules.Select(m => m.Id)));
 
         var engine = new BackupEngine();
         // Крупные фазы → Phase-ноты (живой прогресс); реальная доля прогресса — позже.
@@ -58,7 +63,7 @@ public sealed class BackupRunner : IJobRunner
         // Источники резолвим в профиль ВЫЗВАВШЕГО пользователя (служба под SYSTEM), а не системный.
         var resolveSource = new UserProfilePaths(job.OwnerSid).Resolve;
         var archive = await engine.CreateBackupAsync(
-            modules, _buildDir, name, passphrase: null,
+            allModules, _buildDir, name, passphrase: null,
             progress: progress, compression: compression, log: Log, resolveSource: resolveSource, ct: ct)
             .ConfigureAwait(false);
 

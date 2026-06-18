@@ -1,6 +1,8 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.IO.Compression;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using eBackup.Core.Abstractions;
@@ -70,6 +72,27 @@ public class BackupRunnerTests : IDisposable
 
         // В журнал что-то записалось (seq-строки доступны).
         Assert.NotEmpty(history.ReadLogFromSeq(job.RunId, 0, 100));
+    }
+
+    [Fact]
+    public async Task Backs_Up_Custom_Folders()
+    {
+        var src = Path.Combine(_root, "myfolder");
+        Directory.CreateDirectory(src);
+        await File.WriteAllTextAsync(Path.Combine(src, "doc.txt"), "hi");
+
+        var history = new HistoryStore(Path.Combine(_root, "hist"));
+        var buildDir = Path.Combine(_root, "build");
+        // модулей нет; резолвер папок — тождественный (id == путь)
+        var runner = new BackupRunner(_ => [], buildDir, resolveFolders: ids => ids.ToList());
+
+        var job = MakeJob(new StartBackupRequest { CustomFolderIds = [src] }, history);
+        var outcome = await runner.RunAsync(job, CancellationToken.None);
+
+        Assert.True(outcome.Success);
+        Assert.True(outcome.SizeBytes > 0);
+        using var zip = ZipFile.OpenRead(Path.Combine(buildDir, outcome.ArchiveName!));
+        Assert.Contains(zip.Entries, e => e.FullName.Contains("doc.txt"));
     }
 
     [Fact]
