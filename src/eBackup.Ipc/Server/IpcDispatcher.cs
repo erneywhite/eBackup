@@ -74,10 +74,10 @@ public static class IpcDispatcher
             ?? throw new IpcFaultException(IpcErrorCodes.BadRequest, "Пустое тело запроса.");
     }
 
-    private static Frame Resp<T>(string? id, T value, JsonTypeInfo<T> ti)
+    internal static Frame Resp<T>(string? id, T value, JsonTypeInfo<T> ti)
         => new() { Kind = FrameKinds.Resp, Id = id, Body = JsonSerializer.SerializeToElement(value, ti) };
 
-    private static Frame Fault(string? id, string code, string message, bool retryable = false)
+    internal static Frame Fault(string? id, string code, string message, bool retryable = false)
         => new()
         {
             Kind = FrameKinds.Fault,

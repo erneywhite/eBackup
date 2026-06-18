@@ -1,6 +1,8 @@
 using System.Collections.Concurrent;
+using System.Runtime.CompilerServices;
 using System.Text.Json;
 using System.Text.Json.Serialization.Metadata;
+using System.Threading.Channels;
 using eBackup.Ipc.Contracts;
 using eBackup.Ipc.Transport;
 
@@ -20,7 +22,9 @@ public sealed class IpcClient : IDisposable
     private readonly FrameReader _reader;
     private readonly FrameWriter _writer;
     private readonly ConcurrentDictionary<string, TaskCompletionSource<Frame>> _pending = new();
+    private readonly ConcurrentDictionary<string, Channel<Frame>> _noteSubs = new(); // jobId → живой поток нот
     private readonly CancellationTokenSource _cts = new();
+    private static readonly HashSet<string> TerminalStates = ["Completed", "CompletedWithErrors", "Failed", "Cancelled"];
     private int _idCounter;
     private Task? _readLoop;
     private bool _disposed;
@@ -55,7 +59,12 @@ public sealed class IpcClient : IDisposable
                 {
                     tcs.TrySetResult(frame);
                 }
-                // note-фреймы: игнорируем до S4d (стриминг прогресса)
+                else if (frame.Kind == FrameKinds.Note && frame.Body is { } body
+                    && body.TryGetProperty("jobId", out var jid) && jid.GetString() is { } jobId
+                    && _noteSubs.TryGetValue(jobId, out var noteCh))
+                {
+                    noteCh.Writer.TryWrite(frame);
+                }
             }
         }
         catch
@@ -113,6 +122,49 @@ public sealed class IpcClient : IDisposable
 
     public Task<JobStatus> GetJobAsync(GetJobRequest req, CancellationToken ct = default)
         => RequestAsync(IpcOps.GetJob, req, Ctx.GetJobRequest, Ctx.JobStatus, ct);
+
+    /// <summary>
+    /// Подписаться на живой прогресс задачи: отдаёт note-фреймы (Phase/Log/State) — бэклог,
+    /// затем живые — и завершается, когда придёт нота терминального состояния. Op фрейма —
+    /// тип ноты (<see cref="IpcNotes"/>), тело декодируется вызывающим по op.
+    /// </summary>
+    public async IAsyncEnumerable<Frame> AttachToJobAsync(
+        string jobId, long fromSeq = 0, [EnumeratorCancellation] CancellationToken ct = default)
+    {
+        var ch = Channel.CreateUnbounded<Frame>(new UnboundedChannelOptions { SingleReader = true });
+        _noteSubs[jobId] = ch;
+        try
+        {
+            // Регистрируем канал ДО запроса — ноты, пришедшие сразу после AttachAck, не потеряются.
+            await RequestAsync(IpcOps.AttachToJob, new AttachRequest { JobId = jobId, FromSeq = fromSeq },
+                Ctx.AttachRequest, Ctx.AttachAck, ct).ConfigureAwait(false);
+
+            await foreach (var f in ch.Reader.ReadAllAsync(ct).ConfigureAwait(false))
+            {
+                yield return f;
+                if (IsTerminalNote(f)) yield break; // задача завершилась — поток окончен
+            }
+        }
+        finally
+        {
+            _noteSubs.TryRemove(jobId, out _);
+            _ = DetachQuietlyAsync(jobId);
+        }
+    }
+
+    private async Task DetachQuietlyAsync(string jobId)
+    {
+        try
+        {
+            await RequestAsync(IpcOps.DetachFromJob, new DetachRequest { JobId = jobId },
+                Ctx.DetachRequest, Ctx.Ack, _cts.Token).ConfigureAwait(false);
+        }
+        catch { /* best-effort: сервер всё равно погасит насос при закрытии соединения */ }
+    }
+
+    private static bool IsTerminalNote(Frame f)
+        => f.Op == IpcNotes.State && f.Body is { } b
+           && b.TryGetProperty("state", out var s) && TerminalStates.Contains(s.GetString() ?? "");
 
     public void Dispose()
     {
