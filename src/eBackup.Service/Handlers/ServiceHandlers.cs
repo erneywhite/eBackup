@@ -1,6 +1,9 @@
+using System.Text.Json;
+using eBackup.Core.Model;
 using eBackup.Core.Modules;
 using eBackup.Ipc.Contracts;
 using eBackup.Ipc.Server;
+using eBackup.Platform;
 using eBackup.Service.Jobs;
 using eBackup.Storage;
 
@@ -18,17 +21,20 @@ public sealed class ServiceHandlers : IIpcHandlers
     private readonly ModuleRegistry _registry;
     private readonly StorageStore _storages;   // машинный конфиг хранилищ (машинный ключ, ProgramData)
     private readonly CustomFolderStore _folders; // реестр «своих папок» (ProgramData)
+    private readonly string _modulesDir;         // куда InstallModule пишет *.module.json (ProgramData)
     private readonly string _instanceId;
     private readonly string _build;
 
     public ServiceHandlers(JobManager jobs, Core.History.HistoryStore history, ModuleRegistry registry,
-        StorageStore storages, string instanceId, string build, CustomFolderStore? folders = null)
+        StorageStore storages, string instanceId, string build,
+        CustomFolderStore? folders = null, string? modulesDir = null)
     {
         _jobs = jobs;
         _history = history;
         _registry = registry;
         _storages = storages;
         _folders = folders ?? new CustomFolderStore();
+        _modulesDir = modulesDir ?? AppPaths.MachineModulesDir;
         _instanceId = instanceId;
         _build = build;
     }
@@ -110,6 +116,14 @@ public sealed class ServiceHandlers : IIpcHandlers
                 Problem = d.Problem,
             }).ToArray());
 
+    public async Task<ModuleEntryDto[]> DiscoverModuleAsync(DiscoverModuleRequest req, CallerContext caller, CancellationToken ct)
+    {
+        var d = _registry.Discover().FirstOrDefault(x => x.Id == req.Id);
+        if (d?.Instance is null) return [];
+        var entries = await d.Instance.DiscoverAsync(ct).ConfigureAwait(false);
+        return entries.Select(e => new ModuleEntryDto { TokenPath = e.TokenPath, Type = e.Type.ToString() }).ToArray();
+    }
+
     public Task<Ack> SetModuleEnabledAsync(SetModuleEnabledRequest req, CallerContext caller, CancellationToken ct)
     {
         _registry.SetEnabled(req.Id, req.Enabled);
@@ -117,7 +131,32 @@ public sealed class ServiceHandlers : IIpcHandlers
     }
 
     public Task<Ack> InstallModuleAsync(InstallModuleRequest req, CallerContext caller, CancellationToken ct)
-        => throw new IpcFaultException(IpcErrorCodes.Unsupported, "Установка модулей через службу (admin-only) — позже.");
+    {
+        // Декларативный модуль: GUI присылает уже скачанный JSON (каталог/импорт), служба валидирует
+        // и пишет в свою папку модулей (ProgramData). CatalogRef-скачивание службой — не делаем (у GUI сеть).
+        if (string.IsNullOrWhiteSpace(req.DeclarativeJson))
+            throw new IpcFaultException(IpcErrorCodes.Unsupported, "Поддерживается только установка декларативного модуля (DeclarativeJson).");
+
+        DeclarativeModuleJson? parsed;
+        try { parsed = JsonSerializer.Deserialize<DeclarativeModuleJson>(req.DeclarativeJson, ManifestJson.Options); }
+        catch { throw new IpcFaultException(IpcErrorCodes.BadRequest, "Не удалось разобрать модуль."); }
+        if (parsed is null || !ModuleValidation.IsValidId(parsed.Id))
+            throw new IpcFaultException(IpcErrorCodes.BadRequest, "Некорректный id или формат модуля.");
+
+        Directory.CreateDirectory(_modulesDir);
+        File.WriteAllText(Path.Combine(_modulesDir, parsed.Id + ".module.json"), req.DeclarativeJson);
+        return Task.FromResult(new Ack());
+    }
+
+    public Task<Ack> DeleteModuleAsync(DeleteByIdRequest req, CallerContext caller, CancellationToken ct)
+    {
+        // Удаляем только ДЕКЛАРАТИВНЫЙ дескриптор (встроенные не трогаем) по его файлу-источнику.
+        var d = _registry.Discover().FirstOrDefault(
+            x => x.Id == req.Id && x.Source == ModuleSource.Declarative && x.Origin is not null);
+        if (d?.Origin is not null)
+            try { File.Delete(d.Origin); } catch { /* уже нет — не критично */ }
+        return Task.FromResult(new Ack());
+    }
 
     // ---- «свои папки» (реестр в ProgramData; бэкап включает только зарегистрированные) ----
 

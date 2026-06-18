@@ -171,6 +171,18 @@ public sealed class IpcClient : IDisposable
     public Task<ModuleSummary[]> ListModulesAsync(CancellationToken ct = default)
         => RequestNoBodyAsync(IpcOps.ListModules, Ctx.ModuleSummaryArray, ct);
 
+    public Task<ModuleEntryDto[]> DiscoverModuleAsync(string id, CancellationToken ct = default)
+        => RequestAsync(IpcOps.DiscoverModule, new DiscoverModuleRequest { Id = id }, Ctx.DiscoverModuleRequest, Ctx.ModuleEntryDtoArray, ct);
+
+    public Task<Ack> SetModuleEnabledAsync(string id, bool enabled, CancellationToken ct = default)
+        => RequestAsync(IpcOps.SetModuleEnabled, new SetModuleEnabledRequest { Id = id, Enabled = enabled }, Ctx.SetModuleEnabledRequest, Ctx.Ack, ct);
+
+    public Task<Ack> InstallModuleAsync(string declarativeJson, CancellationToken ct = default)
+        => RequestAsync(IpcOps.InstallModule, new InstallModuleRequest { DeclarativeJson = declarativeJson }, Ctx.InstallModuleRequest, Ctx.Ack, ct);
+
+    public Task<Ack> DeleteModuleAsync(string id, CancellationToken ct = default)
+        => RequestAsync(IpcOps.DeleteModule, new DeleteByIdRequest { Id = id }, Ctx.DeleteByIdRequest, Ctx.Ack, ct);
+
     public Task<string[]> ListCustomFoldersAsync(CancellationToken ct = default)
         => RequestNoBodyAsync(IpcOps.ListCustomFolders, Ctx.StringArray, ct);
 

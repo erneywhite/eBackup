@@ -54,8 +54,10 @@ public sealed class InMemoryHandlers : IIpcHandlers
     public Task<Ack> UpsertScheduleAsync(ScheduleInput req, CallerContext caller, CancellationToken ct) => Task.FromResult(new Ack());
     public Task<Ack> DeleteScheduleAsync(DeleteByIdRequest req, CallerContext caller, CancellationToken ct) => Task.FromResult(new Ack());
     public Task<ModuleSummary[]> ListModulesAsync(CallerContext caller, CancellationToken ct) => Task.FromResult(Array.Empty<ModuleSummary>());
+    public Task<ModuleEntryDto[]> DiscoverModuleAsync(DiscoverModuleRequest req, CallerContext caller, CancellationToken ct) => Task.FromResult(Array.Empty<ModuleEntryDto>());
     public Task<Ack> SetModuleEnabledAsync(SetModuleEnabledRequest req, CallerContext caller, CancellationToken ct) => Task.FromResult(new Ack());
     public Task<Ack> InstallModuleAsync(InstallModuleRequest req, CallerContext caller, CancellationToken ct) => Task.FromResult(new Ack());
+    public Task<Ack> DeleteModuleAsync(DeleteByIdRequest req, CallerContext caller, CancellationToken ct) => Task.FromResult(new Ack());
     public Task<string[]> ListCustomFoldersAsync(CallerContext caller, CancellationToken ct) => Task.FromResult(Array.Empty<string>());
     public Task<Ack> UpsertCustomFolderAsync(UpsertCustomFolderRequest req, CallerContext caller, CancellationToken ct) => Task.FromResult(new Ack());
     public Task<Ack> DeleteCustomFolderAsync(DeleteByIdRequest req, CallerContext caller, CancellationToken ct) => Task.FromResult(new Ack());

@@ -108,6 +108,13 @@ public sealed record ScheduleSummary
     public DateTimeOffset? LastRunAt { get; init; }
 }
 
+/// <summary>Запись, которую модуль соберёт (для детали на странице «Модули»).</summary>
+public sealed record ModuleEntryDto
+{
+    public string TokenPath { get; init; } = "";
+    public string Type { get; init; } = ""; // File | Directory | RegistryKey
+}
+
 public sealed record ModuleSummary
 {
     public string Id { get; init; } = "";

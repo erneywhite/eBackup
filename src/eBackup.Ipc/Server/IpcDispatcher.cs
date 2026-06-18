@@ -46,8 +46,10 @@ public static class IpcDispatcher
                 IpcOps.DeleteSchedule => Resp(req.Id, await h.DeleteScheduleAsync(Decode(req, Ctx.DeleteByIdRequest), caller, ct), Ctx.Ack),
 
                 IpcOps.ListModules => Resp(req.Id, await h.ListModulesAsync(caller, ct), Ctx.ModuleSummaryArray),
+                IpcOps.DiscoverModule => Resp(req.Id, await h.DiscoverModuleAsync(Decode(req, Ctx.DiscoverModuleRequest), caller, ct), Ctx.ModuleEntryDtoArray),
                 IpcOps.SetModuleEnabled => Resp(req.Id, await h.SetModuleEnabledAsync(Decode(req, Ctx.SetModuleEnabledRequest), caller, ct), Ctx.Ack),
                 IpcOps.InstallModule => Resp(req.Id, await h.InstallModuleAsync(Decode(req, Ctx.InstallModuleRequest), caller, ct), Ctx.Ack),
+                IpcOps.DeleteModule => Resp(req.Id, await h.DeleteModuleAsync(Decode(req, Ctx.DeleteByIdRequest), caller, ct), Ctx.Ack),
 
                 IpcOps.ListCustomFolders => Resp(req.Id, await h.ListCustomFoldersAsync(caller, ct), Ctx.StringArray),
                 IpcOps.UpsertCustomFolder => Resp(req.Id, await h.UpsertCustomFolderAsync(Decode(req, Ctx.UpsertCustomFolderRequest), caller, ct), Ctx.Ack),
