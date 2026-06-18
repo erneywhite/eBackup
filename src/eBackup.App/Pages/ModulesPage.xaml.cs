@@ -1,8 +1,8 @@
 using System.Text.Json;
-using eBackup.Core.Abstractions;
 using eBackup.Core.Model;
 using eBackup.Core.Modules;
-using eBackup.Modules.Obs;
+using eBackup.Ipc.Client;
+using eBackup.Ipc.Contracts;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Media;
@@ -10,81 +10,101 @@ using Microsoft.UI.Xaml.Media;
 namespace eBackup.App.Pages;
 
 /// <summary>
-/// Экран «Модули»: карточки из реестра (встроенные + декларативные drop-in),
-/// деталь по клику (включая живой список того, что модуль бэкапит), импорт и
-/// удаление декларативных дескрипторов.
+/// Экран «Модули»: карточки из реестра СЛУЖБЫ (встроенные + декларативные drop-in),
+/// деталь по клику (включая живой список того, что модуль бэкапит), импорт и удаление
+/// декларативных дескрипторов. Реестр службы — источник истины для бэкапов.
 /// </summary>
 public sealed partial class ModulesPage : Page
 {
-    private readonly ModuleRegistry _registry = new(
-    [
-        new BuiltInModuleSource([new ObsBackupModule()]),
-        new DeclarativeModuleSource(),
-    ]);
-
-    private ModuleDescriptor? _selected;
+    private ModuleSummary? _selected;
     private bool _suppressToggle;
+    private HashSet<string> _installedIds = new(StringComparer.OrdinalIgnoreCase);
     private CatalogIndex? _catalog;   // загруженный каталог (для фильтра без повторной загрузки)
 
     public ModulesPage()
     {
         InitializeComponent();
-        Loaded += (_, _) => Refresh();
+        Loaded += async (_, _) => await RefreshAsync();
     }
+
+    private static Task<IpcClient?> ClientAsync() => ServiceConnection.GetClientAsync();
 
     // ---------- карточки ----------
 
-    private void Refresh()
+    private async Task RefreshAsync()
     {
-        RefreshCards();
+        await RefreshCardsAsync();
         _selected = null;
         Detail.Visibility = Visibility.Collapsed;
         EmptyHint.Visibility = Visibility.Visible;
     }
 
-    private void RefreshCards()
+    private async Task RefreshCardsAsync()
     {
         CardsPanel.Children.Clear();
-        foreach (var d in _registry.Discover())
-            CardsPanel.Children.Add(MakeCard(d));
+        HintText.Text = "Декларативные модули подключаются файлом *.module.json — кнопкой «Импорт» или из каталога.";
 
-        HintText.Text = "Декларативные модули подключаются файлом *.module.json — кнопкой «Импорт» "
-            + $"или вручную в {ModulePaths.ModulesDirectory}";
+        var client = await ClientAsync();
+        if (client is null)
+        {
+            _installedIds = new(StringComparer.OrdinalIgnoreCase);
+            CardsPanel.Children.Add(new TextBlock
+            {
+                Text = "служба eBackup недоступна: " + (ServiceConnection.Shared.Error ?? ""),
+                FontSize = 12,
+                Foreground = (Brush)Application.Current.Resources["EbTextDimBrush"]
+            });
+            return;
+        }
+
+        ModuleSummary[] mods;
+        try { mods = await client.ListModulesAsync(); }
+        catch (Exception ex)
+        {
+            CardsPanel.Children.Add(new TextBlock
+            {
+                Text = "не удалось прочитать модули службы: " + ex.Message,
+                FontSize = 12,
+                Foreground = (Brush)Application.Current.Resources["EbTextDimBrush"]
+            });
+            return;
+        }
+
+        _installedIds = mods.Select(m => m.Id).ToHashSet(StringComparer.OrdinalIgnoreCase);
+        foreach (var m in mods)
+            CardsPanel.Children.Add(MakeCard(m));
     }
 
-    private FrameworkElement MakeCard(ModuleDescriptor d)
+    private static bool IsDeclarative(ModuleSummary m) => m.Source == "Declarative";
+
+    private FrameworkElement MakeCard(ModuleSummary m)
     {
         var appRes = Application.Current.Resources;
 
         var panel = new StackPanel { Spacing = 5 };
         panel.Children.Add(new TextBlock
         {
-            Text = d.DisplayName,
+            Text = m.DisplayName,
             FontWeight = Microsoft.UI.Text.FontWeights.SemiBold,
             TextTrimming = TextTrimming.CharacterEllipsis
         });
         panel.Children.Add(new TextBlock
         {
-            Text = d.Source switch
+            Text = m.Source switch
             {
-                ModuleSource.BuiltIn => "встроенный модуль",
-                ModuleSource.Declarative => "декларативный модуль",
+                "BuiltIn" => "встроенный модуль",
+                "Declarative" => "декларативный модуль",
                 _ => "внешний модуль"
             },
             FontSize = 12,
             Foreground = (Brush)appRes["EbTextDimBrush"]
         });
-        var (statusText, statusBrush) = d.Problem is not null
+        var (statusText, statusBrush) = m.Problem is not null
             ? ("✕ заблокирован", (Brush)appRes["EbErrBrush"])
-            : d.Enabled
+            : m.Enabled
                 ? ("✓ включён", (Brush)appRes["EbOkBrush"])
                 : ("⏸ выключен", (Brush)appRes["EbTextDimBrush"]);
-        panel.Children.Add(new TextBlock
-        {
-            Text = statusText,
-            FontSize = 12,
-            Foreground = statusBrush
-        });
+        panel.Children.Add(new TextBlock { Text = statusText, FontSize = 12, Foreground = statusBrush });
 
         var card = new Button
         {
@@ -98,17 +118,16 @@ public sealed partial class ModulesPage : Page
             HorizontalContentAlignment = HorizontalAlignment.Left,
             VerticalContentAlignment = VerticalAlignment.Top,
             Content = panel,
-            Tag = d
+            Tag = m
         };
-        card.Click += async (_, _) => await ShowDetailAsync(d);
+        card.Click += async (_, _) => await ShowDetailAsync(m);
 
-        // Удаление декларативных модулей — маленькая корзина в углу карточки (как в архивах).
-        // Встроенные модули удалять нельзя — у них корзины нет.
-        if (d.Source == ModuleSource.Declarative && d.Origin is not null)
+        // Удаление декларативных модулей — маленькая корзина в углу (встроенные не удаляем).
+        if (IsDeclarative(m))
         {
             var del = new Button
             {
-                Content = new FontIcon { Glyph = "", FontSize = 12 },
+                Content = new FontIcon { Glyph = "", FontSize = 12 },
                 CornerRadius = new CornerRadius(8),
                 Padding = new Thickness(7, 5, 7, 5),
                 Background = new SolidColorBrush(Microsoft.UI.Colors.Transparent),
@@ -119,7 +138,7 @@ public sealed partial class ModulesPage : Page
                 Foreground = new SolidColorBrush(Microsoft.UI.ColorHelper.FromArgb(0xFF, 0xFF, 0x8A, 0x9C))
             };
             ToolTipService.SetToolTip(del, "Удалить модуль");
-            del.Click += async (_, _) => await DeleteModuleAsync(d);
+            del.Click += async (_, _) => await DeleteModuleAsync(m);
 
             var host = new Grid { Margin = new Thickness(0, 0, 12, 12) };
             host.Children.Add(card);
@@ -133,28 +152,27 @@ public sealed partial class ModulesPage : Page
 
     // ---------- деталь ----------
 
-    private async Task ShowDetailAsync(ModuleDescriptor d)
+    private async Task ShowDetailAsync(ModuleSummary m)
     {
-        _selected = d;
+        _selected = m;
         EmptyHint.Visibility = Visibility.Collapsed;
         Detail.Visibility = Visibility.Visible;
 
-        DetailTitle.Text = d.DisplayName;
-        DetailMeta.Text = $"id: {d.Id} · {(d.Source == ModuleSource.BuiltIn ? "встроенный" : "декларативный")}"
-            + (d.Origin is not null && d.Source == ModuleSource.Declarative ? $"\n{d.Origin}" : "");
+        DetailTitle.Text = m.DisplayName;
+        DetailMeta.Text = $"id: {m.Id} · {(m.Source == "BuiltIn" ? "встроенный" : "декларативный")}";
 
-        DetailStatus.Text = d.Problem is null ? "✓ готов к работе" : "✕ заблокирован: " + d.Problem;
-        DetailStatus.Foreground = (Brush)Application.Current.Resources[d.Problem is null ? "EbOkBrush" : "EbErrBrush"];
+        DetailStatus.Text = m.Problem is null ? "✓ готов к работе" : "✕ заблокирован: " + m.Problem;
+        DetailStatus.Foreground = (Brush)Application.Current.Resources[m.Problem is null ? "EbOkBrush" : "EbErrBrush"];
 
         // Выключатель — только для рабочих модулей (заблокированные включать нечем).
         _suppressToggle = true;
-        EnableToggle.Visibility = d.Problem is null ? Visibility.Visible : Visibility.Collapsed;
-        EnableToggle.IsOn = d.Enabled;
+        EnableToggle.Visibility = m.Problem is null ? Visibility.Visible : Visibility.Collapsed;
+        EnableToggle.IsOn = m.Enabled;
         _suppressToggle = false;
 
-        // Живой список того, что модуль соберёт прямо сейчас.
+        // Живой список того, что модуль соберёт (token-пути от службы).
         DetailEntries.Children.Clear();
-        if (d.Instance is null)
+        if (m.Problem is not null)
         {
             AddEntryLine("— (модуль неактивен)", dim: true);
             return;
@@ -163,12 +181,14 @@ public sealed partial class ModulesPage : Page
         AddEntryLine("собираю список…", dim: true);
         try
         {
-            var entries = await d.Instance.DiscoverAsync();
-            if (!ReferenceEquals(_selected, d))
+            var client = await ClientAsync();
+            if (client is null) { DetailEntries.Children.Clear(); AddEntryLine("— служба недоступна", dim: true); return; }
+            var entries = await client.DiscoverModuleAsync(m.Id);
+            if (!ReferenceEquals(_selected, m))
                 return; // пока ждали — выбрали другой модуль
 
             DetailEntries.Children.Clear();
-            if (entries.Count == 0)
+            if (entries.Length == 0)
             {
                 AddEntryLine("— ничего не найдено на этой машине", dim: true);
                 return;
@@ -179,14 +199,14 @@ public sealed partial class ModulesPage : Page
             {
                 var kind = entry.Type switch
                 {
-                    PathEntryType.Directory => "📁",
-                    PathEntryType.File => "📄",
+                    "Directory" => "📁",
+                    "File" => "📄",
                     _ => "🗝"
                 };
                 AddEntryLine($"{kind} {entry.TokenPath}", dim: false);
             }
-            if (entries.Count > maxShown)
-                AddEntryLine($"… и ещё {entries.Count - maxShown}", dim: true);
+            if (entries.Length > maxShown)
+                AddEntryLine($"… и ещё {entries.Length - maxShown}", dim: true);
         }
         catch (Exception ex)
         {
@@ -197,12 +217,7 @@ public sealed partial class ModulesPage : Page
 
     private void AddEntryLine(string text, bool dim)
     {
-        var tb = new TextBlock
-        {
-            Text = text,
-            FontSize = 12,
-            TextWrapping = TextWrapping.Wrap
-        };
+        var tb = new TextBlock { Text = text, FontSize = 12, TextWrapping = TextWrapping.Wrap };
         if (dim)
             tb.Foreground = (Brush)Application.Current.Resources["EbTextDimBrush"];
         DetailEntries.Children.Add(tb);
@@ -210,12 +225,15 @@ public sealed partial class ModulesPage : Page
 
     private async void EnableToggle_Toggled(object sender, RoutedEventArgs e)
     {
-        if (_suppressToggle || _selected is null)
+        if (_suppressToggle || _selected is not { } sel)
             return;
 
+        var on = EnableToggle.IsOn;
         try
         {
-            _registry.SetEnabled(_selected.Id, EnableToggle.IsOn);
+            var client = await ClientAsync();
+            if (client is null) throw new InvalidOperationException(ServiceConnection.Shared.Error ?? "служба недоступна");
+            await client.SetModuleEnabledAsync(sel.Id, on);
         }
         catch (Exception ex)
         {
@@ -224,8 +242,8 @@ public sealed partial class ModulesPage : Page
         }
 
         // Обновляем карточки (статусы ✓/⏸), деталь оставляем открытой.
-        RefreshCards();
-        _selected = _registry.Discover().FirstOrDefault(x => x.Id == _selected.Id) ?? _selected;
+        await RefreshCardsAsync();
+        _selected = sel with { Enabled = on };
     }
 
     // ---------- импорт / удаление ----------
@@ -246,14 +264,11 @@ public sealed partial class ModulesPage : Page
 
         try
         {
-            // Источник сканирует только *.module.json — поправим имя при необходимости.
-            var name = file.Name.EndsWith(".module.json", StringComparison.OrdinalIgnoreCase)
-                ? file.Name
-                : Path.GetFileNameWithoutExtension(file.Name) + ".module.json";
-
-            Directory.CreateDirectory(ModulePaths.ModulesDirectory);
-            File.Copy(file.Path, Path.Combine(ModulePaths.ModulesDirectory, name), overwrite: true);
-            Refresh();
+            var json = await File.ReadAllTextAsync(file.Path);
+            var client = await ClientAsync();
+            if (client is null) throw new InvalidOperationException(ServiceConnection.Shared.Error ?? "служба недоступна");
+            await client.InstallModuleAsync(json); // служба валидирует и кладёт в свой реестр
+            await RefreshAsync();
         }
         catch (Exception ex)
         {
@@ -261,16 +276,16 @@ public sealed partial class ModulesPage : Page
         }
     }
 
-    private async Task DeleteModuleAsync(ModuleDescriptor d)
+    private async Task DeleteModuleAsync(ModuleSummary m)
     {
-        if (d is not { Source: ModuleSource.Declarative, Origin: not null })
+        if (!IsDeclarative(m))
             return;
 
         var appRes = Application.Current.Resources;
         var dialog = new ContentDialog
         {
             Title = "Удалить модуль?",
-            Content = $"Дескриптор «{d.DisplayName}» будет удалён из папки модулей. Архивы, созданные с ним, останутся.",
+            Content = $"Дескриптор «{m.DisplayName}» будет удалён из реестра службы. Архивы, созданные с ним, останутся.",
             PrimaryButtonText = "Удалить",
             CloseButtonText = "Отмена",
             DefaultButton = ContentDialogButton.Close,
@@ -287,8 +302,10 @@ public sealed partial class ModulesPage : Page
 
         try
         {
-            File.Delete(d.Origin!);
-            Refresh();
+            var client = await ClientAsync();
+            if (client is null) throw new InvalidOperationException(ServiceConnection.Shared.Error ?? "служба недоступна");
+            await client.DeleteModuleAsync(m.Id);
+            await RefreshAsync();
         }
         catch (Exception ex)
         {
@@ -298,7 +315,7 @@ public sealed partial class ModulesPage : Page
 
     // ---------- каталог ----------
 
-    private void InstalledTab_Click(object sender, RoutedEventArgs e) => SetCatalogMode(false);
+    private async void InstalledTab_Click(object sender, RoutedEventArgs e) { SetCatalogMode(false); await RefreshAsync(); }
 
     private async void CatalogTab_Click(object sender, RoutedEventArgs e)
     {
@@ -367,9 +384,8 @@ public sealed partial class ModulesPage : Page
             _ => _catalog.Modules
         };
 
-        var installed = _registry.Discover().Select(d => d.Id).ToHashSet(StringComparer.OrdinalIgnoreCase);
         foreach (var m in shown)
-            CatalogPanel.Children.Add(MakeCatalogCard(m, installed));
+            CatalogPanel.Children.Add(MakeCatalogCard(m, _installedIds));
     }
 
     private FrameworkElement MakeCatalogCard(CatalogModule m, HashSet<string> installedIds)
@@ -441,18 +457,19 @@ public sealed partial class ModulesPage : Page
         {
             var json = await CatalogService.DownloadModuleJsonAsync(m);
 
-            // Валидация скачанного: это декларативный модуль с тем же id и корректным форматом.
+            // Валидация скачанного ДО отправки: декларативный модуль с тем же id и корректным форматом.
             var parsed = JsonSerializer.Deserialize<DeclarativeModuleJson>(json, ManifestJson.Options);
             if (parsed is null || !ModuleValidation.IsValidId(parsed.Id)
                 || !string.Equals(parsed.Id, m.Id, StringComparison.OrdinalIgnoreCase))
                 throw new InvalidOperationException(
                     "файл модуля не прошёл проверку (id не совпадает или формат неверен)");
 
-            Directory.CreateDirectory(ModulePaths.ModulesDirectory);
-            File.WriteAllText(Path.Combine(ModulePaths.ModulesDirectory, m.Id + ".module.json"), json);
+            var client = await ClientAsync();
+            if (client is null) throw new InvalidOperationException(ServiceConnection.Shared.Error ?? "служба недоступна");
+            await client.InstallModuleAsync(json); // служба перепроверит и положит в свой реестр
 
-            RefreshCards();   // обновить «Установленные»
-            RenderCatalog();  // обновить статусы каталога (теперь «✓ установлен»)
+            await RefreshCardsAsync(); // обновить «Установленные» + _installedIds
+            RenderCatalog();           // обновить статусы каталога (теперь «✓ установлен»)
         }
         catch (Exception ex)
         {

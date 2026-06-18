@@ -16,12 +16,6 @@ namespace eBackup.App.Pages;
 /// </summary>
 public sealed partial class BackupPage : Page
 {
-    private readonly ModuleRegistry _registry = new(
-    [
-        new BuiltInModuleSource([new ObsBackupModule()]),
-        new DeclarativeModuleSource(),
-    ]);
-
     private readonly List<CheckBox> _moduleChecks = [];
     private readonly List<CheckBox> _storageChecks = [];
     private List<string> _folders = [];
@@ -34,14 +28,22 @@ public sealed partial class BackupPage : Page
 
     private async Task InitAsync()
     {
-        // Модули из реестра
+        // Модули — включённые из реестра СЛУЖБЫ (это её модулями делается бэкап).
         ModulesPanel.Children.Clear();
         _moduleChecks.Clear();
-        foreach (var d in _registry.Discover().Where(d => d.Problem is null && d.Instance is not null && d.Enabled))
+        var moduleClient = await ServiceConnection.GetClientAsync();
+        if (moduleClient is not null)
         {
-            var cb = new CheckBox { Content = d.DisplayName, IsChecked = false, Tag = d.Instance };
-            _moduleChecks.Add(cb);
-            ModulesPanel.Children.Add(cb);
+            try
+            {
+                foreach (var m in (await moduleClient.ListModulesAsync()).Where(m => m.Problem is null && m.Enabled))
+                {
+                    var cb = new CheckBox { Content = m.DisplayName, IsChecked = false, Tag = m.Id };
+                    _moduleChecks.Add(cb);
+                    ModulesPanel.Children.Add(cb);
+                }
+            }
+            catch { /* модули недоступны — можно бэкапить «свои папки» */ }
         }
 
         // Свои папки (сохраняются между сессиями)
@@ -209,7 +211,7 @@ public sealed partial class BackupPage : Page
             return;
 
         var moduleIds = _moduleChecks.Where(cb => cb.IsChecked == true)
-            .Select(cb => ((IBackupModule)cb.Tag).Id)
+            .Select(cb => (string)cb.Tag)
             .ToList();
         var folderPaths = _folders.ToList(); // все настроенные папки идут в бэкап
         var targetIds = _storageChecks.Where(cb => cb.IsChecked == true)

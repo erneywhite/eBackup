@@ -14,11 +14,6 @@ namespace eBackup.App.Pages;
 /// <summary>Обзор-дашборд: последний бэкап, счётчики архивов/модулей/расписаний, статусы хранилищ.</summary>
 public sealed partial class OverviewPage : Page
 {
-    private readonly ModuleRegistry _registry = new(
-    [
-        new BuiltInModuleSource([new ObsBackupModule()]),
-        new DeclarativeModuleSource(),
-    ]);
     private bool _refreshing;
     private int _refreshGen; // защита от «опоздавших» результатов прошлого обновления
 
@@ -48,14 +43,29 @@ public sealed partial class OverviewPage : Page
             var dim = (Brush)Application.Current.Resources["EbTextDimBrush"];
             var settings = AppSettings.Load();
 
-            // ---- модули
-            var descriptors = _registry.Discover();
-            var enabled = descriptors.Count(d => d.Problem is null && d.Enabled);
-            var paused = descriptors.Count(d => d.Problem is null && !d.Enabled);
-            var blocked = descriptors.Count(d => d.Problem is not null);
-            ModulesTileText.Text = $"✓ включено: {enabled}"
-                + (paused > 0 ? $"\n⏸ выключено: {paused}" : "")
-                + (blocked > 0 ? $"\n✕ заблокировано: {blocked}" : "");
+            // ---- модули (из реестра службы)
+            var moduleClient = await ServiceConnection.GetClientAsync();
+            if (moduleClient is null)
+            {
+                ModulesTileText.Text = "служба недоступна";
+            }
+            else
+            {
+                try
+                {
+                    var mods = await moduleClient.ListModulesAsync();
+                    var enabled = mods.Count(m => m.Problem is null && m.Enabled);
+                    var paused = mods.Count(m => m.Problem is null && !m.Enabled);
+                    var blocked = mods.Count(m => m.Problem is not null);
+                    ModulesTileText.Text = $"✓ включено: {enabled}"
+                        + (paused > 0 ? $"\n⏸ выключено: {paused}" : "")
+                        + (blocked > 0 ? $"\n✕ заблокировано: {blocked}" : "");
+                }
+                catch
+                {
+                    ModulesTileText.Text = "не удалось прочитать модули";
+                }
+            }
 
             // ---- расписания
             try
