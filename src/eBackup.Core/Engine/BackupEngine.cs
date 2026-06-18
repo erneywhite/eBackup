@@ -78,6 +78,10 @@ public sealed class BackupEngine
                 IReadOnlyList<PathEntry> entries;
                 try
                 {
+                    // Модулю, читающему файлы на этапе обнаружения (OBS — сцены/ассеты), отдаём
+                    // резолвер источников: под службой это профиль ВЫЗВАВШЕГО, а не systemprofile.
+                    if (module is IUserScopedDiscovery scoped)
+                        scoped.UseSourceResolver(resolve);
                     entries = await module.DiscoverAsync(ct).ConfigureAwait(false);
                 }
                 catch (OperationCanceledException)

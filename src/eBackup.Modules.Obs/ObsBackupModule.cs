@@ -16,13 +16,24 @@ namespace eBackup.Modules.Obs;
 /// Корень установки OBS; по умолчанию %PROGRAMFILES%/obs-studio. Нужен для тестов.
 /// </param>
 public sealed class ObsBackupModule(string? obsRootOverride = null, string? installRootOverride = null)
-    : IBackupModule, IModuleRestoreHook
+    : IBackupModule, IModuleRestoreHook, IUserScopedDiscovery
 {
-    private readonly string _obsRoot = obsRootOverride ?? Path.Combine(
-        Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "obs-studio");
+    // Резолвер источников по профилю ВЫЗВАВШЕГО (движок/служба внедряют его до DiscoverAsync).
+    // Без него (GUI, тесты) — профиль процесса. Критично под службой: SYSTEM ≠ профиль юзера,
+    // иначе сцены/ассеты ищутся в systemprofile и не находятся.
+    private Func<string, string>? _resolveToken;
 
-    private readonly string _installRoot = installRootOverride ?? Path.Combine(
-        Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles), "obs-studio");
+    public void UseSourceResolver(Func<string, string> resolveToken) => _resolveToken = resolveToken;
+
+    // Корень данных OBS (Roaming) для ЧТЕНИЯ при обнаружении: override (тесты) > резолвер
+    // (служба, per-SID) > профиль процесса (GUI). В МАНИФЕСТ всё равно идёт токен (переносимо).
+    private string ObsRoot() => obsRootOverride
+        ?? _resolveToken?.Invoke("{APPDATA}/obs-studio")
+        ?? Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "obs-studio");
+
+    private string InstallRoot() => installRootOverride
+        ?? _resolveToken?.Invoke("{PROGRAMFILES}/obs-studio")
+        ?? Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles), "obs-studio");
 
     public string Id => "obs";
     public string DisplayName => "OBS Studio";
@@ -45,6 +56,9 @@ public sealed class ObsBackupModule(string? obsRootOverride = null, string? inst
 
     public Task<IReadOnlyList<PathEntry>> DiscoverAsync(CancellationToken ct = default)
     {
+        var obsRoot = ObsRoot();         // для ЧТЕНИЯ сцен/дедупа (per-SID под службой)
+        var installRoot = InstallRoot();
+
         // Основная конфигурация OBS (профили, коллекции сцен, global.ini, service.json
         // с подключениями и стрим-ключами) лежит в %APPDATA%/obs-studio.
         var entries = new List<PathEntry>
@@ -52,7 +66,7 @@ public sealed class ObsBackupModule(string? obsRootOverride = null, string? inst
             new()
             {
                 // В проде — токен (переносимо); при override (тесты) — конкретный путь.
-                TokenPath = obsRootOverride is null ? "{APPDATA}/obs-studio" : _obsRoot.Replace('\\', '/'),
+                TokenPath = obsRootOverride is null ? "{APPDATA}/obs-studio" : obsRoot.Replace('\\', '/'),
                 Type = PathEntryType.Directory,
                 ArchivePath = "obs/obs-studio",
                 ExcludeGlobs = Excludes
@@ -60,20 +74,20 @@ public sealed class ObsBackupModule(string? obsRootOverride = null, string? inst
         };
 
         // Бинарники и данные плагинов из папки установки (Program Files) — тянем целиком.
-        AddPlugins(entries);
+        AddPlugins(entries, installRoot);
 
         // Зависимые ассеты сцен (картинки/видео/слайдшоу/VLC), лежащие вне папки OBS.
         // Помечаем ManagedByModule — их разложит restore-хук модуля (As-2), а не движок.
-        AddSceneAssets(entries, ct);
+        AddSceneAssets(entries, obsRoot, ct);
 
         return Task.FromResult<IReadOnlyList<PathEntry>>(entries);
     }
 
-    private void AddPlugins(List<PathEntry> entries)
+    private void AddPlugins(List<PathEntry> entries, string installRoot)
     {
         // obs-plugins (DLL плагинов) и data/obs-plugins (их данные) из папки установки.
         // ВНИМАНИЕ: восстановление сюда требует прав администратора (Program Files).
-        var pluginBin = Path.Combine(_installRoot, "obs-plugins");
+        var pluginBin = Path.Combine(installRoot, "obs-plugins");
         if (Directory.Exists(pluginBin))
             entries.Add(new PathEntry
             {
@@ -84,7 +98,7 @@ public sealed class ObsBackupModule(string? obsRootOverride = null, string? inst
                 ArchivePath = "obs/install/obs-plugins"
             });
 
-        var pluginData = Path.Combine(_installRoot, "data", "obs-plugins");
+        var pluginData = Path.Combine(installRoot, "data", "obs-plugins");
         if (Directory.Exists(pluginData))
             entries.Add(new PathEntry
             {
@@ -96,9 +110,9 @@ public sealed class ObsBackupModule(string? obsRootOverride = null, string? inst
             });
     }
 
-    private void AddSceneAssets(List<PathEntry> entries, CancellationToken ct)
+    private static void AddSceneAssets(List<PathEntry> entries, string obsRoot, CancellationToken ct)
     {
-        var scenesDir = Path.Combine(_obsRoot, "basic", "scenes");
+        var scenesDir = Path.Combine(obsRoot, "basic", "scenes");
         if (!Directory.Exists(scenesDir))
             return;
 
@@ -138,7 +152,7 @@ public sealed class ObsBackupModule(string? obsRootOverride = null, string? inst
                         if (!File.Exists(full)) continue;
 
                         // Файлы внутри папки OBS и так попадут в основной каталог — не дублируем.
-                        if (full.StartsWith(_obsRoot, StringComparison.OrdinalIgnoreCase)) continue;
+                        if (full.StartsWith(obsRoot, StringComparison.OrdinalIgnoreCase)) continue;
 
                         // Ассеты лежат в архиве плоско по имени файла; индекс-префикс —
                         // только при совпадении имён (чтобы не плодить папки «0», «1»…).
@@ -228,9 +242,10 @@ public sealed class ObsBackupModule(string? obsRootOverride = null, string? inst
     /// </summary>
     public async Task RestoreAsync(ModuleRestoreContext context, CancellationToken ct = default)
     {
-        // Восстановленные сцены: в проде — реальный obs-studio; при override — под ним.
+        // Восстановленные сцены: в проде — реальный obs-studio (restore идёт в GUI под юзером,
+        // резолвер не внедрён → профиль процесса = юзер); при override — под ним.
         var scenesRoot = context.DestinationRootOverride is null
-            ? _obsRoot
+            ? ObsRoot()
             : Path.Combine(context.DestinationRootOverride, "obs", "obs-studio");
         var scenesDir = Path.Combine(scenesRoot, "basic", "scenes");
 

@@ -2,6 +2,7 @@ using System;
 using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
+using eBackup.Core.Abstractions;
 using eBackup.Core.Engine;
 using eBackup.Core.Model;
 using eBackup.Modules.Obs;
@@ -39,6 +40,42 @@ public class ObsBackupModuleTests
             Assert.NotNull(asset);
             Assert.Equal(PathEntryType.File, asset!.Type);
             Assert.StartsWith("obs/assets/", asset.ArchivePath);
+            Assert.EndsWith(".jpg", asset.ArchivePath);
+        }
+        finally
+        {
+            if (Directory.Exists(obsRoot)) Directory.Delete(obsRoot, recursive: true);
+            if (File.Exists(assetFile)) File.Delete(assetFile);
+        }
+    }
+
+    [Fact]
+    public async Task Resolver_Scoped_Discovery_Reads_Caller_Profile_And_Keeps_Token()
+    {
+        // Имитация службы: профиль вызвавшего отдаётся резолвером (а не конструктором-override),
+        // конфиг при этом должен остаться ТОКЕНОМ, а ассеты — найтись по профилю из резолвера.
+        var obsRoot = Path.Combine(Path.GetTempPath(), $"obs-root-{Guid.NewGuid():N}");
+        var assetFile = Path.Combine(Path.GetTempPath(), $"bg-{Guid.NewGuid():N}.jpg");
+        try
+        {
+            var scenesDir = Path.Combine(obsRoot, "basic", "scenes");
+            Directory.CreateDirectory(scenesDir);
+            await File.WriteAllTextAsync(assetFile, "fake-image-bytes");
+            var sceneJson = $$"""
+                { "sources": [ { "id": "image_source", "settings": { "file": "{{assetFile.Replace("\\", "/")}}" } } ] }
+                """;
+            await File.WriteAllTextAsync(Path.Combine(scenesDir, "Test.json"), sceneJson);
+
+            var module = new ObsBackupModule(); // без override
+            ((IUserScopedDiscovery)module).UseSourceResolver(
+                token => token == "{APPDATA}/obs-studio" ? obsRoot : token);
+
+            var entries = await module.DiscoverAsync();
+
+            Assert.Contains(entries, e => e.TokenPath == "{APPDATA}/obs-studio"); // конфиг — токен (переносимо)
+            var asset = entries.SingleOrDefault(e => e.ManagedByModule);          // ассет найден по профилю из резолвера
+            Assert.NotNull(asset);
+            Assert.StartsWith("obs/assets/", asset!.ArchivePath);
             Assert.EndsWith(".jpg", asset.ArchivePath);
         }
         finally

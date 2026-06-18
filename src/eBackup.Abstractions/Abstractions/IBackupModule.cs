@@ -19,3 +19,16 @@ public interface IBackupModule
     /// <summary>Найти все записи (файлы/папки/ключи реестра), которые нужно включить в бэкап.</summary>
     Task<IReadOnlyList<PathEntry>> DiscoverAsync(CancellationToken ct = default);
 }
+
+/// <summary>
+/// Опциональная добавка к <see cref="IBackupModule"/>: модуль, которому для ОБНАРУЖЕНИЯ источников
+/// нужен профиль ВЫЗВАВШЕГО пользователя, а не процесса. Движок внедряет резолвер токенов ДО
+/// <see cref="IBackupModule.DiscoverAsync"/>. Нужен модулям, читающим файлы на этапе обнаружения
+/// (напр. OBS парсит сцены, чтобы найти внешние ассеты) — иначе служба под SYSTEM смотрит в
+/// systemprofile вместо профиля пользователя. Append-only: существующие модули не затрагиваются.
+/// </summary>
+public interface IUserScopedDiscovery
+{
+    /// <summary>Резолвер «{APPDATA}/…» → абсолютный путь в профиле вызвавшего. Зовётся ДО DiscoverAsync.</summary>
+    void UseSourceResolver(Func<string, string> resolveToken);
+}
