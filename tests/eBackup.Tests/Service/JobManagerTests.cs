@@ -1,16 +1,25 @@
 using System;
 using System.Diagnostics;
+using System.IO;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+using eBackup.Core.History;
 using eBackup.Ipc.Contracts;
 using eBackup.Service.Jobs;
 using Xunit;
 
 namespace eBackup.Tests.Service;
 
-public class JobManagerTests
+public class JobManagerTests : IDisposable
 {
+    private readonly string _dir = Path.Combine(Path.GetTempPath(), $"ebk-jm-{Guid.NewGuid():N}");
+    private readonly HistoryStore _history;
+
+    public JobManagerTests() => _history = new HistoryStore(_dir);
+    public void Dispose() { try { if (Directory.Exists(_dir)) Directory.Delete(_dir, recursive: true); } catch { } }
+
+    private JobChannel Channel(string runId) => new(_history, runId);
     // Исполнитель, который блокируется до Release (или до отмены через ct).
     private sealed class BlockingRunner : IJobRunner
     {
@@ -40,7 +49,7 @@ public class JobManagerTests
     {
         var runner = new BlockingRunner();
         runner.Release.TrySetResult(); // не блокируем
-        await using var jm = new JobManager(runner);
+        await using var jm = new JobManager(runner, Channel);
 
         var job = jm.Enqueue(Req(), "S-1-5-21-1");
         await WaitFor(() => job.State == JobState.Completed, "Completed");
@@ -53,7 +62,7 @@ public class JobManagerTests
     {
         var runner = new BlockingRunner { Outcome = new JobOutcome(true, 2, 50, "a.ebk", null) };
         runner.Release.TrySetResult();
-        await using var jm = new JobManager(runner);
+        await using var jm = new JobManager(runner, Channel);
 
         var job = jm.Enqueue(Req(), "S-1-5-21-1");
         await WaitFor(() => job.State == JobState.CompletedWithErrors, "CompletedWithErrors");
@@ -64,7 +73,7 @@ public class JobManagerTests
     {
         var runner = new BlockingRunner { Outcome = new JobOutcome(false, 0, 0, null, "boom") };
         runner.Release.TrySetResult();
-        await using var jm = new JobManager(runner);
+        await using var jm = new JobManager(runner, Channel);
 
         var job = jm.Enqueue(Req(), "S-1-5-21-1");
         await WaitFor(() => job.State == JobState.Failed, "Failed");
@@ -75,7 +84,7 @@ public class JobManagerTests
     public async Task Single_Active_Job_Is_FIFO()
     {
         var runner = new BlockingRunner(); // блокируется
-        await using var jm = new JobManager(runner);
+        await using var jm = new JobManager(runner, Channel);
 
         var a = jm.Enqueue(Req("a"), "S-1-5-21-1");
         var b = jm.Enqueue(Req("b"), "S-1-5-21-1");
@@ -93,7 +102,7 @@ public class JobManagerTests
     public async Task Cancel_Running_Job()
     {
         var runner = new BlockingRunner(); // блокируется, честно ждёт ct
-        await using var jm = new JobManager(runner);
+        await using var jm = new JobManager(runner, Channel);
 
         var job = jm.Enqueue(Req(), "S-1-5-21-1");
         await WaitFor(() => job.State == JobState.Running, "Running");
@@ -106,7 +115,7 @@ public class JobManagerTests
     public async Task Cancel_Rejects_Non_Owner()
     {
         var runner = new BlockingRunner();
-        await using var jm = new JobManager(runner);
+        await using var jm = new JobManager(runner, Channel);
 
         var job = jm.Enqueue(Req(), "S-1-5-21-1");
         await WaitFor(() => job.State == JobState.Running, "Running");
@@ -121,7 +130,7 @@ public class JobManagerTests
     {
         var runner = new BlockingRunner();
         runner.Release.TrySetResult();
-        await using var jm = new JobManager(runner);
+        await using var jm = new JobManager(runner, Channel);
 
         var a = jm.Enqueue(Req(), "S-1-5-21-AAA");
         var b = jm.Enqueue(Req(), "S-1-5-21-BBB");

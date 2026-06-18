@@ -24,6 +24,9 @@ public sealed class Job
     public required string Origin { get; init; }        // Interactive | Scheduled
     public required StartBackupRequest Request { get; init; }
 
+    /// <summary>Шина прогресса/лога этой задачи (журнал + живые подписчики).</summary>
+    public required JobChannel Channel { get; init; }
+
     public CancellationTokenSource Cts { get; } = new();
     public bool IsCancelling { get; set; }
     public DateTimeOffset? StartedAt { get; set; }

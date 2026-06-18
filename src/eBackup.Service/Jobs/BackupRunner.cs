@@ -1,7 +1,6 @@
 using System.IO.Compression;
 using eBackup.Core.Abstractions;
 using eBackup.Core.Engine;
-using eBackup.Core.History;
 
 namespace eBackup.Service.Jobs;
 
@@ -16,22 +15,20 @@ namespace eBackup.Service.Jobs;
 public sealed class BackupRunner : IJobRunner
 {
     private readonly Func<IReadOnlyList<string>, IReadOnlyList<IBackupModule>> _resolveModules;
-    private readonly HistoryStore _history;
     private readonly string _buildDir;
 
     public BackupRunner(
         Func<IReadOnlyList<string>, IReadOnlyList<IBackupModule>> resolveModules,
-        HistoryStore history,
         string? buildDir = null)
     {
         _resolveModules = resolveModules;
-        _history = history;
         _buildDir = buildDir ?? Path.Combine(Path.GetTempPath(), "eBackup", "build");
     }
 
     public async Task<JobOutcome> RunAsync(Job job, CancellationToken ct)
     {
-        void Log(string m) => _history.AppendLog(job.RunId, m);
+        var sink = job.Channel;            // прогресс/лог идут в шину задачи (журнал + живые подписчики)
+        void Log(string m) => sink.Log(m);
 
         var modules = _resolveModules(job.Request.ModuleIds);
         if (modules.Count == 0)
@@ -54,7 +51,8 @@ public sealed class BackupRunner : IJobRunner
         Log("Модули: " + string.Join(", ", modules.Select(m => m.Id)));
 
         var engine = new BackupEngine();
-        var progress = new Progress<string>(Log);
+        // Крупные фазы → Phase-ноты (живой прогресс); реальная доля прогресса — позже.
+        var progress = new Progress<string>(s => sink.Phase(s, 0));
         var archive = await engine.CreateBackupAsync(
             modules, _buildDir, name, passphrase: null, progress, compression, log: Log, ct)
             .ConfigureAwait(false);

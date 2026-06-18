@@ -32,16 +32,21 @@ public class BackupRunnerTests : IDisposable
                 [new PathEntry { TokenPath = tokenPath, Type = PathEntryType.Directory, ArchivePath = "data" }]);
     }
 
-    private static Job MakeJob(StartBackupRequest req) => new()
+    private static Job MakeJob(StartBackupRequest req, HistoryStore history)
     {
-        Seq = 1,
-        JobId = "j1",
-        RunId = "run-" + Guid.NewGuid().ToString("N")[..8],
-        OwnerSid = "S-1-5-21-1",
-        Trigger = "тест",
-        Origin = "Interactive",
-        Request = req,
-    };
+        var runId = "run-" + Guid.NewGuid().ToString("N")[..8];
+        return new Job
+        {
+            Seq = 1,
+            JobId = "j1",
+            RunId = runId,
+            OwnerSid = "S-1-5-21-1",
+            Trigger = "тест",
+            Origin = "Interactive",
+            Request = req,
+            Channel = new JobChannel(history, runId),
+        };
+    }
 
     [Fact]
     public async Task Builds_Local_Archive_For_Resolved_Module()
@@ -53,9 +58,9 @@ public class BackupRunnerTests : IDisposable
         var buildDir = Path.Combine(_root, "build");
         var history = new HistoryStore(Path.Combine(_root, "hist"));
         var module = new DirModule("test", src.Replace('\\', '/')); // сырой абсолютный путь источника
-        var runner = new BackupRunner(_ => [module], history, buildDir);
+        var runner = new BackupRunner(_ => [module], buildDir);
 
-        var job = MakeJob(new StartBackupRequest { ModuleIds = ["test"], CompressionMode = 1 });
+        var job = MakeJob(new StartBackupRequest { ModuleIds = ["test"], CompressionMode = 1 }, history);
         var outcome = await runner.RunAsync(job, CancellationToken.None);
 
         Assert.True(outcome.Success);
@@ -70,8 +75,9 @@ public class BackupRunnerTests : IDisposable
     [Fact]
     public async Task No_Modules_Fails_Gracefully()
     {
-        var runner = new BackupRunner(_ => [], new HistoryStore(Path.Combine(_root, "hist")), Path.Combine(_root, "build"));
-        var outcome = await runner.RunAsync(MakeJob(new StartBackupRequest { ModuleIds = [] }), CancellationToken.None);
+        var history = new HistoryStore(Path.Combine(_root, "hist"));
+        var runner = new BackupRunner(_ => [], Path.Combine(_root, "build"));
+        var outcome = await runner.RunAsync(MakeJob(new StartBackupRequest { ModuleIds = [] }, history), CancellationToken.None);
 
         Assert.False(outcome.Success);
         Assert.Null(outcome.ArchiveName);

@@ -35,11 +35,13 @@ public sealed class IpcWorker : BackgroundService
             new DeclarativeModuleSource(),
         ]);
         var runner = new BackupRunner(
-            ids => registry.LoadEnabled().Where(m => ids.Contains(m.Id)).ToList(),
-            history);
+            ids => registry.LoadEnabled().Where(m => ids.Contains(m.Id)).ToList());
         var historyWriter = new JobHistoryWriter(history);
 
-        await using var jobs = new JobManager(runner, historyWriter.OnStateChanged);
+        await using var jobs = new JobManager(
+            runner,
+            channelFactory: runId => new JobChannel(history, runId),
+            onStateChanged: historyWriter.OnStateChanged);
 
         var build = Assembly.GetExecutingAssembly().GetName().Version?.ToString(3) ?? "0.0.0";
         var handlers = new ServiceHandlers(jobs, history, registry, Guid.NewGuid().ToString("N"), build);

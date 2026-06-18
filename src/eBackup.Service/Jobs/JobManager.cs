@@ -13,6 +13,7 @@ namespace eBackup.Service.Jobs;
 public sealed class JobManager : IAsyncDisposable
 {
     private readonly IJobRunner _runner;
+    private readonly Func<string, JobChannel> _channelFactory;
     private readonly Action<Job>? _onStateChanged;
     private readonly Channel<Job> _queue = Channel.CreateUnbounded<Job>(new UnboundedChannelOptions { SingleReader = true });
     private readonly ConcurrentDictionary<string, Job> _jobs = new();
@@ -20,24 +21,27 @@ public sealed class JobManager : IAsyncDisposable
     private readonly Task _worker;
     private long _seq;
 
-    public JobManager(IJobRunner runner, Action<Job>? onStateChanged = null)
+    public JobManager(IJobRunner runner, Func<string, JobChannel> channelFactory, Action<Job>? onStateChanged = null)
     {
         _runner = runner;
+        _channelFactory = channelFactory;
         _onStateChanged = onStateChanged;
         _worker = Task.Run(WorkerLoopAsync);
     }
 
     public Job Enqueue(StartBackupRequest req, string ownerSid, string origin = "Interactive")
     {
+        var runId = $"{DateTime.Now:yyyyMMdd-HHmmss}-{Guid.NewGuid().ToString("N")[..4]}";
         var job = new Job
         {
             Seq = Interlocked.Increment(ref _seq),
             JobId = "job-" + Guid.NewGuid().ToString("N"),
-            RunId = $"{DateTime.Now:yyyyMMdd-HHmmss}-{Guid.NewGuid().ToString("N")[..4]}",
+            RunId = runId,
             OwnerSid = ownerSid,
             Trigger = string.IsNullOrEmpty(req.Trigger) ? "вручную" : req.Trigger,
             Origin = origin,
             Request = req,
+            Channel = _channelFactory(runId),
         };
         _jobs[job.JobId] = job;
         Notify(job);                 // State=Queued — журнал увидит «прерванный останется виден»
@@ -121,12 +125,22 @@ public sealed class JobManager : IAsyncDisposable
         job.FinishedAt = DateTimeOffset.Now;
         job.State = s;
         Notify(job);
+        job.Channel.Complete(); // терминал — закрываем живые подписки
     }
 
     private void Notify(Job job)
     {
+        // Нота смены состояния в шину задачи (для живого прогресса) + хук журнала истории.
+        try { job.Channel.EmitState(job.State.ToString(), FractionFor(job.State)); } catch { }
         try { _onStateChanged?.Invoke(job); } catch { /* журнал/нотификации не должны ронять задачу */ }
     }
+
+    private static double FractionFor(JobState s) => s switch
+    {
+        JobState.Running => 0.5,
+        JobState.Completed or JobState.CompletedWithErrors or JobState.Failed or JobState.Cancelled => 1.0,
+        _ => 0.0,
+    };
 
     public async ValueTask DisposeAsync()
     {
