@@ -79,20 +79,21 @@ public sealed class IpcClient : IDisposable
         }
     }
 
-    public async Task<TResp> RequestAsync<TReq, TResp>(
+    public Task<TResp> RequestAsync<TReq, TResp>(
         string op, TReq req, JsonTypeInfo<TReq> reqTi, JsonTypeInfo<TResp> respTi, CancellationToken ct = default)
+        => CallAsync(op, JsonSerializer.SerializeToElement(req, reqTi), respTi, ct);
+
+    /// <summary>Запрос без тела (для операций-списков).</summary>
+    public Task<TResp> RequestNoBodyAsync<TResp>(string op, JsonTypeInfo<TResp> respTi, CancellationToken ct = default)
+        => CallAsync(op, null, respTi, ct);
+
+    private async Task<TResp> CallAsync<TResp>(string op, JsonElement? body, JsonTypeInfo<TResp> respTi, CancellationToken ct)
     {
         var id = Interlocked.Increment(ref _idCounter).ToString();
         var tcs = new TaskCompletionSource<Frame>(TaskCreationOptions.RunContinuationsAsynchronously);
         _pending[id] = tcs;
 
-        var frame = new Frame
-        {
-            Kind = FrameKinds.Req,
-            Id = id,
-            Op = op,
-            Body = JsonSerializer.SerializeToElement(req, reqTi),
-        };
+        var frame = new Frame { Kind = FrameKinds.Req, Id = id, Op = op, Body = body };
 
         await using var reg = ct.Register(() => { if (_pending.TryRemove(id, out var t)) t.TrySetCanceled(ct); });
         try
@@ -122,6 +123,30 @@ public sealed class IpcClient : IDisposable
 
     public Task<JobStatus> GetJobAsync(GetJobRequest req, CancellationToken ct = default)
         => RequestAsync(IpcOps.GetJob, req, Ctx.GetJobRequest, Ctx.JobStatus, ct);
+
+    public Task<JobStatus[]> ListJobsAsync(bool includeFinished, CancellationToken ct = default)
+        => RequestAsync(IpcOps.ListJobs, new ListJobsRequest { IncludeFinished = includeFinished }, Ctx.ListJobsRequest, Ctx.JobStatusArray, ct);
+
+    public Task<Ack> CancelJobAsync(string jobId, CancellationToken ct = default)
+        => RequestAsync(IpcOps.CancelJob, new CancelJobRequest { JobId = jobId }, Ctx.CancelJobRequest, Ctx.Ack, ct);
+
+    public Task<StorageSummary[]> ListStoragesAsync(CancellationToken ct = default)
+        => RequestNoBodyAsync(IpcOps.ListStorages, Ctx.StorageSummaryArray, ct);
+
+    public Task<Ack> UpsertStorageAsync(StorageInput input, CancellationToken ct = default)
+        => RequestAsync(IpcOps.UpsertStorage, input, Ctx.StorageInput, Ctx.Ack, ct);
+
+    public Task<Ack> DeleteStorageAsync(string id, CancellationToken ct = default)
+        => RequestAsync(IpcOps.DeleteStorage, new DeleteByIdRequest { Id = id }, Ctx.DeleteByIdRequest, Ctx.Ack, ct);
+
+    public Task<ModuleSummary[]> ListModulesAsync(CancellationToken ct = default)
+        => RequestNoBodyAsync(IpcOps.ListModules, Ctx.ModuleSummaryArray, ct);
+
+    public Task<BackupRunRecordDto[]> ListHistoryAsync(int limit = 100, CancellationToken ct = default)
+        => RequestAsync(IpcOps.ListHistory, new ListHistoryRequest { Limit = limit }, Ctx.ListHistoryRequest, Ctx.BackupRunRecordDtoArray, ct);
+
+    public Task<GetRunLogResponse> GetRunLogAsync(string runId, long fromSeq, int maxLines, CancellationToken ct = default)
+        => RequestAsync(IpcOps.GetRunLog, new GetRunLogRequest { RunId = runId, FromSeq = fromSeq, MaxLines = maxLines }, Ctx.GetRunLogRequest, Ctx.GetRunLogResponse, ct);
 
     /// <summary>
     /// Подписаться на живой прогресс задачи: отдаёт note-фреймы (Phase/Log/State) — бэклог,
