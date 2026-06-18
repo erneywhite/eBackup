@@ -16,6 +16,7 @@ public static class IpcOps
     public const string DetachFromJob = "detachFromJob";
     public const string StashPassphrase = "stashPassphrase";
     public const string ListStorages = "listStorages";
+    public const string GetStorage = "getStorage";
     public const string UpsertStorage = "upsertStorage";
     public const string DeleteStorage = "deleteStorage";
     public const string TestStorage = "testStorage";
@@ -67,6 +68,8 @@ public sealed record DetachRequest { public string JobId { get; init; } = ""; }
 public sealed record StashPassphraseRequest { public string Plaintext { get; init; } = ""; }
 
 public sealed record DeleteByIdRequest { public string Id { get; init; } = ""; }
+
+public sealed record GetStorageRequest { public string Id { get; init; } = ""; }
 
 public sealed record StorageInput
 {

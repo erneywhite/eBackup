@@ -70,6 +70,55 @@ public sealed class StorageAdminTests : IDisposable
     }
 
     [Fact]
+    public async Task Edit_Without_Secret_Keeps_It_And_GetStorage_Returns_Fields()
+    {
+        var (handlers, storages, jobs) = Build();
+        await using var _ = jobs;
+
+        await handlers.UpsertStorageAsync(new StorageInput
+        {
+            Id = "nas", Name = "NAS", Kind = "Sftp",
+            Settings = new() { ["host"] = "h", ["port"] = "2022", ["username"] = "u" },
+            PlaintextSecrets = new() { ["password"] = "hunter2" },
+        }, Caller, default);
+
+        // правка БЕЗ ввода пароля (поле оставлено пустым) — только переименование
+        await handlers.UpsertStorageAsync(new StorageInput
+        {
+            Id = "nas", Name = "NAS-2", Kind = "Sftp",
+            Settings = new() { ["host"] = "h", ["port"] = "2022", ["username"] = "u" },
+        }, Caller, default);
+
+        var saved = (await storages.LoadAsync()).Single(s => s.Id == "nas");
+        Assert.Equal("NAS-2", saved.Name);
+        Assert.Equal("hunter2", storages.Unprotect(saved.ProtectedPassword!)); // секрет не потерян
+
+        var detail = await handlers.GetStorageAsync(new GetStorageRequest { Id = "nas" }, Caller, default);
+        Assert.Equal("NAS-2", detail.Name);
+        Assert.Equal("h", detail.Settings["host"]);
+        Assert.Equal("2022", detail.Settings["port"]);
+        Assert.Contains("password", detail.PresentSecrets); // редактор покажет «оставить прежний»
+    }
+
+    [Fact]
+    public async Task TestStorage_LocalFolder_Reports_Ok_And_FreeBytes()
+    {
+        var (handlers, _, jobs) = Build();
+        await using var __ = jobs;
+
+        var dir = Path.Combine(_root, "dest");
+        Directory.CreateDirectory(dir);
+        await handlers.UpsertStorageAsync(new StorageInput
+        {
+            Id = "d", Name = "D", Kind = "LocalFolder", Settings = new() { ["path"] = dir },
+        }, Caller, default);
+
+        var res = await handlers.TestStorageAsync(new TestStorageRequest { StorageId = "d" }, Caller, default);
+        Assert.True(res.Ok);
+        Assert.NotNull(res.FreeBytes);
+    }
+
+    [Fact]
     public async Task Delete_Removes_Storage()
     {
         var (handlers, _, jobs) = Build();

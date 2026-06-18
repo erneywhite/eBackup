@@ -133,11 +133,17 @@ public sealed class IpcClient : IDisposable
     public Task<StorageSummary[]> ListStoragesAsync(CancellationToken ct = default)
         => RequestNoBodyAsync(IpcOps.ListStorages, Ctx.StorageSummaryArray, ct);
 
+    public Task<StorageDetail> GetStorageAsync(string id, CancellationToken ct = default)
+        => RequestAsync(IpcOps.GetStorage, new GetStorageRequest { Id = id }, Ctx.GetStorageRequest, Ctx.StorageDetail, ct);
+
     public Task<Ack> UpsertStorageAsync(StorageInput input, CancellationToken ct = default)
         => RequestAsync(IpcOps.UpsertStorage, input, Ctx.StorageInput, Ctx.Ack, ct);
 
     public Task<Ack> DeleteStorageAsync(string id, CancellationToken ct = default)
         => RequestAsync(IpcOps.DeleteStorage, new DeleteByIdRequest { Id = id }, Ctx.DeleteByIdRequest, Ctx.Ack, ct);
+
+    public Task<TestResult> TestStorageAsync(TestStorageRequest req, CancellationToken ct = default)
+        => RequestAsync(IpcOps.TestStorage, req, Ctx.TestStorageRequest, Ctx.TestResult, ct);
 
     public Task<ModuleSummary[]> ListModulesAsync(CancellationToken ct = default)
         => RequestNoBodyAsync(IpcOps.ListModules, Ctx.ModuleSummaryArray, ct);

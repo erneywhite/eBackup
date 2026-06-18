@@ -33,6 +33,7 @@ public static class IpcDispatcher
                 IpcOps.StashPassphrase => Resp(req.Id, await h.StashPassphraseAsync(Decode(req, Ctx.StashPassphraseRequest), caller, ct), Ctx.StashPassphraseResponse),
 
                 IpcOps.ListStorages => Resp(req.Id, await h.ListStoragesAsync(caller, ct), Ctx.StorageSummaryArray),
+                IpcOps.GetStorage => Resp(req.Id, await h.GetStorageAsync(Decode(req, Ctx.GetStorageRequest), caller, ct), Ctx.StorageDetail),
                 IpcOps.UpsertStorage => Resp(req.Id, await h.UpsertStorageAsync(Decode(req, Ctx.StorageInput), caller, ct), Ctx.Ack),
                 IpcOps.DeleteStorage => Resp(req.Id, await h.DeleteStorageAsync(Decode(req, Ctx.DeleteByIdRequest), caller, ct), Ctx.Ack),
                 IpcOps.TestStorage => Resp(req.Id, await h.TestStorageAsync(Decode(req, Ctx.TestStorageRequest), caller, ct), Ctx.TestResult),

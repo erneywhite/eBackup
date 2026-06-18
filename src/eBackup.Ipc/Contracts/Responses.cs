@@ -66,6 +66,17 @@ public sealed record StorageSummary
     public bool HasSecret { get; init; }
 }
 
+/// <summary>Полные НЕсекретные поля хранилища для редактора + имена присутствующих секретов
+/// (открытые секреты не передаются — редактор показывает «оставить прежний»).</summary>
+public sealed record StorageDetail
+{
+    public string Id { get; init; } = "";
+    public string Name { get; init; } = "";
+    public string Kind { get; init; } = "";
+    public Dictionary<string, string> Settings { get; init; } = [];
+    public string[] PresentSecrets { get; init; } = [];
+}
+
 public sealed record ScheduleSummary
 {
     public string Id { get; init; } = "";

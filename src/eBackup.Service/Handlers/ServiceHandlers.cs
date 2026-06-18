@@ -143,14 +143,22 @@ public sealed class ServiceHandlers : IIpcHandlers
     public async Task<StorageSummary[]> ListStoragesAsync(CallerContext caller, CancellationToken ct)
         => (await _storages.LoadAsync(ct).ConfigureAwait(false)).Select(StorageInputMapper.ToSummary).ToArray();
 
+    public async Task<StorageDetail> GetStorageAsync(GetStorageRequest req, CallerContext caller, CancellationToken ct)
+    {
+        var s = (await _storages.LoadAsync(ct).ConfigureAwait(false)).FirstOrDefault(x => x.Id == req.Id)
+            ?? throw new IpcFaultException(IpcErrorCodes.NotFound, "Хранилище не найдено.");
+        return StorageInputMapper.ToDetail(s); // только несекретные поля + имена присутствующих секретов
+    }
+
     public async Task<Ack> UpsertStorageAsync(StorageInput req, CallerContext caller, CancellationToken ct)
     {
         if (string.IsNullOrWhiteSpace(req.Id))
             throw new IpcFaultException(IpcErrorCodes.BadRequest, "Пустой id хранилища.");
 
         var list = (await _storages.LoadAsync(ct).ConfigureAwait(false)).ToList();
+        var existing = list.FirstOrDefault(s => s.Id == req.Id); // не теряем секрет при правке без его ввода
         list.RemoveAll(s => s.Id == req.Id);
-        list.Add(StorageInputMapper.ToSavedStorage(req, _storages)); // открытые секреты → машинный ключ
+        list.Add(StorageInputMapper.ToSavedStorage(req, _storages, existing)); // открытые секреты → машинный ключ
         await _storages.SaveAllAsync(list, ct).ConfigureAwait(false);
         return new Ack();
     }
@@ -163,8 +171,39 @@ public sealed class ServiceHandlers : IIpcHandlers
         return new Ack();
     }
 
-    public Task<TestResult> TestStorageAsync(TestStorageRequest req, CallerContext caller, CancellationToken ct)
-        => throw new IpcFaultException(IpcErrorCodes.Unsupported, "Проверка хранилищ через службу подключим на S4e.");
+    public async Task<TestResult> TestStorageAsync(TestStorageRequest req, CallerContext caller, CancellationToken ct)
+    {
+        // Проверка идёт ИЗ СЛУЖБЫ (под SYSTEM, секреты под машинным ключом) — это и есть смысл переезда.
+        var list = (await _storages.LoadAsync(ct).ConfigureAwait(false)).ToList();
+        SavedStorage saved;
+        if (!string.IsNullOrEmpty(req.StorageId))
+            saved = list.FirstOrDefault(s => s.Id == req.StorageId)
+                ?? throw new IpcFaultException(IpcErrorCodes.NotFound, "Хранилище не найдено.");
+        else if (req.Inline is { } inline)
+            // тест ещё несохранённого: «оставленные» секреты берём из уже сохранённого с тем же id
+            saved = StorageInputMapper.ToSavedStorage(inline, _storages, list.FirstOrDefault(s => s.Id == inline.Id));
+        else
+            throw new IpcFaultException(IpcErrorCodes.BadRequest, "Не указано хранилище для проверки.");
+
+        var result = await StorageFactory.Create(saved, _storages.Protector).TestAsync(ct).ConfigureAwait(false);
+        long? free = null;
+        if (saved.Kind == StorageKind.LocalFolder && saved.Path is { } p && TryFreeBytes(p, out var f))
+            free = f;
+        return new TestResult { Ok = result.Success, Message = result.Message, FreeBytes = free };
+    }
+
+    private static bool TryFreeBytes(string path, out long free)
+    {
+        free = 0;
+        try
+        {
+            var root = System.IO.Path.GetPathRoot(System.IO.Path.GetFullPath(path));
+            if (string.IsNullOrEmpty(root)) return false; // UNC и т.п. — пропускаем
+            free = new System.IO.DriveInfo(root).AvailableFreeSpace;
+            return true;
+        }
+        catch { return false; }
+    }
 
     public Task<ScheduleSummary[]> ListSchedulesAsync(CallerContext caller, CancellationToken ct)
         => Task.FromResult(Array.Empty<ScheduleSummary>());
