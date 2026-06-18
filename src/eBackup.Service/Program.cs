@@ -5,7 +5,26 @@ using Microsoft.Extensions.Hosting;
 // eBackup-служба: под LocalSystem держит named-pipe и исполняет привилегированные бэкапы.
 // Запускается и как Windows-служба, и как консоль (для отладки). Настоящие обработчики
 // (JobManager + движок) подключатся на S4c-2/3 — пока accept-loop на заглушке.
+// Машинно-уникальный инстанс: защита от двойного запуска (например, перекрытие при апгрейде).
+// В консольной отладке под обычным юзером нет SeCreateGlobalPrivilege — тогда мягко пропускаем.
+Mutex? instanceLock = null;
+try
+{
+    instanceLock = new Mutex(initiallyOwned: true, @"Global\eBackup.service", out var createdNew);
+    if (!createdNew)
+    {
+        Console.Error.WriteLine("eBackup: служба уже запущена — выходим.");
+        return;
+    }
+}
+catch (Exception)
+{
+    // Нет привилегии на Global-объект (консоль под обычным юзером) — единственность не навязываем.
+}
+
 var builder = Host.CreateApplicationBuilder(args);
 builder.Services.AddWindowsService(options => options.ServiceName = "eBackup");
 builder.Services.AddHostedService<IpcWorker>();
 builder.Build().Run();
+
+GC.KeepAlive(instanceLock);

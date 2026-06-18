@@ -23,6 +23,12 @@ public sealed class IpcWorker : BackgroundService
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
         var history = new HistoryStore();
+
+        // Восстановление после сбоя: пометить запуски, прерванные падением/перезапуском службы.
+        var interrupted = await CrashRecovery.SweepInterruptedAsync(history);
+        if (interrupted > 0)
+            _log.LogInformation("Помечено прерванных запусков при старте: {Count}", interrupted);
+
         var registry = new ModuleRegistry(
         [
             new BuiltInModuleSource([new ObsBackupModule()]),
