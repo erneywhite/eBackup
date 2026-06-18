@@ -18,6 +18,7 @@
     <!-- Контракт+транспорт+accept-loop; движок/история. Storage/Security/Modules.Obs — на S4c-3b/S7. -->
     <ProjectReference Include="..\eBackup.Ipc\eBackup.Ipc.csproj" />
     <ProjectReference Include="..\eBackup.Core\eBackup.Core.csproj" />
+    <ProjectReference Include="..\eBackup.Modules.Obs\eBackup.Modules.Obs.csproj" />
   </ItemGroup>
 
 </Project>
