@@ -749,111 +749,108 @@ public sealed partial class MainWindow : Window
         StatusSub.Text = "подготовка…";
         SetFill(0.04);
 
-        // Журнал «История»: восстановления пишутся так же подробно, как бэкапы.
-        var history = new HistoryStore();
-        var targetLabel = request.TargetDir is null ? "исходные места" : request.TargetDir;
-        var run = new BackupRunRecord
-        {
-            Id = $"{DateTime.Now:yyyyMMdd-HHmmss}-{Guid.NewGuid().ToString("N")[..4]}",
-            Operation = "восстановление",
-            StartedAt = DateTimeOffset.Now,
-            Trigger = "вручную",
-            Targets = [targetLabel]
-        };
-        void Log(string message) => history.AppendLog(run.Id, message);
-        Log($"Восстановление → {targetLabel} · режим конфликтов: {request.Policy}");
-        await history.SaveRunAsync(run);
-
-        string? tempDownloaded = null;
         try
         {
-            // Источник: прямой путь (хранилище-папка) либо скачивание из хранилища в temp.
-            string archive;
-            if (request.Source.LocalPath is not null)
-            {
-                archive = request.Source.LocalPath;
-                Log($"Источник: {archive}");
-            }
+            // Архив в хранилище службы → восстановление ВЫПОЛНЯЕТ служба (SYSTEM = админ: Program Files
+            // и профиль per-SID; лог в «Истории»). Отдельный локальный .ebk (открыт файлом) — в окне.
+            if (request.Source.StorageId is not null)
+                await RestoreViaServiceAsync(request);
             else
-            {
-                // Архив в хранилище службы: тянем его ЧЕРЕЗ службу (seek-сессия) во временный файл —
-                // полному восстановлению (хуки модулей, ассеты, расшифровка) нужен локальный файл.
-                var client = await ServiceConnection.GetClientAsync()
-                    ?? throw new InvalidOperationException(ServiceConnection.Shared.Error ?? "Служба eBackup недоступна.");
-                StatusSub.Text = $"Получаю {request.Source.RemoteName} из службы…";
-                Log($"Источник: хранилище «{request.Source.StorageId}» / {request.Source.RemoteName} — тяну через службу…");
-                var open = await client.OpenArchiveReadAsync(request.Source.StorageId!, request.Source.RemoteName!);
-                var handle = open.Handle;
-                tempDownloaded = Path.Combine(Path.GetTempPath(), "eBackup", "restore",
-                    $"{Guid.NewGuid():N}-{request.Source.RemoteName}");
-                Directory.CreateDirectory(Path.GetDirectoryName(tempDownloaded)!);
-                var watch = System.Diagnostics.Stopwatch.StartNew();
-                using (var remote = new RangeStream(open.Length,
-                           (off, cnt, c) => client.ReadArchiveChunkAsync(handle, off, cnt, c),
-                           onDispose: () => { _ = client.CloseArchiveReadAsync(handle); }))
-                using (var fs = File.Create(tempDownloaded))
-                    await remote.CopyToAsync(fs);
-                archive = tempDownloaded;
-                var seconds = Math.Max(0.1, watch.Elapsed.TotalSeconds);
-                var size = new FileInfo(archive).Length;
-                Log($"Получено: {size / 1024.0 / 1024.0:0.#} МБ за {seconds:0.#} с ({size / 1024.0 / 1024.0 / seconds:0.#} МБ/с)");
-                SetFill(0.25);
-            }
-
-            run.ArchiveName = Path.GetFileName(archive);
-            try { run.SizeBytes = new FileInfo(archive).Length; } catch { }
-
-            if (Core.Crypto.ArchiveCipher.IsEncrypted(archive) && string.IsNullOrEmpty(request.Passphrase))
-                throw new InvalidOperationException("Архив зашифрован — укажи парольную фразу.");
-
-            var progress = new Progress<string>(s =>
-            {
-                StatusSub.Text = s;
-                BumpFill(stageEnd: 0.95);
-            });
-
-            var engine = new BackupEngine();
-            await Task.Run(() => engine.RestoreAsync(
-                archive,
-                request.Modules,
-                request.Policy,
-                destinationRootOverride: request.TargetDir,
-                assetsDirectory: request.AssetsDir,
-                passphrase: request.Passphrase,
-                progress: progress,
-                log: Log));
-
-            run.Success = true;
-            SetFill(1.0);
-            StatusTitle.Text = "Готов к работе";
-            StatusSub.Text = $"восстановлено {DateTime.Now:HH:mm}: {Path.GetFileName(archive)} → "
-                + (request.TargetDir is null ? "исходные места" : request.TargetDir);
+                await RestoreLocalFileAsync(request);
         }
         catch (Exception ex)
         {
-            run.Success = false;
-            run.Error = ex.Message;
-            Log("✕ Ошибка: " + ex.Message);
             StatusTitle.Text = "Ошибка восстановления";
             StatusSub.Text = ex.Message;
         }
         finally
         {
-            if (tempDownloaded is not null)
-            {
-                try { File.Delete(tempDownloaded); } catch { /* temp */ }
-            }
-            run.FinishedAt = DateTimeOffset.Now;
-            var elapsed = run.FinishedAt.Value - run.StartedAt;
-            Log(run.Success == true
-                ? $"Готово за {elapsed:mm\\:ss}."
-                : $"Завершено с ошибкой за {elapsed:mm\\:ss}.");
-            await history.SaveRunAsync(run);
-
             _operationRunning = false;
             BackupBtn.IsEnabled = true;
+            BackupCompleted?.Invoke();
             await FadeOutFillAsync();
         }
+    }
+
+    /// <summary>Восстановление архива из хранилища службы — задачей в службе (живой прогресс из нот).</summary>
+    private async Task RestoreViaServiceAsync(RestoreRequest request)
+    {
+        if (request.Passphrase is not null)
+            throw new InvalidOperationException(
+                "Зашифрованные архивы через службу пока не восстанавливаются (появится с шифрованием, S7).");
+
+        var client = await ServiceConnection.GetClientAsync()
+            ?? throw new InvalidOperationException(ServiceConnection.Shared.Error ?? "Служба eBackup недоступна.");
+
+        var resp = await client.StartRestoreAsync(new StartRestoreRequest
+        {
+            SourceStorageId = request.Source.StorageId!,
+            RemoteName = request.Source.RemoteName!,
+            TargetDir = request.TargetDir,
+            Policy = request.Policy.ToString(),
+            AssetsDir = request.AssetsDir,
+            Trigger = "вручную",
+            ClientRequestId = Guid.NewGuid().ToString("N"),
+        });
+
+        await foreach (var f in client.AttachToJobAsync(resp.JobId, 0))
+        {
+            if (f.Op == IpcNotes.Phase && f.Body is { } pb
+                && pb.Deserialize(IpcJsonContext.Default.PhaseNote) is { } pn)
+            {
+                StatusSub.Text = pn.Phase;
+                if (pn.ProgressFraction > 0) SetFill(0.05 + 0.9 * Math.Clamp(pn.ProgressFraction, 0, 1));
+                else BumpFill(stageEnd: 0.9);
+            }
+            else if (f.Op == IpcNotes.Log && f.Body is { } lb
+                && lb.Deserialize(IpcJsonContext.Default.LogNote) is { } ln)
+            {
+                StatusSub.Text = ln.Text;
+            }
+        }
+
+        var job = await client.GetJobAsync(new GetJobRequest { JobId = resp.JobId });
+        SetFill(1.0);
+        if (job.State == "Completed")
+        {
+            StatusTitle.Text = "Готов к работе";
+            StatusSub.Text = $"восстановлено {DateTime.Now:HH:mm}: {request.Source.RemoteName} → "
+                + (request.TargetDir ?? "исходные места");
+        }
+        else
+        {
+            StatusTitle.Text = "Восстановление с ошибками";
+            StatusSub.Text = "✕ " + (job.Error ?? "не удалось восстановить");
+        }
+    }
+
+    /// <summary>Восстановление отдельного локального .ebk (открыт файлом) — в окне под пользователем.</summary>
+    private async Task RestoreLocalFileAsync(RestoreRequest request)
+    {
+        var archive = request.Source.LocalPath!;
+        if (Core.Crypto.ArchiveCipher.IsEncrypted(archive) && string.IsNullOrEmpty(request.Passphrase))
+            throw new InvalidOperationException("Архив зашифрован — укажи парольную фразу.");
+
+        var progress = new Progress<string>(s =>
+        {
+            StatusSub.Text = s;
+            BumpFill(stageEnd: 0.95);
+        });
+
+        await Task.Run(() => new BackupEngine().RestoreAsync(
+            archive,
+            request.Modules,
+            request.Policy,
+            destinationRootOverride: request.TargetDir,
+            assetsDirectory: request.AssetsDir,
+            passphrase: request.Passphrase,
+            progress: progress,
+            log: null));
+
+        SetFill(1.0);
+        StatusTitle.Text = "Готов к работе";
+        StatusSub.Text = $"восстановлено {DateTime.Now:HH:mm}: {Path.GetFileName(archive)} → "
+            + (request.TargetDir ?? "исходные места");
     }
 
     // ---------- «жидкая» заливка-прогресс нижней панели (вода с физикой) ----------
