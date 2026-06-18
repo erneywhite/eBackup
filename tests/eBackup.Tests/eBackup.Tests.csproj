@@ -26,6 +26,7 @@
     <ProjectReference Include="..\..\src\eBackup.Storage\eBackup.Storage.csproj" />
     <ProjectReference Include="..\..\src\eBackup.Security\eBackup.Security.csproj" />
     <ProjectReference Include="..\..\src\eBackup.Ipc\eBackup.Ipc.csproj" />
+    <ProjectReference Include="..\..\src\eBackup.Service\eBackup.Service.csproj" />
   </ItemGroup>
 
 </Project>
