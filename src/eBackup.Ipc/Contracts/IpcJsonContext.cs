@@ -31,6 +31,7 @@ namespace eBackup.Ipc.Contracts;
 [JsonSerializable(typeof(GetStorageRequest))]
 [JsonSerializable(typeof(StorageInput))]
 [JsonSerializable(typeof(StorageDetail))]
+[JsonSerializable(typeof(StorageDetail[]))]
 [JsonSerializable(typeof(TestStorageRequest))]
 [JsonSerializable(typeof(ScheduleInput))]
 [JsonSerializable(typeof(SetModuleEnabledRequest))]

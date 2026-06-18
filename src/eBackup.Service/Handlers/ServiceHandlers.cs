@@ -143,6 +143,9 @@ public sealed class ServiceHandlers : IIpcHandlers
     public async Task<StorageSummary[]> ListStoragesAsync(CallerContext caller, CancellationToken ct)
         => (await _storages.LoadAsync(ct).ConfigureAwait(false)).Select(StorageInputMapper.ToSummary).ToArray();
 
+    public async Task<StorageDetail[]> ListStorageDetailsAsync(CallerContext caller, CancellationToken ct)
+        => (await _storages.LoadAsync(ct).ConfigureAwait(false)).Select(StorageInputMapper.ToDetail).ToArray();
+
     public async Task<StorageDetail> GetStorageAsync(GetStorageRequest req, CallerContext caller, CancellationToken ct)
     {
         var s = (await _storages.LoadAsync(ct).ConfigureAwait(false)).FirstOrDefault(x => x.Id == req.Id)

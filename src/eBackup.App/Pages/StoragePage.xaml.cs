@@ -1,5 +1,6 @@
 using System.ComponentModel;
-using eBackup.Security;
+using eBackup.Ipc.Client;
+using eBackup.Ipc.Contracts;
 using eBackup.Storage;
 using eBackup.Storage.Sftp;
 using Microsoft.UI.Xaml;
@@ -49,10 +50,12 @@ public sealed class StorageItem(SavedStorage storage) : INotifyPropertyChanged
 
 public sealed partial class StoragePage : Page
 {
-    private readonly StorageStore _store = new(new DpapiSecretProtector());
-    private List<SavedStorage> _storages = [];
+    // Хранилища живут в СЛУЖБЕ (машинный ключ, ProgramData) — страница ими управляет по IPC.
+    private List<SavedStorage> _storages = [];          // несекретная проекция для списка/формы
+    private List<StorageDetail> _details = [];          // что вернула служба (поля + какие секреты есть)
     private List<StorageItem> _items = [];
     private SavedStorage? _editing;            // null — создаём новое
+    private StorageDetail? _editingDetail;     // детали выбранного (для плейсхолдеров «оставить прежний»)
     private StorageKind _editorKind;           // тип редактируемого/создаваемого
     private string? _pendingGDriveToken;       // refresh-токен после «Войти», ещё не сохранён
     private string? _pendingDropboxToken;
@@ -90,27 +93,79 @@ public sealed partial class StoragePage : Page
         };
     }
 
+    // ---------- связь со службой ----------
+
+    /// <summary>Живой клиент службы или null (с заполненным <see cref="ServiceConnection.Error"/>).</summary>
+    private static async Task<IpcClient?> ConnectAsync()
+        => await ServiceConnection.Shared.EnsureConnectedAsync().ConfigureAwait(true)
+            ? ServiceConnection.Shared.Client
+            : null;
+
+    private static string ServiceError => ServiceConnection.Shared.Error ?? "Служба eBackup недоступна.";
+
+    /// <summary>Есть ли у выбранного хранилища секрет с таким именем (по данным службы).</summary>
+    private bool HasSecret(string key) => _editingDetail?.PresentSecrets.Contains(key) == true;
+
+    /// <summary>StorageDetail (несекретные поля службы) → SavedStorage для списка и формы.</summary>
+    private static SavedStorage DetailToSaved(StorageDetail d)
+    {
+        var s = d.Settings;
+        _ = Enum.TryParse<StorageKind>(d.Kind, ignoreCase: true, out var kind);
+        string? Str(string k) => s.TryGetValue(k, out var v) && v.Length > 0 ? v : null;
+        int Int(string k, int def) => int.TryParse(Str(k), out var v) ? v : def;
+        bool Bool(string k, bool def = false) => bool.TryParse(Str(k), out var v) ? v : def;
+
+        return new SavedStorage
+        {
+            Id = d.Id,
+            Name = d.Name,
+            Kind = kind,
+            Path = Str("path"),
+            ShareUsername = Str("shareUsername"),
+            Host = Str("host"),
+            Port = Int("port", 22),
+            Username = Str("username"),
+            RemoteDirectory = Str("remoteDirectory"),
+            UseFtps = Bool("useFtps"),
+            AllowUntrustedCertificate = Bool("allowUntrustedCertificate"),
+            ServiceUrl = Str("serviceUrl"),
+            Bucket = Str("bucket"),
+            AccessKeyId = Str("accessKeyId"),
+            ForcePathStyle = Bool("forcePathStyle", def: true),
+        };
+    }
+
     // ---------- список ----------
 
     private async Task ReloadAsync(string? selectId)
     {
-        List<SavedStorage> loaded;
-        try
+        var client = await ConnectAsync();
+        if (client is null)
         {
-            loaded = (await _store.LoadAsync()).ToList();
-        }
-        catch (Exception ex)
-        {
-            _storages = [];
-            _items = [];
+            _storages = []; _details = []; _items = [];
             StorageList.ItemsSource = null;
             Editor.Visibility = Visibility.Collapsed;
-            EmptyHint.Text = "Не удалось прочитать конфиг хранилищ:\n" + ex.Message;
+            EmptyHint.Text = "Служба eBackup недоступна:\n" + ServiceError;
             EmptyHint.Visibility = Visibility.Visible;
             return;
         }
 
-        _storages = loaded
+        try
+        {
+            _details = (await client.ListStorageDetailsAsync()).ToList();
+        }
+        catch (Exception ex)
+        {
+            _storages = []; _details = []; _items = [];
+            StorageList.ItemsSource = null;
+            Editor.Visibility = Visibility.Collapsed;
+            EmptyHint.Text = "Не удалось прочитать хранилища службы:\n" + ex.Message;
+            EmptyHint.Visibility = Visibility.Visible;
+            return;
+        }
+
+        _storages = _details
+            .Select(DetailToSaved)
             .OrderBy(s => s.Name, StringComparer.CurrentCultureIgnoreCase)
             .ToList();
         _items = _storages.Select(s => new StorageItem(s)).ToList();
@@ -138,6 +193,7 @@ public sealed partial class StoragePage : Page
             return;
 
         _editing = item.Storage;
+        _editingDetail = _details.FirstOrDefault(d => d.Id == item.Storage.Id);
         _editorKind = item.Storage.Kind;
         ShowEditorFor(item.Storage);
     }
@@ -157,6 +213,7 @@ public sealed partial class StoragePage : Page
         _suppressSelection = false;
 
         _editing = null;
+        _editingDetail = null;
         _editorKind = kind;
         ShowEditorFor(null);
     }
@@ -193,15 +250,15 @@ public sealed partial class StoragePage : Page
         // OAuth-облака: статус подключения аккаунта
         GDriveFolderBox.Text = s?.Kind == StorageKind.GoogleDrive ? s.RemoteDirectory ?? "" : "";
         DropboxFolderBox.Text = s?.Kind == StorageKind.Dropbox ? s.RemoteDirectory ?? "" : "";
-        SetOAuthStatus(GDriveStatus, s?.Kind == StorageKind.GoogleDrive && s.ProtectedOAuthToken is not null);
-        SetOAuthStatus(DropboxStatus, s?.Kind == StorageKind.Dropbox && s.ProtectedOAuthToken is not null);
+        SetOAuthStatus(GDriveStatus, s?.Kind == StorageKind.GoogleDrive && HasSecret("oauthToken"));
+        SetOAuthStatus(DropboxStatus, s?.Kind == StorageKind.Dropbox && HasSecret("oauthToken"));
 
         // WebDAV
         WebDavUrlBox.Text = s?.Kind == StorageKind.WebDav ? s.ServiceUrl ?? "" : "";
         WebDavDirBox.Text = s?.Kind == StorageKind.WebDav ? s.RemoteDirectory ?? "" : "";
         WebDavUserBox.Text = s?.Kind == StorageKind.WebDav ? s.Username ?? "" : "";
         WebDavPassBox.Password = string.Empty;
-        WebDavPassBox.PlaceholderText = s?.Kind == StorageKind.WebDav && s.ProtectedPassword is not null
+        WebDavPassBox.PlaceholderText = s?.Kind == StorageKind.WebDav && HasSecret("password")
             ? "пусто — оставить прежний"
             : "пароль";
 
@@ -212,7 +269,7 @@ public sealed partial class StoragePage : Page
         S3AccessBox.Text = s?.Kind == StorageKind.S3 ? s.AccessKeyId ?? "" : "";
         S3PathStyleCheck.IsChecked = s?.Kind != StorageKind.S3 || s.ForcePathStyle;
         S3SecretBox.Password = string.Empty;
-        S3SecretBox.PlaceholderText = s?.Kind == StorageKind.S3 && s.ProtectedSecretKey is not null
+        S3SecretBox.PlaceholderText = s?.Kind == StorageKind.S3 && HasSecret("secretKey")
             ? "пусто — оставить прежний"
             : "Secret Access Key";
 
@@ -224,7 +281,7 @@ public sealed partial class StoragePage : Page
         FtpsCheck.IsChecked = s?.Kind == StorageKind.Ftp && s.UseFtps;
         FtpAllowUntrustedCheck.IsChecked = s?.Kind == StorageKind.Ftp && s.AllowUntrustedCertificate;
         FtpPassBox.Password = string.Empty;
-        FtpPassBox.PlaceholderText = s?.Kind == StorageKind.Ftp && s.ProtectedPassword is not null
+        FtpPassBox.PlaceholderText = s?.Kind == StorageKind.Ftp && HasSecret("password")
             ? "пусто — оставить прежний"
             : "пароль";
 
@@ -232,7 +289,7 @@ public sealed partial class StoragePage : Page
         PathBox.Text = s?.Path ?? string.Empty;
         ShareUserBox.Text = s?.ShareUsername ?? string.Empty;
         SharePassBox.Password = string.Empty;
-        SharePassBox.PlaceholderText = s?.ProtectedSharePassword is null
+        SharePassBox.PlaceholderText = !HasSecret("sharePassword")
             ? "пароль"
             : "пусто — оставить прежний";
 
@@ -241,17 +298,17 @@ public sealed partial class StoragePage : Page
         PortBox.Text = (s?.Port ?? 22).ToString();
         UserBox.Text = s?.Username ?? string.Empty;
         RemoteDirBox.Text = s?.RemoteDirectory ?? ".";
-        var keyAuth = s?.ProtectedPrivateKey is not null;
+        var keyAuth = HasSecret("privateKey");
         AuthKey.IsChecked = keyAuth;
         AuthPassword.IsChecked = !keyAuth;
         PassBox.Password = string.Empty;
         KeyPemBox.Text = string.Empty;
         KeyPassBox.Password = string.Empty;
-        PassBox.PlaceholderText = s?.ProtectedPassword is null ? "пароль" : "пусто — оставить прежний";
-        KeyPemBox.PlaceholderText = s?.ProtectedPrivateKey is null
+        PassBox.PlaceholderText = !HasSecret("password") ? "пароль" : "пусто — оставить прежний";
+        KeyPemBox.PlaceholderText = !HasSecret("privateKey")
             ? "-----BEGIN OPENSSH PRIVATE KEY-----  (вставь содержимое приватного ключа)"
             : "пусто — оставить прежний ключ";
-        KeyPassBox.PlaceholderText = s?.ProtectedKeyPassphrase is null
+        KeyPassBox.PlaceholderText = !HasSecret("keyPassphrase")
             ? "парольная фраза ключа (если есть)"
             : "пусто — оставить прежнюю";
 
@@ -408,114 +465,72 @@ public sealed partial class StoragePage : Page
     // ---------- сбор записи из формы ----------
 
     /// <summary>
-    /// Собирает запись хранилища из формы. Пустые поля секретов при редактировании
-    /// означают «оставить прежний» (Protected*-блоб переносится как есть).
+    /// Собирает StorageInput из формы для отправки в службу: несекретные поля → Settings,
+    /// введённые секреты → PlaintextSecrets (служба перешифрует машинным ключом). Пустое поле
+    /// секрета при редактировании = «оставить прежний» (секрет не передаём — служба сохранит
+    /// уже имеющийся). null + error — провал валидации.
     /// </summary>
-    private SavedStorage? BuildFromForm(string id, string name, out string? error)
+    private StorageInput? BuildInputFromForm(string id, string name, out string? error)
     {
         error = null;
+        var settings = new Dictionary<string, string>();
+        var secrets = new Dictionary<string, string>();
+
+        StorageInput Make() => new()
+        {
+            Id = id,
+            Name = name,
+            Kind = _editorKind.ToString(),
+            Settings = settings,
+            PlaintextSecrets = secrets.Count > 0 ? secrets : null,
+        };
 
         if (_editorKind == StorageKind.LocalFolder)
         {
             var path = PathBox.Text.Trim();
-            if (path.Length == 0)
-            {
-                error = "Укажи путь к папке.";
-                return null;
-            }
-
-            string? protectedPass = null;
-            if (SharePassBox.Password.Length > 0)
-                protectedPass = _store.Protect(SharePassBox.Password);
-            else if (_editing?.ProtectedSharePassword is not null)
-                protectedPass = _editing.ProtectedSharePassword;
-
+            if (path.Length == 0) { error = "Укажи путь к папке."; return null; }
+            settings["path"] = path;
             var shareUser = ShareUserBox.Text.Trim();
-            return new SavedStorage
-            {
-                Id = id,
-                Name = name,
-                Kind = StorageKind.LocalFolder,
-                Path = path,
-                ShareUsername = shareUser.Length == 0 ? null : shareUser,
-                ProtectedSharePassword = protectedPass
-            };
+            if (shareUser.Length > 0) settings["shareUsername"] = shareUser;
+            if (SharePassBox.Password.Length > 0) secrets["sharePassword"] = SharePassBox.Password;
+            return Make();
         }
 
         if (_editorKind == StorageKind.GoogleDrive)
         {
-            var token = _pendingGDriveToken is not null
-                ? _store.Protect(_pendingGDriveToken)
-                : _editing?.Kind == StorageKind.GoogleDrive ? _editing.ProtectedOAuthToken : null;
-            if (token is null)
+            if (_pendingGDriveToken is null && !HasSecret("oauthToken"))
             {
                 error = "Сначала войди в аккаунт Google.";
                 return null;
             }
-
-            return new SavedStorage
-            {
-                Id = id,
-                Name = name,
-                Kind = StorageKind.GoogleDrive,
-                ProtectedOAuthToken = token,
-                RemoteDirectory = GDriveFolderBox.Text.Trim()
-            };
+            if (_pendingGDriveToken is not null) secrets["oauthToken"] = _pendingGDriveToken;
+            settings["remoteDirectory"] = GDriveFolderBox.Text.Trim();
+            return Make();
         }
 
         if (_editorKind == StorageKind.Dropbox)
         {
-            var token = _pendingDropboxToken is not null
-                ? _store.Protect(_pendingDropboxToken)
-                : _editing?.Kind == StorageKind.Dropbox ? _editing.ProtectedOAuthToken : null;
-            if (token is null)
+            if (_pendingDropboxToken is null && !HasSecret("oauthToken"))
             {
                 error = "Сначала войди в аккаунт Dropbox.";
                 return null;
             }
-
-            return new SavedStorage
-            {
-                Id = id,
-                Name = name,
-                Kind = StorageKind.Dropbox,
-                ProtectedOAuthToken = token,
-                RemoteDirectory = DropboxFolderBox.Text.Trim()
-            };
+            if (_pendingDropboxToken is not null) secrets["oauthToken"] = _pendingDropboxToken;
+            settings["remoteDirectory"] = DropboxFolderBox.Text.Trim();
+            return Make();
         }
 
         if (_editorKind == StorageKind.WebDav)
         {
             var davUrl = WebDavUrlBox.Text.Trim();
             var davUser = WebDavUserBox.Text.Trim();
-            if (davUrl.Length == 0 || davUser.Length == 0)
-            {
-                error = "Укажи URL и логин.";
-                return null;
-            }
-
-            string? davProtectedPass = null;
-            if (WebDavPassBox.Password.Length > 0)
-                davProtectedPass = _store.Protect(WebDavPassBox.Password);
-            else if (_editing?.Kind == StorageKind.WebDav && _editing.ProtectedPassword is not null)
-                davProtectedPass = _editing.ProtectedPassword;
-
-            if (davProtectedPass is null)
-            {
-                error = "Введи пароль.";
-                return null;
-            }
-
-            return new SavedStorage
-            {
-                Id = id,
-                Name = name,
-                Kind = StorageKind.WebDav,
-                ServiceUrl = davUrl,
-                Username = davUser,
-                ProtectedPassword = davProtectedPass,
-                RemoteDirectory = WebDavDirBox.Text.Trim()
-            };
+            if (davUrl.Length == 0 || davUser.Length == 0) { error = "Укажи URL и логин."; return null; }
+            if (WebDavPassBox.Password.Length > 0) secrets["password"] = WebDavPassBox.Password;
+            else if (!HasSecret("password")) { error = "Введи пароль."; return null; }
+            settings["serviceUrl"] = davUrl;
+            settings["username"] = davUser;
+            settings["remoteDirectory"] = WebDavDirBox.Text.Trim();
+            return Make();
         }
 
         if (_editorKind == StorageKind.S3)
@@ -528,156 +543,79 @@ public sealed partial class StoragePage : Page
                 error = "Укажи endpoint, бакет и Access Key ID.";
                 return null;
             }
-
-            string? protectedSecret = null;
-            if (S3SecretBox.Password.Length > 0)
-                protectedSecret = _store.Protect(S3SecretBox.Password);
-            else if (_editing?.Kind == StorageKind.S3 && _editing.ProtectedSecretKey is not null)
-                protectedSecret = _editing.ProtectedSecretKey;
-
-            if (protectedSecret is null)
-            {
-                error = "Введи Secret Access Key.";
-                return null;
-            }
-
-            return new SavedStorage
-            {
-                Id = id,
-                Name = name,
-                Kind = StorageKind.S3,
-                ServiceUrl = url,
-                Bucket = bucket,
-                AccessKeyId = access,
-                ProtectedSecretKey = protectedSecret,
-                RemoteDirectory = S3PrefixBox.Text.Trim(),
-                ForcePathStyle = S3PathStyleCheck.IsChecked == true
-            };
+            if (S3SecretBox.Password.Length > 0) secrets["secretKey"] = S3SecretBox.Password;
+            else if (!HasSecret("secretKey")) { error = "Введи Secret Access Key."; return null; }
+            settings["serviceUrl"] = url;
+            settings["bucket"] = bucket;
+            settings["accessKeyId"] = access;
+            settings["remoteDirectory"] = S3PrefixBox.Text.Trim();
+            settings["forcePathStyle"] = (S3PathStyleCheck.IsChecked == true).ToString();
+            return Make();
         }
 
         if (_editorKind == StorageKind.Ftp)
         {
             var ftpHost = FtpHostBox.Text.Trim();
             var ftpUser = FtpUserBox.Text.Trim();
-            if (ftpHost.Length == 0 || ftpUser.Length == 0)
-            {
-                error = "Укажи хост и логин.";
-                return null;
-            }
+            if (ftpHost.Length == 0 || ftpUser.Length == 0) { error = "Укажи хост и логин."; return null; }
 
             int ftpPort;
             var ftpPortText = FtpPortBox.Text.Trim();
-            if (ftpPortText.Length == 0)
-            {
-                ftpPort = 21;
-            }
+            if (ftpPortText.Length == 0) ftpPort = 21;
             else if (!int.TryParse(ftpPortText, out ftpPort) || ftpPort is <= 0 or > 65535)
             {
                 error = "Порт должен быть числом от 1 до 65535.";
                 return null;
             }
 
-            string? ftpProtectedPass = null;
-            if (FtpPassBox.Password.Length > 0)
-                ftpProtectedPass = _store.Protect(FtpPassBox.Password);
-            else if (_editing?.Kind == StorageKind.Ftp && _editing.ProtectedPassword is not null)
-                ftpProtectedPass = _editing.ProtectedPassword;
+            if (FtpPassBox.Password.Length > 0) secrets["password"] = FtpPassBox.Password;
+            else if (!HasSecret("password")) { error = "Введи пароль."; return null; }
 
-            if (ftpProtectedPass is null)
-            {
-                error = "Введи пароль.";
-                return null;
-            }
-
-            return new SavedStorage
-            {
-                Id = id,
-                Name = name,
-                Kind = StorageKind.Ftp,
-                Host = ftpHost,
-                Port = ftpPort,
-                Username = ftpUser,
-                ProtectedPassword = ftpProtectedPass,
-                RemoteDirectory = FtpDirBox.Text.Trim() is { Length: > 0 } d ? d : ".",
-                UseFtps = FtpsCheck.IsChecked == true,
-                AllowUntrustedCertificate = FtpAllowUntrustedCheck.IsChecked == true
-            };
+            settings["host"] = ftpHost;
+            settings["port"] = ftpPort.ToString();
+            settings["username"] = ftpUser;
+            settings["remoteDirectory"] = FtpDirBox.Text.Trim() is { Length: > 0 } d ? d : ".";
+            settings["useFtps"] = (FtpsCheck.IsChecked == true).ToString();
+            settings["allowUntrustedCertificate"] = (FtpAllowUntrustedCheck.IsChecked == true).ToString();
+            return Make();
         }
 
         // SFTP
         var host = HostBox.Text.Trim();
         var user = UserBox.Text.Trim();
-        if (host.Length == 0 || user.Length == 0)
-        {
-            error = "Укажи хост и логин.";
-            return null;
-        }
+        if (host.Length == 0 || user.Length == 0) { error = "Укажи хост и логин."; return null; }
 
         int port;
         var portText = PortBox.Text.Trim();
-        if (portText.Length == 0)
-        {
-            port = 22;
-        }
+        if (portText.Length == 0) port = 22;
         else if (!int.TryParse(portText, out port) || port is <= 0 or > 65535)
         {
             error = "Порт должен быть числом от 1 до 65535.";
             return null;
         }
 
-        string? protectedPassword = null, protectedKey = null, protectedKeyPass = null;
         if (AuthKey.IsChecked == true)
         {
-            if (KeyPemBox.Text.Trim().Length > 0)
-                protectedKey = _store.Protect(KeyPemBox.Text);
-            else if (_editing?.ProtectedPrivateKey is not null)
-                protectedKey = _editing.ProtectedPrivateKey;
-
-            if (protectedKey is null)
-            {
-                error = "Вставь содержимое приватного ключа.";
-                return null;
-            }
-
-            if (KeyPassBox.Password.Length > 0)
-                protectedKeyPass = _store.Protect(KeyPassBox.Password);
-            else if (_editing?.ProtectedKeyPassphrase is not null)
-                protectedKeyPass = _editing.ProtectedKeyPassphrase;
+            if (KeyPemBox.Text.Trim().Length > 0) secrets["privateKey"] = KeyPemBox.Text;
+            else if (!HasSecret("privateKey")) { error = "Вставь содержимое приватного ключа."; return null; }
+            if (KeyPassBox.Password.Length > 0) secrets["keyPassphrase"] = KeyPassBox.Password;
         }
         else
         {
-            if (PassBox.Password.Length > 0)
-                protectedPassword = _store.Protect(PassBox.Password);
-            else if (_editing?.ProtectedPassword is not null)
-                protectedPassword = _editing.ProtectedPassword;
-
-            if (protectedPassword is null)
-            {
-                error = "Введи пароль.";
-                return null;
-            }
+            if (PassBox.Password.Length > 0) secrets["password"] = PassBox.Password;
+            else if (!HasSecret("password")) { error = "Введи пароль."; return null; }
         }
 
         // Нормализация пути: SFTP не разворачивает «~», пути относительны домашней папки.
         var dir = RemoteDirBox.Text.Trim().Replace('\\', '/');
-        if (dir == "~")
-            dir = ".";
-        else if (dir.StartsWith("~/", StringComparison.Ordinal))
-            dir = dir[2..];
+        if (dir == "~") dir = ".";
+        else if (dir.StartsWith("~/", StringComparison.Ordinal)) dir = dir[2..];
 
-        return new SavedStorage
-        {
-            Id = id,
-            Name = name,
-            Kind = StorageKind.Sftp,
-            Host = host,
-            Port = port,
-            Username = user,
-            ProtectedPassword = protectedPassword,
-            ProtectedPrivateKey = protectedKey,
-            ProtectedKeyPassphrase = protectedKeyPass,
-            RemoteDirectory = dir.Length == 0 ? "." : dir
-        };
+        settings["host"] = host;
+        settings["port"] = port.ToString();
+        settings["username"] = user;
+        settings["remoteDirectory"] = dir.Length == 0 ? "." : dir;
+        return Make();
     }
 
     // ---------- действия ----------
@@ -687,16 +625,19 @@ public sealed partial class StoragePage : Page
         SetBusy(true);
         try
         {
-            var built = BuildFromForm(_editing?.Id ?? "test", NameBox.Text.Trim(), out var error);
-            if (built is null)
+            var input = BuildInputFromForm(_editing?.Id ?? "test", NameBox.Text.Trim(), out var error);
+            if (input is null)
             {
                 SetStatus(error!, ok: false);
                 return;
             }
 
+            var client = await ConnectAsync();
+            if (client is null) { SetStatus("✕ " + ServiceError, ok: false); return; }
+
             SetStatus("Проверяю…", ok: true, dim: true);
-            var result = await StorageFactory.Create(built, _store.Protector).TestAsync();
-            SetStatus(result.Success ? "✓ " + result.Message : "✕ " + result.Message, result.Success);
+            var result = await client.TestStorageAsync(new TestStorageRequest { Inline = input });
+            SetStatus(result.Ok ? "✓ " + result.Message : "✕ " + result.Message, result.Ok);
         }
         catch (Exception ex)
         {
@@ -726,20 +667,20 @@ public sealed partial class StoragePage : Page
                     _ => HostBox.Text.Trim()
                 };
 
-            // Сливаемся со СВЕЖИМ состоянием диска (параллельные правки не затираются).
-            var fresh = (await _store.LoadAsync()).ToList();
-            var id = _editing?.Id ?? MakeId(name, fresh);
+            var client = await ConnectAsync();
+            if (client is null) { SetStatus("✕ " + ServiceError, ok: false); return; }
 
-            var built = BuildFromForm(id, name, out var error);
-            if (built is null)
+            var id = _editing?.Id ?? MakeId(name, _storages);
+            var input = BuildInputFromForm(id, name, out var error);
+            if (input is null)
             {
                 SetStatus(error!, ok: false);
                 return;
             }
 
-            await _store.SaveAllAsync(fresh.Where(s => s.Id != id).Append(built).ToList());
+            await client.UpsertStorageAsync(input);
             await ReloadAsync(selectId: id);
-            SetStatus("✓ Сохранено (секреты зашифрованы через DPAPI)", ok: true);
+            SetStatus("✓ Сохранено (секреты под машинным ключом службы)", ok: true);
 
             var item = _items.FirstOrDefault(i => i.Storage.Id == id);
             if (item is not null)
@@ -801,8 +742,9 @@ public sealed partial class StoragePage : Page
         SetBusy(true);
         try
         {
-            var fresh = (await _store.LoadAsync()).Where(s => s.Id != _editing.Id).ToList();
-            await _store.SaveAllAsync(fresh);
+            var client = await ConnectAsync();
+            if (client is null) { SetStatus("✕ " + ServiceError, ok: false); return; }
+            await client.DeleteStorageAsync(_editing.Id);
             _editing = null;
             await ReloadAsync(selectId: null);
         }
@@ -858,9 +800,11 @@ public sealed partial class StoragePage : Page
         item.StatusBrush = (Brush)Application.Current.Resources["EbTextDimBrush"];
         try
         {
-            var result = await StorageFactory.Create(item.Storage, _store.Protector).TestAsync();
-            item.StatusGlyph = result.Success ? "✓" : "✕";
-            item.StatusBrush = (Brush)Application.Current.Resources[result.Success ? "EbOkBrush" : "EbErrBrush"];
+            var client = await ConnectAsync();
+            if (client is null) throw new InvalidOperationException(ServiceError);
+            var result = await client.TestStorageAsync(new TestStorageRequest { StorageId = item.Storage.Id });
+            item.StatusGlyph = result.Ok ? "✓" : "✕";
+            item.StatusBrush = (Brush)Application.Current.Resources[result.Ok ? "EbOkBrush" : "EbErrBrush"];
         }
         catch
         {
@@ -874,40 +818,11 @@ public sealed partial class StoragePage : Page
 
     // ---------- дерево удалённых папок (SFTP) ----------
 
-    private async void BrowseBtn_Click(object sender, RoutedEventArgs e)
-    {
-        SetBusy(true);
-        try
-        {
-            var built = BuildFromForm(_editing?.Id ?? "browse", "browse", out var error);
-            if (built is null || built.Kind != StorageKind.Sftp)
-            {
-                SetStatus(error ?? "Обзор доступен для SFTP.", ok: false);
-                return;
-            }
-
-            SetStatus("Загружаю папки…", ok: true, dim: true);
-            _browseProvider = new SftpStorageProvider(StorageFactory.ToSftpOptions(built, _store.Protector));
-            var dirs = await _browseProvider.ListDirectoriesAsync(".");
-
-            FolderTree.RootNodes.Clear();
-            foreach (var d in dirs)
-                FolderTree.RootNodes.Add(MakeNode(d));
-
-            TreePanel.Visibility = Visibility.Visible;
-            SetStatus(dirs.Count == 0
-                ? "В домашней папке нет подкаталогов — путь можно ввести вручную."
-                : "Клик по папке подставит её в поле пути; раскрытие подгружает вложенные.", ok: true, dim: true);
-        }
-        catch (Exception ex)
-        {
-            SetStatus("✕ " + ex.Message, ok: false);
-        }
-        finally
-        {
-            SetBusy(false);
-        }
-    }
+    // Секреты SFTP теперь в службе (под SYSTEM) — клиентский обзор удалённых папок переедет
+    // отдельной серверной операцией. Пока путь вводится вручную.
+    private void BrowseBtn_Click(object sender, RoutedEventArgs e)
+        => SetStatus("Обзор удалённых папок появится после переноса в службу — пока укажи путь вручную.",
+            ok: true, dim: true);
 
     private async void FolderTree_Expanding(TreeView sender, TreeViewExpandingEventArgs args)
     {

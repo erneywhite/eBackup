@@ -16,6 +16,7 @@ public static class IpcOps
     public const string DetachFromJob = "detachFromJob";
     public const string StashPassphrase = "stashPassphrase";
     public const string ListStorages = "listStorages";
+    public const string ListStorageDetails = "listStorageDetails";
     public const string GetStorage = "getStorage";
     public const string UpsertStorage = "upsertStorage";
     public const string DeleteStorage = "deleteStorage";

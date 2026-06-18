@@ -11,6 +11,9 @@ public enum ServiceState { Disconnected, Connected, NotInstalled, Unavailable }
 /// </summary>
 public sealed class ServiceConnection
 {
+    /// <summary>Единое подключение на процесс GUI (страницы берут службу отсюда).</summary>
+    public static ServiceConnection Shared { get; } = new();
+
     private readonly SemaphoreSlim _gate = new(1, 1);
 
     public ServiceState State { get; private set; } = ServiceState.Disconnected;

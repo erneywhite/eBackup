@@ -43,6 +43,7 @@ public sealed class InMemoryHandlers : IIpcHandlers
     public Task<StashPassphraseResponse> StashPassphraseAsync(StashPassphraseRequest req, CallerContext caller, CancellationToken ct)
         => Task.FromResult(new StashPassphraseResponse { Ticket = "ticket-1", ExpiresAt = default });
     public Task<StorageSummary[]> ListStoragesAsync(CallerContext caller, CancellationToken ct) => Task.FromResult(Array.Empty<StorageSummary>());
+    public Task<StorageDetail[]> ListStorageDetailsAsync(CallerContext caller, CancellationToken ct) => Task.FromResult(Array.Empty<StorageDetail>());
     public Task<StorageDetail> GetStorageAsync(GetStorageRequest req, CallerContext caller, CancellationToken ct) => Task.FromResult(new StorageDetail { Id = req.Id });
     public Task<Ack> UpsertStorageAsync(StorageInput req, CallerContext caller, CancellationToken ct) => Task.FromResult(new Ack());
     public Task<Ack> DeleteStorageAsync(DeleteByIdRequest req, CallerContext caller, CancellationToken ct) => Task.FromResult(new Ack());

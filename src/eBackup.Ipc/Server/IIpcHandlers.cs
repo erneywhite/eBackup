@@ -19,6 +19,7 @@ public interface IIpcHandlers
     Task<StashPassphraseResponse> StashPassphraseAsync(StashPassphraseRequest req, CallerContext caller, CancellationToken ct);
 
     Task<StorageSummary[]> ListStoragesAsync(CallerContext caller, CancellationToken ct);
+    Task<StorageDetail[]> ListStorageDetailsAsync(CallerContext caller, CancellationToken ct);
     Task<StorageDetail> GetStorageAsync(GetStorageRequest req, CallerContext caller, CancellationToken ct);
     Task<Ack> UpsertStorageAsync(StorageInput req, CallerContext caller, CancellationToken ct);
     Task<Ack> DeleteStorageAsync(DeleteByIdRequest req, CallerContext caller, CancellationToken ct);
