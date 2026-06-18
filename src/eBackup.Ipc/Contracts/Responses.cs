@@ -132,6 +132,7 @@ public sealed record BackupRunRecordDto
     public string Trigger { get; init; } = "";
     public bool? Success { get; init; }
     public string? State { get; init; }
+    public string Operation { get; init; } = "бэкап"; // бэкап | восстановление | …(для подписи в «Истории»)
     public string? ArchiveName { get; init; }
     public long SizeBytes { get; init; }
     public int SkippedFiles { get; init; }

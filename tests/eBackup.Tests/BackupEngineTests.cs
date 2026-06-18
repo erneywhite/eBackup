@@ -43,6 +43,50 @@ public class BackupEngineTests
     }
 
     [Fact]
+    public async Task Full_Restore_Skips_Locked_File_And_Reports_Count()
+    {
+        // Полное восстановление не должно падать целиком из-за одного занятого файла
+        // (как obs-virtualcam-module64.dll): пропускает его, остальное восстанавливает,
+        // фиксирует счётчик пропусков (→ задача станет «завершено с ошибками»).
+        var root = Path.Combine(Path.GetTempPath(), $"ebk-restres-{Guid.NewGuid():N}");
+        try
+        {
+            var srcApp = Path.Combine(root, "src", "app");
+            Directory.CreateDirectory(srcApp);
+            await File.WriteAllTextAsync(Path.Combine(srcApp, "a.txt"), "AAA");
+            await File.WriteAllTextAsync(Path.Combine(srcApp, "b.txt"), "BBB");
+
+            static string Redirect(string baseDir, string token) =>
+                token.StartsWith("{APPDATA}", StringComparison.Ordinal)
+                    ? Path.Combine(baseDir, token["{APPDATA}".Length..].TrimStart('/', '\\').Replace('/', Path.DirectorySeparatorChar))
+                    : token;
+
+            var archive = await new BackupEngine().CreateBackupAsync(
+                [new DirModule("{APPDATA}/app")], Path.Combine(root, "build"), "t", passphrase: null,
+                resolveSource: t => Redirect(Path.Combine(root, "src"), t));
+
+            var restoreDir = Path.Combine(root, "dst");
+            var locked = Path.Combine(restoreDir, "test", "data", "a.txt"); // DirModule.ArchivePath = "test/data"
+            Directory.CreateDirectory(Path.GetDirectoryName(locked)!);
+            await File.WriteAllTextAsync(locked, "OLD");
+
+            using (new FileStream(locked, FileMode.Open, FileAccess.ReadWrite, FileShare.None)) // держим файл занятым
+            {
+                var engine = new BackupEngine();
+                await engine.RestoreAsync(archive, modules: null, conflictPolicy: ConflictPolicy.Overwrite,
+                    destinationRootOverride: restoreDir); // НЕ должно бросить
+
+                Assert.Equal(1, engine.LastRestoreSkippedCount);                       // a.txt занят → пропущен
+                Assert.True(File.Exists(Path.Combine(restoreDir, "test", "data", "b.txt"))); // b.txt восстановлен
+            }
+        }
+        finally
+        {
+            if (Directory.Exists(root)) Directory.Delete(root, recursive: true);
+        }
+    }
+
+    [Fact]
     public async Task Restore_To_Original_Uses_ResolveDestination_For_Tokens()
     {
         // Имитация службы: бэкап читает источник одним профилем, restore «в исходные» пишет в ДРУГОЙ

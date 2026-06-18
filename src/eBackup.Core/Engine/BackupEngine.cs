@@ -23,6 +23,9 @@ public sealed class BackupEngine
     /// <summary>Сколько файлов пропущено в последнем бэкапе (нет доступа/заняты).</summary>
     public int LastSkippedCount { get; private set; }
 
+    /// <summary>Сколько файлов пропущено в последнем ПОЛНОМ восстановлении (заняты/нет доступа).</summary>
+    public int LastRestoreSkippedCount { get; private set; }
+
     /// <summary>
     /// Создать архив из набора модулей. Возвращает путь к готовому .ebk.
     /// </summary>
@@ -407,10 +410,11 @@ public sealed class BackupEngine
             ? "Назначение: исходные пути (режим конфликтов: " + conflictPolicy + ")"
             : $"Назначение: {destinationRootOverride}");
 
-        // Выборочный режим: сбой одного файла (например, ассет с исходным путём
-        // на диске, которого на этой машине нет) не должен ронять остальные —
-        // копим и отчитываемся в конце. Полное восстановление падает как раньше.
-        var selectiveFailures = entryFilter is null ? null : new List<string>();
+        // Сбой записи одного файла (занят/нет доступа — напр. obs-virtualcam DLL загружена)
+        // не должен ронять всё восстановление: копим и отчитываемся. Выборочный режим в конце
+        // бросает исключение (UI на это рассчитывает), полный — продолжает (станет «с ошибками»).
+        // Нарушения безопасности (traversal/containment) НЕ копятся — они падают жёстко (см. ниже).
+        var failures = new List<string>();
 
         foreach (var module in manifest.Modules)
         {
@@ -430,12 +434,15 @@ public sealed class BackupEngine
                     continue;
 
                 // Путь из манифеста — граница доверия: побеги через «..» запрещены всегда.
+                // ВАЖНО: гейтим по entryFilter (выборочный режим), а НЕ по наличию списка failures
+                // (он теперь не-null и в полном режиме) — иначе traversal в полном restore стал бы
+                // тихим пропуском вместо жёсткого отказа (регрессия безопасности).
                 if (PathTokens.HasTraversal(entry.TokenPath))
                 {
                     var msg = $"небезопасный путь в манифесте (обход каталога): {entry.TokenPath}";
-                    if (selectiveFailures is not null)
+                    if (entryFilter is not null)
                     {
-                        selectiveFailures.Add($"{entry.ArchivePath}: {msg}");
+                        failures.Add($"{entry.ArchivePath}: {msg}");
                         log?.Invoke($"  ✕ {msg}");
                         continue;
                     }
@@ -470,7 +477,7 @@ public sealed class BackupEngine
                 {
                     var ze = zip.GetEntry(prefix);
                     if (ze is not null && (entryFilter is null || entryFilter(ze.FullName)))
-                        ExtractTolerant(ze, target, conflictPolicy, selectiveFailures, log);
+                        ExtractTolerant(ze, target, conflictPolicy, failures, log);
                 }
                 else if (entry.Type == PathEntryType.Directory)
                 {
@@ -484,18 +491,26 @@ public sealed class BackupEngine
                         var dest = Path.Combine(target, rel.Replace('/', Path.DirectorySeparatorChar));
                         if (!PathSafety.IsWithin(target, dest))
                             throw new InvalidDataException($"Запись выходит за пределы целевой папки (zip-slip): {ze.FullName}");
-                        ExtractTolerant(ze, dest, conflictPolicy, selectiveFailures, log);
+                        ExtractTolerant(ze, dest, conflictPolicy, failures, log);
                     }
                 }
                 // TODO(v1+): RegistryKey — импорт ветки реестра.
             }
         }
 
-        if (selectiveFailures is { Count: > 0 })
+        // Выборочное восстановление сообщает о пропусках исключением (страница браузера на это
+        // рассчитывает). Полное — НЕ падает из-за занятых/недоступных файлов: фиксирует счётчик и
+        // идёт дальше (задача станет «завершено с ошибками»). Нарушения безопасности уже отброшены выше.
+        if (entryFilter is not null && failures.Count > 0)
             throw new IOException(
-                $"Восстановлено не всё: пропущено файлов — {selectiveFailures.Count}. "
-                + string.Join("; ", selectiveFailures.Take(3))
-                + (selectiveFailures.Count > 3 ? " …" : ""));
+                $"Восстановлено не всё: пропущено файлов — {failures.Count}. "
+                + string.Join("; ", failures.Take(3))
+                + (failures.Count > 3 ? " …" : ""));
+
+        LastRestoreSkippedCount = failures.Count;
+        if (failures.Count > 0)
+            log?.Invoke($"⚠ Пропущено файлов при восстановлении (заняты/нет доступа): {failures.Count} · "
+                + string.Join("; ", failures.Take(3)) + (failures.Count > 3 ? " …" : ""));
 
         // Модульные restore-хуки: размещение ассетов и пост-обработка.
         // Вся специфика приложения — внутри модуля; движок лишь зовёт хук.
@@ -559,17 +574,21 @@ public sealed class BackupEngine
 
     private static string DefaultAssetsDirectory() => AppPaths.DefaultAssetsDir;
 
-    /// <summary>В выборочном режиме (failures != null) сбой файла копится, не роняя остальное.</summary>
+    /// <summary>
+    /// Записывает файл, ТЕРПЯ только транзиентные ошибки ФС (занят/нет доступа): копит их в
+    /// <paramref name="failures"/>, не роняя остальное. Любые ДРУГИЕ исключения (нарушения
+    /// безопасности, отмена и т.п.) пробрасываются — их нельзя глотать.
+    /// </summary>
     private static void ExtractTolerant(
         ZipArchiveEntry entry, string destinationPath, ConflictPolicy policy,
-        List<string>? failures, Action<string>? log)
+        List<string> failures, Action<string>? log)
     {
         try
         {
             ExtractFile(entry, destinationPath, policy);
             log?.Invoke($"  → {destinationPath} ({FormatSize(entry.Length)})");
         }
-        catch (Exception ex) when (failures is not null)
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
         {
             failures.Add($"{entry.FullName}: {ex.Message}");
             log?.Invoke($"  ✕ {entry.FullName}: {ex.Message}");

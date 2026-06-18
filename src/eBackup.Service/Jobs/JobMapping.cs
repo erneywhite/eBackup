@@ -61,6 +61,7 @@ public static class JobMapping
         Trigger = r.Trigger,
         Success = r.Success,
         State = r.State,
+        Operation = string.IsNullOrEmpty(r.Operation) ? "бэкап" : r.Operation, // ToDto был точкой утечки
         ArchiveName = r.ArchiveName,
         SizeBytes = r.SizeBytes,
         SkippedFiles = r.SkippedFiles,

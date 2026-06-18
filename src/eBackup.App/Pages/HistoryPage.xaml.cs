@@ -13,7 +13,24 @@ public sealed class RunItem(BackupRunRecordDto run)
 
     public string Title => Run.StartedAt.ToString("dd.MM.yyyy HH:mm:ss");
 
-    public string Subtitle => (Run.ArchiveName ?? "архив не собран") + " · " + Run.Trigger;
+    public string Subtitle => $"{OperationLabel(Run.Operation)} · {(Run.ArchiveName ?? FallbackFor(Run.Operation))} · {Run.Trigger}";
+
+    /// <summary>Подпись операции для «Истории» (общая для списка и детали).</summary>
+    internal static string OperationLabel(string? op) => op switch
+    {
+        "восстановление" => "Восстановление",
+        "восстановление (выборочное)" => "Восстановление (выборочное)",
+        "извлечение" => "Извлечение",
+        _ => "Бэкап",
+    };
+
+    /// <summary>Текст вместо имени архива, когда его нет (свой для каждой операции).</summary>
+    internal static string FallbackFor(string? op) => op switch
+    {
+        "восстановление" or "восстановление (выборочное)" => "не восстановлено",
+        "извлечение" => "не извлечено",
+        _ => "архив не собран",
+    };
 
     public string StatusGlyph => Run.Success switch
     {
@@ -109,16 +126,19 @@ public sealed partial class HistoryPage : Page
         EmptyHint.Visibility = Visibility.Collapsed;
         Detail.Visibility = Visibility.Visible;
 
-        DetailTitle.Text = run.ArchiveName ?? $"Запуск {run.StartedAt:dd.MM.yyyy HH:mm:ss}";
+        var opLabel = RunItem.OperationLabel(run.Operation);
+        var isRestore = run.Operation is "восстановление" or "восстановление (выборочное)" or "извлечение";
+        DetailTitle.Text = run.ArchiveName ?? $"{opLabel} · {run.StartedAt:dd.MM.yyyy HH:mm:ss}";
 
         var duration = run.FinishedAt is null
             ? "не завершён"
             : (run.FinishedAt.Value - run.StartedAt).ToString(@"mm\:ss");
         DetailMeta.Text =
+            $"Операция: {opLabel}\n" +
             $"Запуск: {run.Trigger}\n" +
             $"Начало: {run.StartedAt:dd.MM.yyyy HH:mm:ss} · длительность: {duration}\n" +
-            $"Модули: {(run.Modules.Length > 0 ? string.Join(", ", run.Modules) : "—")}\n" +
-            $"Цели: {(run.Targets.Length > 0 ? string.Join(", ", run.Targets) : "—")}" +
+            (isRestore ? "" : $"Модули: {(run.Modules.Length > 0 ? string.Join(", ", run.Modules) : "—")}\n") +
+            $"{(isRestore ? "Куда" : "Цели")}: {(run.Targets.Length > 0 ? string.Join(", ", run.Targets) : "—")}" +
             (run.SizeBytes > 0 ? $"\nРазмер архива: {run.SizeBytes / 1024.0 / 1024.0:0.#} МБ" : "");
 
         (DetailStatus.Text, DetailStatus.Foreground) = run.Success switch

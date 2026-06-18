@@ -55,7 +55,8 @@ public sealed class RestoreRunner : IJobRunner
             var resolveDest = new UserProfilePaths(job.OwnerSid).Resolve; // запись в профиль ВЫЗВАВШЕГО (per-SID)
             var progress = new Progress<string>(s => sink.Phase(s, 0));
 
-            await new BackupEngine().RestoreAsync(
+            var engine = new BackupEngine();
+            await engine.RestoreAsync(
                 temp,
                 _resolveRestoreModules(),
                 policy,
@@ -67,8 +68,11 @@ public sealed class RestoreRunner : IJobRunner
                 resolveDestination: resolveDest,
                 ct: ct).ConfigureAwait(false);
 
+            var skipped = engine.LastRestoreSkippedCount; // занятые/недоступные файлы → «с ошибками», не провал
+            if (skipped > 0)
+                Log($"⚠ Пропущено занятых/недоступных файлов: {skipped}. Закрой использующие их программы и повтори при необходимости.");
             Log("Готово.");
-            return new JobOutcome(true, 0, 0, r.RemoteName, null);
+            return new JobOutcome(true, skipped, 0, r.RemoteName, null);
         }
         finally
         {
