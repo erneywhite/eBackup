@@ -35,12 +35,21 @@ if (-not $iscc) {
 }
 if (-not $iscc) { throw "Inno Setup (ISCC.exe) не найден. Установи: winget install JRSoftware.InnoSetup" }
 
-# 1) Publish.
-Write-Host "→ dotnet publish (self-contained)…" -ForegroundColor Yellow
+# 1) Publish GUI.
+Write-Host "→ dotnet publish GUI (self-contained)…" -ForegroundColor Yellow
 if (Test-Path $publish) { Remove-Item -Recurse -Force $publish }
 dotnet publish $proj -c $Configuration -r win-x64 --self-contained true -o $publish | Out-Null
 if (-not (Test-Path (Join-Path $publish "eBackup.App.pri"))) {
     throw "В publish нет eBackup.App.pri — XAML не загрузится. Проверь target CopyAppPriToPublish."
+}
+
+# 1b) Publish службы (self-contained) → publish\service\ (ставится в {app}\service\).
+Write-Host "→ dotnet publish службы (self-contained)…" -ForegroundColor Yellow
+$svcProj = Join-Path $repo "src\eBackup.Service\eBackup.Service.csproj"
+$svcOut = Join-Path $publish "service"
+dotnet publish $svcProj -c $Configuration -r win-x64 --self-contained true -o $svcOut | Out-Null
+if (-not (Test-Path (Join-Path $svcOut "eBackup.Service.exe"))) {
+    throw "В publish\service нет eBackup.Service.exe."
 }
 
 # 2) ISCC.

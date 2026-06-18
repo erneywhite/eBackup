@@ -7,6 +7,9 @@
     <Nullable>enable</Nullable>
     <RootNamespace>eBackup.Service</RootNamespace>
     <AssemblyName>eBackup.Service</AssemblyName>
+    <Version>1.2.0</Version>
+    <Authors>Erney White</Authors>
+    <Company>Erney White</Company>
   </PropertyGroup>
 
   <ItemGroup>

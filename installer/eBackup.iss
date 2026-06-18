@@ -77,6 +77,17 @@ Root: HKA; Subkey: "Software\Classes\eBackup.Archive\shell\open\command"; ValueT
   ValueName: ""; ValueData: """{app}\{#AppExe}"" ""%1"""; Tasks: assoc
 
 [Run]
+; Служба eBackup под LocalSystem (автозапуск при загрузке — бэкапы без входа в систему,
+; чтение системных файлов вроде хост-ключей OpenSSH). Создаётся и запускается сразу.
+; ВАЖНО: после "=" в sc обязателен пробел.
+Filename: "{sys}\sc.exe"; \
+  Parameters: "create eBackup binPath= ""{app}\service\eBackup.Service.exe"" start= auto obj= LocalSystem DisplayName= ""eBackup"""; \
+  Flags: runhidden
+Filename: "{sys}\sc.exe"; \
+  Parameters: "description eBackup ""Привилегированные бэкапы eBackup: чтение системных файлов и расписания без входа в систему."""; \
+  Flags: runhidden
+Filename: "{sys}\sc.exe"; Parameters: "start eBackup"; Flags: runhidden
+
 ; Обычная установка — кнопка «Запустить eBackup» на финальной странице.
 Filename: "{app}\{#AppExe}"; Description: "Запустить eBackup"; \
   Flags: nowait postinstall skipifsilent
@@ -86,7 +97,10 @@ Filename: "{app}\{#AppExe}"; Parameters: "--minimized"; \
   Flags: nowait runasoriginaluser; Check: IsSilentInstall
 
 [UninstallRun]
-; Закрыть работающий экземпляр перед удалением (тихо, без ошибки если не запущен).
+; Остановить и удалить службу перед снятием файлов (иначе exe залочен).
+Filename: "{sys}\sc.exe"; Parameters: "stop eBackup"; Flags: runhidden; RunOnceId: "StopSvc"
+Filename: "{sys}\sc.exe"; Parameters: "delete eBackup"; Flags: runhidden; RunOnceId: "DelSvc"
+; Закрыть работающий экземпляр GUI перед удалением (тихо, без ошибки если не запущен).
 Filename: "{cmd}"; Parameters: "/C taskkill /IM {#AppExe} /F"; Flags: runhidden; RunOnceId: "KillApp"
 
 [Code]
@@ -96,21 +110,31 @@ begin
   Result := WizardSilent();
 end;
 
-// При удалении предлагаем убрать настройки/историю (бэкап-архивы НЕ трогаем).
-procedure CurUninstallStepChanged(CurUninstallStep: TUninstallStep);
+// Перед копированием файлов: при апгрейде остановить и удалить старую службу и закрыть GUI,
+// иначе их exe залочены. Для чистой установки эти команды просто отрабатывают вхолостую.
+function PrepareToInstall(var NeedsRestart: Boolean): String;
 var
-  AppData, LocalAppData: string;
+  rc: Integer;
+begin
+  Exec(ExpandConstant('{sys}\sc.exe'), 'stop eBackup', '', SW_HIDE, ewWaitUntilTerminated, rc);
+  Exec(ExpandConstant('{sys}\sc.exe'), 'delete eBackup', '', SW_HIDE, ewWaitUntilTerminated, rc);
+  Exec(ExpandConstant('{cmd}'), '/C taskkill /IM {#AppExe} /F', '', SW_HIDE, ewWaitUntilTerminated, rc);
+  Sleep(1500); // дать SCM освободить exe службы перед перезаписью
+  Result := '';
+end;
+
+// При удалении предлагаем убрать настройки/историю/секреты (бэкап-архивы НЕ трогаем).
+procedure CurUninstallStepChanged(CurUninstallStep: TUninstallStep);
 begin
   if CurUninstallStep = usUninstall then
   begin
-    if MsgBox('Удалить настройки, расписания и историю eBackup?' + #13#10 +
+    if MsgBox('Удалить настройки, расписания, историю и сохранённые пароли eBackup?' + #13#10 +
               '(Созданные архивы-бэкапы НЕ удаляются.)',
               mbConfirmation, MB_YESNO) = IDYES then
     begin
-      AppData := ExpandConstant('{userappdata}\eBackup');
-      LocalAppData := ExpandConstant('{localappdata}\eBackup');
-      DelTree(AppData, True, True, True);
-      DelTree(LocalAppData, True, True, True);
+      DelTree(ExpandConstant('{userappdata}\eBackup'), True, True, True);
+      DelTree(ExpandConstant('{localappdata}\eBackup'), True, True, True);
+      DelTree(ExpandConstant('{commonappdata}\eBackup'), True, True, True); // машинный ключ + конфиг службы
     end;
   end;
 end;
