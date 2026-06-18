@@ -56,6 +56,7 @@ public static class JobMapping
         Trigger = r.Trigger,
         Success = r.Success,
         State = r.State,
+        ArchiveName = r.ArchiveName,
         SizeBytes = r.SizeBytes,
         SkippedFiles = r.SkippedFiles,
         Modules = [.. r.Modules],

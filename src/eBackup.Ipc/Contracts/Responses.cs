@@ -112,6 +112,7 @@ public sealed record BackupRunRecordDto
     public string Trigger { get; init; } = "";
     public bool? Success { get; init; }
     public string? State { get; init; }
+    public string? ArchiveName { get; init; }
     public long SizeBytes { get; init; }
     public int SkippedFiles { get; init; }
     public string[] Modules { get; init; } = [];

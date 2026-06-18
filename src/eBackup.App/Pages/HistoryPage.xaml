@@ -84,8 +84,8 @@
                     <StackPanel Grid.Row="2" Orientation="Horizontal" Spacing="10">
                         <TextBlock x:Name="DetailStatus" FontSize="13" FontWeight="SemiBold"
                                    VerticalAlignment="Center" />
-                        <Button Content="Открыть лог-файл" CornerRadius="10"
-                                Click="OpenLogFile_Click" />
+                        <Button Content="Скопировать лог" CornerRadius="10"
+                                Click="CopyLog_Click" />
                     </StackPanel>
 
                     <!-- Полный лог с таймкодами. Нативный read-only TextBox рендерит только

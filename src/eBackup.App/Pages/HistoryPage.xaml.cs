@@ -1,20 +1,19 @@
-using eBackup.Core.History;
+using eBackup.Ipc.Contracts;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Media;
+using Windows.ApplicationModel.DataTransfer;
 
 namespace eBackup.App.Pages;
 
-/// <summary>Элемент списка запусков (значения статичны — запись уже завершена или прервана).</summary>
-public sealed class RunItem(BackupRunRecord run)
+/// <summary>Элемент списка запусков (данные из службы — прогон уже завершён или прерван).</summary>
+public sealed class RunItem(BackupRunRecordDto run)
 {
-    public BackupRunRecord Run { get; } = run;
+    public BackupRunRecordDto Run { get; } = run;
 
     public string Title => Run.StartedAt.ToString("dd.MM.yyyy HH:mm:ss");
 
-    public string Subtitle =>
-        (Run.Operation == "бэкап" ? "" : Run.Operation + " · ")
-        + (Run.ArchiveName ?? "архив не собран") + " · " + Run.Trigger;
+    public string Subtitle => (Run.ArchiveName ?? "архив не собран") + " · " + Run.Trigger;
 
     public string StatusGlyph => Run.Success switch
     {
@@ -34,10 +33,9 @@ public sealed class RunItem(BackupRunRecord run)
             }];
 }
 
-/// <summary>История бэкапов: список запусков + полный лог каждого с таймкодами.</summary>
+/// <summary>История бэкапов (из службы): список запусков + полный лог каждого с таймкодами.</summary>
 public sealed partial class HistoryPage : Page
 {
-    private readonly HistoryStore _store = new();
     private RunItem? _selected;
 
     public HistoryPage()
@@ -58,7 +56,31 @@ public sealed partial class HistoryPage : Page
     private async Task ReloadAsync()
     {
         var selectedId = _selected?.Run.Id;
-        var runs = await _store.LoadAsync();
+
+        var client = await ServiceConnection.GetClientAsync();
+        if (client is null)
+        {
+            RunList.ItemsSource = null;
+            EmptyHint.Text = "Служба eBackup недоступна: " + (ServiceConnection.Shared.Error ?? "");
+            EmptyHint.Visibility = Visibility.Visible;
+            Detail.Visibility = Visibility.Collapsed;
+            return;
+        }
+
+        BackupRunRecordDto[] runs;
+        try
+        {
+            runs = await client.ListHistoryAsync(300);
+        }
+        catch (Exception ex)
+        {
+            RunList.ItemsSource = null;
+            EmptyHint.Text = "Не удалось прочитать историю службы:\n" + ex.Message;
+            EmptyHint.Visibility = Visibility.Visible;
+            Detail.Visibility = Visibility.Collapsed;
+            return;
+        }
+
         var items = runs.Select(r => new RunItem(r)).ToList();
         RunList.ItemsSource = items;
 
@@ -76,7 +98,7 @@ public sealed partial class HistoryPage : Page
             RunList.SelectedItem = keep;
     }
 
-    private void RunList_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    private async void RunList_SelectionChanged(object sender, SelectionChangedEventArgs e)
     {
         if (RunList.SelectedItem is not RunItem item)
             return;
@@ -93,10 +115,10 @@ public sealed partial class HistoryPage : Page
             ? "не завершён"
             : (run.FinishedAt.Value - run.StartedAt).ToString(@"mm\:ss");
         DetailMeta.Text =
-            $"Операция: {run.Operation} · запуск: {run.Trigger}\n" +
+            $"Запуск: {run.Trigger}\n" +
             $"Начало: {run.StartedAt:dd.MM.yyyy HH:mm:ss} · длительность: {duration}\n" +
-            $"Модули: {(run.Modules.Count > 0 ? string.Join(", ", run.Modules) : "—")}\n" +
-            $"Цели: {(run.Targets.Count > 0 ? string.Join(", ", run.Targets) : "—")}" +
+            $"Модули: {(run.Modules.Length > 0 ? string.Join(", ", run.Modules) : "—")}\n" +
+            $"Цели: {(run.Targets.Length > 0 ? string.Join(", ", run.Targets) : "—")}" +
             (run.SizeBytes > 0 ? $"\nРазмер архива: {run.SizeBytes / 1024.0 / 1024.0:0.#} МБ" : "");
 
         (DetailStatus.Text, DetailStatus.Foreground) = run.Success switch
@@ -108,32 +130,48 @@ public sealed partial class HistoryPage : Page
                 (Brush)Application.Current.Resources["EbOkBrush"]),
             false => ("✕ " + (run.Error ?? "завершён с ошибками"),
                 (Brush)Application.Current.Resources["EbErrBrush"]),
-            null => ("⏸ не завершён (прерван или приложение было закрыто)",
+            null => ("⏸ не завершён (прерван или служба/приложение перезапущены)",
                 (Brush)Application.Current.Resources["EbTextDimBrush"])
         };
 
-        var log = _store.ReadLog(run.Id);
-        LogText.Text = log.Length > 0 ? log : "лог этого запуска не сохранился";
+        // Лог тянем из службы по runId (прогон выполняла она).
+        LogText.Text = "загружаю лог…";
+        try
+        {
+            var client = await ServiceConnection.GetClientAsync();
+            if (client is null)
+            {
+                LogText.Text = "служба недоступна — лог не получить";
+                return;
+            }
+            var resp = await client.GetRunLogAsync(run.Id, 0, 5000);
+            if (_selected?.Run.Id != run.Id)
+                return; // пока грузили, выбрали другой запуск
+            LogText.Text = resp.Lines.Length > 0
+                ? string.Join("\n", resp.Lines.Select(l => l.Text))
+                : "лог этого запуска не сохранился";
+        }
+        catch (Exception ex)
+        {
+            if (_selected?.Run.Id == run.Id)
+                LogText.Text = "не удалось получить лог: " + ex.Message;
+        }
     }
 
-    private void OpenLogFile_Click(object sender, RoutedEventArgs e)
+    /// <summary>Скопировать полный лог выбранного запуска в буфер обмена (лог-файл службы — SYSTEM-only).</summary>
+    private void CopyLog_Click(object sender, RoutedEventArgs e)
     {
-        if (_selected is null)
+        if (_selected is null || string.IsNullOrEmpty(LogText.Text))
             return;
         try
         {
-            var path = _store.LogPath(_selected.Run.Id);
-            if (!File.Exists(path))
-                return;
-            System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
-            {
-                FileName = path,
-                UseShellExecute = true
-            });
+            var dp = new DataPackage();
+            dp.SetText(LogText.Text);
+            Clipboard.SetContent(dp);
         }
         catch
         {
-            // не критично
+            // буфер обмена иногда занят другим процессом — не критично
         }
     }
 }
