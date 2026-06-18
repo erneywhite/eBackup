@@ -128,6 +128,29 @@ public class BackupRunnerTests : IDisposable
     }
 
     [Fact]
+    public async Task Sweeps_Stale_Build_Artifacts_Before_Building()
+    {
+        var src = Path.Combine(_root, "myfolder");
+        Directory.CreateDirectory(src);
+        await File.WriteAllTextAsync(Path.Combine(src, "doc.txt"), "hi");
+
+        var buildDir = Path.Combine(_root, "build");
+        Directory.CreateDirectory(buildDir);
+        // Хвосты прошлой отменённой сборки.
+        await File.WriteAllTextAsync(Path.Combine(buildDir, "orphan.ebk"), "stale");
+        await File.WriteAllTextAsync(Path.Combine(buildDir, "orphan.ebk.plain"), "stale");
+
+        var history = new HistoryStore(Path.Combine(_root, "hist"));
+        var runner = new BackupRunner(_ => [], buildDir, resolveFolders: ids => ids.ToList());
+        var outcome = await runner.RunAsync(MakeJob(new StartBackupRequest { CustomFolderIds = [src] }, history), CancellationToken.None);
+
+        Assert.True(outcome.Success);
+        Assert.False(File.Exists(Path.Combine(buildDir, "orphan.ebk")));       // подмели до сборки
+        Assert.False(File.Exists(Path.Combine(buildDir, "orphan.ebk.plain")));
+        Assert.True(File.Exists(Path.Combine(buildDir, outcome.ArchiveName!))); // новый архив на месте
+    }
+
+    [Fact]
     public async Task No_Modules_Fails_Gracefully()
     {
         var history = new HistoryStore(Path.Combine(_root, "hist"));
