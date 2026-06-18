@@ -95,4 +95,33 @@ public sealed class HistoryStore
             return "не удалось прочитать лог: " + ex.Message;
         }
     }
+
+    /// <summary>
+    /// Постранично прочитать строки лога ПОСЛЕ <paramref name="fromSeq"/> (seq = номер строки, 1-based),
+    /// не более <paramref name="maxLines"/>. Журнал append-only, поэтому номер строки — стабильный seq.
+    /// Нужно службе 1.2 для seq-адресной выдачи прогресса по IPC (GetRunLog) и догона пропусков.
+    /// Формат строк на диске не меняется — это read-only поверх существующего лога.
+    /// </summary>
+    public IReadOnlyList<(long Seq, string Text)> ReadLogFromSeq(string runId, long fromSeq, int maxLines)
+    {
+        var result = new List<(long, string)>();
+        if (maxLines <= 0) return result;
+        try
+        {
+            var path = LogPath(runId);
+            lock (_logLock) // не гоняться с писателем (AppendLog)
+            {
+                if (!File.Exists(path)) return result;
+                var all = File.ReadAllLines(path);
+                var start = fromSeq <= 0 ? 0 : (fromSeq >= all.Length ? all.Length : (int)fromSeq);
+                for (var i = start; i < all.Length && result.Count < maxLines; i++)
+                    result.Add((i + 1, all[i])); // seq = номер строки (1-based)
+            }
+        }
+        catch
+        {
+            // журнал — вспомогательный, чтение не должно ничего ронять
+        }
+        return result;
+    }
 }

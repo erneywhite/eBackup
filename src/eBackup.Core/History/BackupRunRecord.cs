@@ -31,4 +31,18 @@ public sealed class BackupRunRecord
 
     /// <summary>Сколько файлов пропущено (нет доступа/заняты) — бэкап успешен, но неполный.</summary>
     public int SkippedFiles { get; set; }
+
+    // --- аддитивно для службы 1.2 (старые runs.json без этих полей читаются как null/0) ---
+
+    /// <summary>
+    /// Состояние задачи в модели службы: Queued / Running / Completed / CompletedWithErrors /
+    /// Failed / Cancelled / Interrupted. null — старая запись (итог берётся из <see cref="Success"/>).
+    /// </summary>
+    public string? State { get; set; }
+
+    /// <summary>Последний seq журнала этого запуска (для reconnect/replay прогресса по IPC).</summary>
+    public long LastSeq { get; set; }
+
+    /// <summary>SID владельца запуска (per-user scoping в службе). null — старая запись.</summary>
+    public string? OwnerSid { get; set; }
 }
