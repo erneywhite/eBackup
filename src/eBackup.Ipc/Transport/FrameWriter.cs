@@ -28,7 +28,8 @@ public sealed class FrameWriter : IDisposable
         {
             await _stream.WriteAsync(IpcContractInfo.Preamble, ct).ConfigureAwait(false);
             await _stream.WriteAsync(new[] { IpcContractInfo.EnvelopeFormat }, ct).ConfigureAwait(false);
-            await _stream.FlushAsync(ct).ConfigureAwait(false);
+            // НЕ FlushAsync: на named-pipe это FlushFileBuffers, который блокирует до чтения
+            // другой стороной (взаимоблокировка преамбул). Запись в пайп уходит сразу.
         }
         finally { _gate.Release(); }
     }
@@ -48,7 +49,7 @@ public sealed class FrameWriter : IDisposable
         {
             await _stream.WriteAsync(lenBuf, ct).ConfigureAwait(false);
             await _stream.WriteAsync(payload, ct).ConfigureAwait(false);
-            await _stream.FlushAsync(ct).ConfigureAwait(false);
+            // НЕ FlushAsync: на named-pipe FlushFileBuffers блокирует до чтения другой стороной.
         }
         finally { _gate.Release(); }
     }
