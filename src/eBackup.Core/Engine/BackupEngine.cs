@@ -29,6 +29,12 @@ public sealed class BackupEngine
     /// <param name="progress">Крупные фазы — для статус-строки UI.</param>
     /// <param name="log">Детальный лог: каждый файл, размеры, пропуски, тайминги.
     /// Может вызываться с рабочего потока — получатель должен быть потокобезопасен.</param>
+    /// <param name="resolveSource">
+    /// Как развернуть TokenPath записи в абсолютный путь для ЧТЕНИЯ источника. По умолчанию —
+    /// <see cref="PathTokens.Resolve"/> (профиль текущего процесса). Служба под SYSTEM передаёт
+    /// резолвер по профилю вызвавшего пользователя (per-SID), чтобы {APPDATA} и т.п. указывали
+    /// в его профиль, а не в системный. В манифест по-прежнему пишется ТОКЕН (переносимость цела).
+    /// </param>
     public async Task<string> CreateBackupAsync(
         IEnumerable<IBackupModule> modules,
         string outputDirectory,
@@ -37,8 +43,10 @@ public sealed class BackupEngine
         IProgress<string>? progress = null,
         CompressionLevel compression = CompressionLevel.Optimal,
         Action<string>? log = null,
+        Func<string, string>? resolveSource = null,
         CancellationToken ct = default)
     {
+        var resolve = resolveSource ?? PathTokens.Resolve;
         Directory.CreateDirectory(outputDirectory);
         var archivePath = Path.Combine(outputDirectory, archiveName + ".ebk");
         // При шифровании сначала собираем ZIP во временный файл, затем шифруем в .ebk.
@@ -97,7 +105,7 @@ public sealed class BackupEngine
                 foreach (var entry in entries)
                 {
                     ct.ThrowIfCancellationRequested();
-                    var source = PathTokens.Resolve(entry.TokenPath);
+                    var source = resolve(entry.TokenPath); // per-SID под службой; иначе профиль процесса
 
                     if (entry.Type == PathEntryType.File && File.Exists(source))
                     {

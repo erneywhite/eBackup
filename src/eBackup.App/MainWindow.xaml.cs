@@ -474,7 +474,7 @@ public sealed partial class MainWindow : Window
             var engine = new BackupEngine();
             var archive = await Task.Run(() =>
                 engine.CreateBackupAsync(request.Modules, buildDir, name, request.Passphrase,
-                    progress, settings.CompressionLevel, Log, ct));
+                    progress, settings.CompressionLevel, Log, ct: ct));
             SetFill(0.70);
 
             run.ArchiveName = Path.GetFileName(archive);

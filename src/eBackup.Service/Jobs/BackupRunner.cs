@@ -4,6 +4,8 @@ using eBackup.Core.Engine;
 
 namespace eBackup.Service.Jobs;
 
+// UserProfilePaths — в родительском namespace eBackup.Service.
+
 /// <summary>
 /// Настоящий исполнитель задачи: движок собирает архив из разрешённых по id модулей и пишет
 /// подробный лог в журнал истории (seq-строки). Читает источники как есть (служба под SYSTEM —
@@ -53,8 +55,11 @@ public sealed class BackupRunner : IJobRunner
         var engine = new BackupEngine();
         // Крупные фазы → Phase-ноты (живой прогресс); реальная доля прогресса — позже.
         var progress = new Progress<string>(s => sink.Phase(s, 0));
+        // Источники резолвим в профиль ВЫЗВАВШЕГО пользователя (служба под SYSTEM), а не системный.
+        var resolveSource = new UserProfilePaths(job.OwnerSid).Resolve;
         var archive = await engine.CreateBackupAsync(
-            modules, _buildDir, name, passphrase: null, progress, compression, log: Log, ct)
+            modules, _buildDir, name, passphrase: null,
+            progress: progress, compression: compression, log: Log, resolveSource: resolveSource, ct: ct)
             .ConfigureAwait(false);
 
         var size = new FileInfo(archive).Length;
