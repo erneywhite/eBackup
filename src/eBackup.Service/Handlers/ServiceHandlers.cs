@@ -2,6 +2,7 @@ using eBackup.Core.Modules;
 using eBackup.Ipc.Contracts;
 using eBackup.Ipc.Server;
 using eBackup.Service.Jobs;
+using eBackup.Storage;
 
 namespace eBackup.Service.Handlers;
 
@@ -15,14 +16,17 @@ public sealed class ServiceHandlers : IIpcHandlers
     private readonly JobManager _jobs;
     private readonly Core.History.HistoryStore _history;
     private readonly ModuleRegistry _registry;
+    private readonly StorageStore _storages;   // машинный конфиг хранилищ (машинный ключ, ProgramData)
     private readonly string _instanceId;
     private readonly string _build;
 
-    public ServiceHandlers(JobManager jobs, Core.History.HistoryStore history, ModuleRegistry registry, string instanceId, string build)
+    public ServiceHandlers(JobManager jobs, Core.History.HistoryStore history, ModuleRegistry registry,
+        StorageStore storages, string instanceId, string build)
     {
         _jobs = jobs;
         _history = history;
         _registry = registry;
+        _storages = storages;
         _instanceId = instanceId;
         _build = build;
     }
@@ -113,16 +117,30 @@ public sealed class ServiceHandlers : IIpcHandlers
     public Task<Ack> InstallModuleAsync(InstallModuleRequest req, CallerContext caller, CancellationToken ct)
         => throw new IpcFaultException(IpcErrorCodes.Unsupported, "Установка модулей через службу (admin-only) — позже.");
 
-    // ---- администрирование хранилищ/расписаний: заглушки до S4e ----
+    // ---- хранилища (машинный конфиг, секреты под машинным ключом) ----
 
-    public Task<StorageSummary[]> ListStoragesAsync(CallerContext caller, CancellationToken ct)
-        => Task.FromResult(Array.Empty<StorageSummary>());
+    public async Task<StorageSummary[]> ListStoragesAsync(CallerContext caller, CancellationToken ct)
+        => (await _storages.LoadAsync(ct).ConfigureAwait(false)).Select(StorageInputMapper.ToSummary).ToArray();
 
-    public Task<Ack> UpsertStorageAsync(StorageInput req, CallerContext caller, CancellationToken ct)
-        => throw new IpcFaultException(IpcErrorCodes.Unsupported, "Управление хранилищами через службу подключим на S4e.");
+    public async Task<Ack> UpsertStorageAsync(StorageInput req, CallerContext caller, CancellationToken ct)
+    {
+        if (string.IsNullOrWhiteSpace(req.Id))
+            throw new IpcFaultException(IpcErrorCodes.BadRequest, "Пустой id хранилища.");
 
-    public Task<Ack> DeleteStorageAsync(DeleteByIdRequest req, CallerContext caller, CancellationToken ct)
-        => throw new IpcFaultException(IpcErrorCodes.Unsupported, "Управление хранилищами через службу подключим на S4e.");
+        var list = (await _storages.LoadAsync(ct).ConfigureAwait(false)).ToList();
+        list.RemoveAll(s => s.Id == req.Id);
+        list.Add(StorageInputMapper.ToSavedStorage(req, _storages)); // открытые секреты → машинный ключ
+        await _storages.SaveAllAsync(list, ct).ConfigureAwait(false);
+        return new Ack();
+    }
+
+    public async Task<Ack> DeleteStorageAsync(DeleteByIdRequest req, CallerContext caller, CancellationToken ct)
+    {
+        var list = (await _storages.LoadAsync(ct).ConfigureAwait(false)).ToList();
+        list.RemoveAll(s => s.Id == req.Id);
+        await _storages.SaveAllAsync(list, ct).ConfigureAwait(false);
+        return new Ack();
+    }
 
     public Task<TestResult> TestStorageAsync(TestStorageRequest req, CallerContext caller, CancellationToken ct)
         => throw new IpcFaultException(IpcErrorCodes.Unsupported, "Проверка хранилищ через службу подключим на S4e.");

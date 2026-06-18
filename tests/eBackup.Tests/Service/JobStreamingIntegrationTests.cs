@@ -12,8 +12,10 @@ using eBackup.Core.Modules;
 using eBackup.Ipc.Client;
 using eBackup.Ipc.Contracts;
 using eBackup.Ipc.Server;
+using eBackup.Security;
 using eBackup.Service.Handlers;
 using eBackup.Service.Jobs;
+using eBackup.Storage;
 using Xunit;
 
 namespace eBackup.Tests.Service;
@@ -51,7 +53,10 @@ public sealed class JobStreamingIntegrationTests : IDisposable
         var runner = new BackupRunner(_ => [module], Path.Combine(_root, "build"));
         var writer = new JobHistoryWriter(history);
         await using var jobs = new JobManager(runner, runId => new JobChannel(history, runId), writer.OnStateChanged);
-        var handlers = new ServiceHandlers(jobs, history, new ModuleRegistry([]), "inst", "1.2.0");
+        var storages = new StorageStore(
+            new MachineKeyProtector(new MachineKeyStore(Path.Combine(_root, "key", "machine.key"))),
+            Path.Combine(_root, "cfg", "storages.json"), Path.Combine(_root, "cfg", "connections.json"));
+        var handlers = new ServiceHandlers(jobs, history, new ModuleRegistry([]), storages, "inst", "1.2.0");
         var jobStream = new JobStreamAdapter(jobs);
 
         // Живой пайп

@@ -1,0 +1,87 @@
+using System;
+using System.Collections.Generic;
+using System.IO;
+using System.Linq;
+using System.Threading.Tasks;
+using eBackup.Core.History;
+using eBackup.Core.Modules;
+using eBackup.Core.Security;
+using eBackup.Ipc.Contracts;
+using eBackup.Ipc.Server;
+using eBackup.Security;
+using eBackup.Service.Handlers;
+using eBackup.Service.Jobs;
+using eBackup.Storage;
+using Xunit;
+
+namespace eBackup.Tests.Service;
+
+public sealed class StorageAdminTests : IDisposable
+{
+    private readonly string _root;
+
+    public StorageAdminTests() => _root = Path.Combine(Path.GetTempPath(), $"ebk-stadmin-{Guid.NewGuid():N}");
+
+    public void Dispose()
+    {
+        try { if (Directory.Exists(_root)) Directory.Delete(_root, recursive: true); } catch { }
+    }
+
+    private static readonly CallerContext Caller = new("S-1-5-21-1", IsAdmin: false);
+
+    private (ServiceHandlers handlers, StorageStore storages, JobManager jobs) Build()
+    {
+        var history = new HistoryStore(Path.Combine(_root, "hist"));
+        var storages = new StorageStore(
+            new MachineKeyProtector(new MachineKeyStore(Path.Combine(_root, "key", "machine.key"))),
+            Path.Combine(_root, "cfg", "storages.json"),
+            Path.Combine(_root, "cfg", "connections.json"));
+        var jobs = new JobManager(new BackupRunner(_ => []), rid => new JobChannel(history, rid));
+        var handlers = new ServiceHandlers(jobs, history, new ModuleRegistry([]), storages, "inst", "1.2.0");
+        return (handlers, storages, jobs);
+    }
+
+    [Fact]
+    public async Task Upsert_Encrypts_Secret_With_Machine_Key_And_Lists()
+    {
+        var (handlers, storages, jobs) = Build();
+        await using var _ = jobs;
+
+        await handlers.UpsertStorageAsync(new StorageInput
+        {
+            Id = "nas",
+            Name = "NAS",
+            Kind = "Sftp",
+            Settings = new() { ["host"] = "192.168.1.2", ["port"] = "2022", ["username"] = "u" },
+            PlaintextSecrets = new() { ["password"] = "hunter2" },
+        }, Caller, default);
+
+        var nas = Assert.Single(await handlers.ListStoragesAsync(Caller, default));
+        Assert.Equal("NAS", nas.Name);
+        Assert.Equal("Sftp", nas.Kind);
+        Assert.True(nas.HasSecret);
+
+        // Секрет реально под машинным ключом — и служба расшифровывает его обратно.
+        var saved = (await storages.LoadAsync()).Single(s => s.Id == "nas");
+        Assert.Equal(SecretScheme.MachineKeyV1, SecretSchemeDetector.Detect(saved.ProtectedPassword));
+        Assert.Equal("hunter2", storages.Unprotect(saved.ProtectedPassword!));
+        Assert.Equal("192.168.1.2", saved.Host);
+        Assert.Equal(2022, saved.Port);
+    }
+
+    [Fact]
+    public async Task Delete_Removes_Storage()
+    {
+        var (handlers, _, jobs) = Build();
+        await using var __ = jobs;
+
+        await handlers.UpsertStorageAsync(new StorageInput
+        {
+            Id = "x", Name = "X", Kind = "LocalFolder", Settings = new() { ["path"] = @"D:\Backups" },
+        }, Caller, default);
+        Assert.Single(await handlers.ListStoragesAsync(Caller, default));
+
+        await handlers.DeleteStorageAsync(new DeleteByIdRequest { Id = "x" }, Caller, default);
+        Assert.Empty(await handlers.ListStoragesAsync(Caller, default));
+    }
+}

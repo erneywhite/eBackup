@@ -1,10 +1,14 @@
+using System.IO;
 using System.Reflection;
 using eBackup.Core.History;
 using eBackup.Core.Modules;
 using eBackup.Ipc.Server;
 using eBackup.Modules.Obs;
+using eBackup.Platform;
+using eBackup.Security;
 using eBackup.Service.Handlers;
 using eBackup.Service.Jobs;
+using eBackup.Storage;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 
@@ -43,8 +47,13 @@ public sealed class IpcWorker : BackgroundService
             channelFactory: runId => new JobChannel(history, runId),
             onStateChanged: historyWriter.OnStateChanged);
 
+        // Машинный ключ (служба = SYSTEM, создаёт/читает его в ProgramData) + конфиг хранилищ.
+        var machineProtector = new MachineKeyProtector(new MachineKeyStore());
+        var storages = new StorageStore(machineProtector, AppPaths.MachineStoragesFile,
+            Path.Combine(AppPaths.MachineConfigDir, "connections.json")); // legacy-путь машинный → авто-миграция per-user не сработает
+
         var build = Assembly.GetExecutingAssembly().GetName().Version?.ToString(3) ?? "0.0.0";
-        var handlers = new ServiceHandlers(jobs, history, registry, Guid.NewGuid().ToString("N"), build);
+        var handlers = new ServiceHandlers(jobs, history, registry, storages, Guid.NewGuid().ToString("N"), build);
         var jobStream = new JobStreamAdapter(jobs);
 
         _log.LogInformation(@"eBackup IPC: accept-цикл на \\.\pipe\{Pipe} (build {Build})",
