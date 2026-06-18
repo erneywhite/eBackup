@@ -59,6 +59,7 @@ public sealed class IpcWorker : BackgroundService
         var build = Assembly.GetExecutingAssembly().GetName().Version?.ToString(3) ?? "0.0.0";
         var handlers = new ServiceHandlers(jobs, history, registry, storages, Guid.NewGuid().ToString("N"), build, folders);
         var jobStream = new JobStreamAdapter(jobs);
+        var archiveReader = new ServiceArchiveReader(storages); // seek-чтение архивов хранилищ для браузера/restore
 
         _log.LogInformation(@"eBackup IPC: accept-цикл на \\.\pipe\{Pipe} (build {Build})",
             PipeSecurityFactory.DefaultPipeName, build);
@@ -67,7 +68,7 @@ public sealed class IpcWorker : BackgroundService
         {
             await IpcPipeServer.RunAsync(handlers, stoppingToken,
                 onError: ex => _log.LogWarning(ex, "IPC-соединение завершилось с ошибкой"),
-                jobStream: jobStream);
+                jobStream: jobStream, archiveReader: archiveReader);
         }
         catch (OperationCanceledException)
         {

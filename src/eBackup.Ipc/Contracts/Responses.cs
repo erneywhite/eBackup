@@ -66,6 +66,19 @@ public sealed record StorageSummary
     public bool HasSecret { get; init; }
 }
 
+/// <summary>Открытая seek-сессия чтения архива: хэндл + полная длина (для RangeStream в GUI).</summary>
+public sealed record OpenArchiveReadResponse
+{
+    public string Handle { get; init; } = "";
+    public long Length { get; init; }
+}
+
+/// <summary>Кусок архива (base64 на проводе; ≤512 КиБ — под лимит фрейма клиента).</summary>
+public sealed record ReadArchiveChunkResponse
+{
+    public byte[] Data { get; init; } = [];
+}
+
 /// <summary>Файл-архив в хранилище (листинг через службу — у GUI нет секрета хранилища).</summary>
 public sealed record RemoteFileDto
 {

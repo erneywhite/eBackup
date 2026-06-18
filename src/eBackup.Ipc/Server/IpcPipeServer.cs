@@ -10,7 +10,7 @@ namespace eBackup.Ipc.Server;
 /// </summary>
 public static class IpcPipeServer
 {
-    public static async Task RunAsync(IIpcHandlers handlers, CancellationToken ct, Action<Exception>? onError = null, IJobStream? jobStream = null)
+    public static async Task RunAsync(IIpcHandlers handlers, CancellationToken ct, Action<Exception>? onError = null, IJobStream? jobStream = null, IArchiveReader? archiveReader = null)
     {
         var first = true;
         while (!ct.IsCancellationRequested)
@@ -39,12 +39,13 @@ public static class IpcPipeServer
                 break;
             }
 
-            _ = ServeOneAsync(pipe, handlers, onError, ct, jobStream); // конкурентно, не блокируем приём следующих
+            _ = ServeOneAsync(pipe, handlers, onError, ct, jobStream, archiveReader); // конкурентно, не блокируем приём следующих
         }
     }
 
     private static async Task ServeOneAsync(
-        NamedPipeServerStream pipe, IIpcHandlers handlers, Action<Exception>? onError, CancellationToken ct, IJobStream? jobStream)
+        NamedPipeServerStream pipe, IIpcHandlers handlers, Action<Exception>? onError, CancellationToken ct,
+        IJobStream? jobStream, IArchiveReader? archiveReader)
     {
         try
         {
@@ -54,7 +55,7 @@ public static class IpcPipeServer
                 if (!id.IsAcceptable)
                     throw new UnauthorizedAccessException($"Отклонён вызывающий (SID {id.Sid}).");
                 return ClientIdentity.ToCaller(id);
-            }, ct, jobStream).ConfigureAwait(false);
+            }, ct, jobStream, archiveReader).ConfigureAwait(false);
         }
         catch (Exception ex)
         {

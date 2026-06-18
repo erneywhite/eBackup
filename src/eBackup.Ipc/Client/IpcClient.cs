@@ -151,6 +151,20 @@ public sealed class IpcClient : IDisposable
     public Task<RemoteFileDto[]> ListArchivesAsync(string storageId, CancellationToken ct = default)
         => RequestAsync(IpcOps.ListArchives, new ListArchivesRequest { StorageId = storageId }, Ctx.ListArchivesRequest, Ctx.RemoteFileDtoArray, ct);
 
+    public Task<OpenArchiveReadResponse> OpenArchiveReadAsync(string storageId, string remoteName, CancellationToken ct = default)
+        => RequestAsync(IpcOps.OpenArchiveRead, new OpenArchiveReadRequest { StorageId = storageId, RemoteName = remoteName }, Ctx.OpenArchiveReadRequest, Ctx.OpenArchiveReadResponse, ct);
+
+    public async Task<byte[]> ReadArchiveChunkAsync(string handle, long offset, int count, CancellationToken ct = default)
+    {
+        var resp = await RequestAsync(IpcOps.ReadArchiveChunk,
+            new ReadArchiveChunkRequest { Handle = handle, Offset = offset, Count = count },
+            Ctx.ReadArchiveChunkRequest, Ctx.ReadArchiveChunkResponse, ct).ConfigureAwait(false);
+        return resp.Data;
+    }
+
+    public Task<Ack> CloseArchiveReadAsync(string handle, CancellationToken ct = default)
+        => RequestAsync(IpcOps.CloseArchiveRead, new CloseArchiveReadRequest { Handle = handle }, Ctx.CloseArchiveReadRequest, Ctx.Ack, ct);
+
     public Task<ModuleSummary[]> ListModulesAsync(CancellationToken ct = default)
         => RequestNoBodyAsync(IpcOps.ListModules, Ctx.ModuleSummaryArray, ct);
 

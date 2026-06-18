@@ -16,7 +16,7 @@ public static class IpcConnection
 
     public static async Task ServeAsync(
         Stream stream, IIpcHandlers handlers, Func<CallerContext> resolveCaller,
-        CancellationToken ct, IJobStream? jobStream = null)
+        CancellationToken ct, IJobStream? jobStream = null, IArchiveReader? archiveReader = null)
     {
         var reader = new FrameReader(stream, MaxInboundFrameBytes);
         using var writer = new FrameWriter(stream);
@@ -28,6 +28,7 @@ public static class IpcConnection
 
         using var connCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
         var pumps = new Dictionary<string, CancellationTokenSource>();
+        var archiveHandles = new HashSet<string>(); // seek-сессии чтения архива этого соединения
 
         try
         {
@@ -42,6 +43,12 @@ public static class IpcConnection
                     await HandleAttachAsync(req, writer, jobStream, caller, pumps, connCts.Token).ConfigureAwait(false);
                 else if (req.Kind == FrameKinds.Req && req.Op == IpcOps.DetachFromJob)
                     await HandleDetachAsync(req, writer, pumps, connCts.Token).ConfigureAwait(false);
+                else if (req.Kind == FrameKinds.Req && req.Op == IpcOps.OpenArchiveRead)
+                    await HandleOpenArchiveAsync(req, writer, archiveReader, caller, archiveHandles, connCts.Token).ConfigureAwait(false);
+                else if (req.Kind == FrameKinds.Req && req.Op == IpcOps.ReadArchiveChunk)
+                    await HandleReadChunkAsync(req, writer, archiveReader, connCts.Token).ConfigureAwait(false);
+                else if (req.Kind == FrameKinds.Req && req.Op == IpcOps.CloseArchiveRead)
+                    await HandleCloseArchiveAsync(req, writer, archiveReader, archiveHandles, connCts.Token).ConfigureAwait(false);
                 else
                     await writer.WriteFrameAsync(
                         await IpcDispatcher.DispatchAsync(req, handlers, caller, connCts.Token).ConfigureAwait(false),
@@ -56,6 +63,12 @@ public static class IpcConnection
                 foreach (var p in pumps.Values) { try { p.Cancel(); p.Dispose(); } catch { } }
                 pumps.Clear();
             }
+            if (archiveReader is not null)
+                lock (archiveHandles)
+                {
+                    foreach (var h in archiveHandles) { try { archiveReader.Close(h); } catch { } }
+                    archiveHandles.Clear();
+                }
         }
     }
 
@@ -121,6 +134,60 @@ public static class IpcConnection
             {
                 if (pumps.Remove(d.JobId, out var cts)) { try { cts.Cancel(); cts.Dispose(); } catch { } }
             }
+        await writer.WriteFrameAsync(IpcDispatcher.Resp(req.Id, new Ack(), IpcJsonContext.Default.Ack), ct).ConfigureAwait(false);
+    }
+
+    // ---- seek-чтение архива (по образцу AttachToJob: спец-обработка + per-connection хэндлы) ----
+
+    private static async Task HandleOpenArchiveAsync(
+        Frame req, FrameWriter writer, IArchiveReader? reader, CallerContext caller,
+        HashSet<string> handles, CancellationToken ct)
+    {
+        var r = req.Body?.Deserialize(IpcJsonContext.Default.OpenArchiveReadRequest);
+        if (reader is null || r is null)
+        {
+            await writer.WriteFrameAsync(IpcDispatcher.Fault(req.Id, IpcErrorCodes.Unsupported, "Чтение архивов недоступно."), ct).ConfigureAwait(false);
+            return;
+        }
+        try
+        {
+            var resp = await reader.OpenAsync(r, caller, ct).ConfigureAwait(false);
+            lock (handles) handles.Add(resp.Handle);
+            await writer.WriteFrameAsync(IpcDispatcher.Resp(req.Id, resp, IpcJsonContext.Default.OpenArchiveReadResponse), ct).ConfigureAwait(false);
+        }
+        catch (OperationCanceledException) { throw; }
+        catch (IpcFaultException fe) { await writer.WriteFrameAsync(IpcDispatcher.Fault(req.Id, fe.Code, fe.Message), ct).ConfigureAwait(false); }
+        catch (Exception) { await writer.WriteFrameAsync(IpcDispatcher.Fault(req.Id, IpcErrorCodes.Internal, "Не удалось открыть архив."), ct).ConfigureAwait(false); }
+    }
+
+    private static async Task HandleReadChunkAsync(
+        Frame req, FrameWriter writer, IArchiveReader? reader, CancellationToken ct)
+    {
+        var r = req.Body?.Deserialize(IpcJsonContext.Default.ReadArchiveChunkRequest);
+        if (reader is null || r is null)
+        {
+            await writer.WriteFrameAsync(IpcDispatcher.Fault(req.Id, IpcErrorCodes.Unsupported, "Чтение архивов недоступно."), ct).ConfigureAwait(false);
+            return;
+        }
+        try
+        {
+            var data = await reader.ReadAsync(r.Handle, r.Offset, r.Count, ct).ConfigureAwait(false);
+            await writer.WriteFrameAsync(IpcDispatcher.Resp(req.Id, new ReadArchiveChunkResponse { Data = data }, IpcJsonContext.Default.ReadArchiveChunkResponse), ct).ConfigureAwait(false);
+        }
+        catch (OperationCanceledException) { throw; }
+        catch (IpcFaultException fe) { await writer.WriteFrameAsync(IpcDispatcher.Fault(req.Id, fe.Code, fe.Message), ct).ConfigureAwait(false); }
+        catch (Exception) { await writer.WriteFrameAsync(IpcDispatcher.Fault(req.Id, IpcErrorCodes.Internal, "Ошибка чтения архива."), ct).ConfigureAwait(false); }
+    }
+
+    private static async Task HandleCloseArchiveAsync(
+        Frame req, FrameWriter writer, IArchiveReader? reader, HashSet<string> handles, CancellationToken ct)
+    {
+        var r = req.Body?.Deserialize(IpcJsonContext.Default.CloseArchiveReadRequest);
+        if (r is not null && reader is not null)
+        {
+            reader.Close(r.Handle);
+            lock (handles) handles.Remove(r.Handle);
+        }
         await writer.WriteFrameAsync(IpcDispatcher.Resp(req.Id, new Ack(), IpcJsonContext.Default.Ack), ct).ConfigureAwait(false);
     }
 }
