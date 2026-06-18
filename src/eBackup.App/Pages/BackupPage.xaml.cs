@@ -1,7 +1,7 @@
 using eBackup.Core.Abstractions;
 using eBackup.Core.Modules;
+using eBackup.Ipc.Client;
 using eBackup.Modules.Obs;
-using eBackup.Security;
 using eBackup.Storage;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
@@ -21,7 +21,6 @@ public sealed partial class BackupPage : Page
         new BuiltInModuleSource([new ObsBackupModule()]),
         new DeclarativeModuleSource(),
     ]);
-    private readonly StorageStore _storages = new(new DpapiSecretProtector());
 
     private readonly List<CheckBox> _moduleChecks = [];
     private readonly List<CheckBox> _storageChecks = [];
@@ -49,26 +48,41 @@ public sealed partial class BackupPage : Page
         _folders = LoadFolders();
         RenderFolders();
 
-        // Цели: все хранилища из единого списка (папки отмечены по умолчанию)
+        // Цели: хранилища СЛУЖБЫ (папки отмечены по умолчанию)
         StoragesPanel.Children.Clear();
         _storageChecks.Clear();
+        var dimBrush = (Brush)Application.Current.Resources["EbTextDimBrush"];
+        var client = await ServiceConnection.GetClientAsync();
         List<SavedStorage> storages;
-        try
-        {
-            storages = (await _storages.LoadAsync()).ToList();
-        }
-        catch
+        if (client is null)
         {
             storages = [];
+            StoragesPanel.Children.Add(new TextBlock
+            {
+                Text = "служба eBackup недоступна: " + (ServiceConnection.Shared.Error ?? ""),
+                FontSize = 12,
+                Foreground = dimBrush
+            });
+        }
+        else
+        {
+            try
+            {
+                storages = (await client.ListStorageDetailsAsync()).Select(ServiceStorage.ToSaved).ToList();
+            }
+            catch
+            {
+                storages = [];
+            }
         }
 
-        if (storages.Count == 0)
+        if (client is not null && storages.Count == 0)
         {
             StoragesPanel.Children.Add(new TextBlock
             {
                 Text = "хранилищ нет — добавь на странице «Хранилища»",
                 FontSize = 12,
-                Foreground = (Brush)Application.Current.Resources["EbTextDimBrush"]
+                Foreground = dimBrush
             });
         }
         else
@@ -178,9 +192,6 @@ public sealed partial class BackupPage : Page
         RenderFolders();
     }
 
-    /// <summary>Свои папки как обычный модуль (логика — в Core.Modules.CustomFolders).</summary>
-    private DeclarativeModule? BuildFoldersModule() => CustomFolders.Build(_folders);
-
     // ---------- запуск ----------
 
     private void EncryptCheck_Changed(object sender, RoutedEventArgs e)
@@ -197,21 +208,18 @@ public sealed partial class BackupPage : Page
         if (MainWindow.Instance is null || MainWindow.Instance.IsBusy)
             return;
 
-        var modules = _moduleChecks.Where(cb => cb.IsChecked == true)
-            .Select(cb => (IBackupModule)cb.Tag)
+        var moduleIds = _moduleChecks.Where(cb => cb.IsChecked == true)
+            .Select(cb => ((IBackupModule)cb.Tag).Id)
             .ToList();
-        var foldersModule = BuildFoldersModule();
-        if (foldersModule is not null)
-            modules.Add(foldersModule);
-
-        var targets = _storageChecks.Where(cb => cb.IsChecked == true)
-            .Select(cb => (SavedStorage)cb.Tag)
+        var folderPaths = _folders.ToList(); // все настроенные папки идут в бэкап
+        var targetIds = _storageChecks.Where(cb => cb.IsChecked == true)
+            .Select(cb => ((SavedStorage)cb.Tag).Id)
             .ToList();
 
         string? err = null;
-        if (modules.Count == 0)
+        if (moduleIds.Count == 0 && folderPaths.Count == 0)
             err = "Выбери хотя бы один модуль или добавь папку.";
-        else if (targets.Count == 0)
+        else if (targetIds.Count == 0)
             err = "Выбери хотя бы одно хранилище.";
         else if (EncryptCheck.IsChecked == true)
         {
@@ -233,7 +241,7 @@ public sealed partial class BackupPage : Page
         LaunchBtn.IsEnabled = false;
         try
         {
-            await MainWindow.Instance.StartBackupAsync(new BackupRequest(modules, targets, passphrase));
+            await MainWindow.Instance.StartBackupAsync(new BackupRequest(moduleIds, folderPaths, targetIds, passphrase));
         }
         finally
         {

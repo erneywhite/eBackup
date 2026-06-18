@@ -1,9 +1,12 @@
+using System.Text.Json;
 using eBackup.App.Pages;
 using eBackup.Core.Abstractions;
 using eBackup.Core.Engine;
 using eBackup.Core.History;
 using eBackup.Core.Modules;
 using eBackup.Core.Scheduling;
+using eBackup.Ipc.Client;
+using eBackup.Ipc.Contracts;
 using eBackup.Modules.Obs;
 using eBackup.Security;
 using eBackup.Storage;
@@ -13,10 +16,11 @@ using Microsoft.UI.Xaml.Media.Animation;
 
 namespace eBackup.App;
 
-/// <summary>Параметры запуска бэкапа, собранные страницей «Бэкап» или расписанием.</summary>
+/// <summary>Параметры запуска бэкапа (id'ы — служба резолвит их в своём конфиге под машинным ключом).</summary>
 public sealed record BackupRequest(
-    IReadOnlyList<IBackupModule> Modules,
-    IReadOnlyList<SavedStorage> Targets,
+    IReadOnlyList<string> ModuleIds,
+    IReadOnlyList<string> FolderPaths,
+    IReadOnlyList<string> TargetStorageIds,
     string? Passphrase);
 
 /// <summary>Параметры восстановления, собранные страницей «Восстановление».</summary>
@@ -37,11 +41,6 @@ public sealed partial class MainWindow : Window
     public static event Action? BackupCompleted;
 
     private readonly StorageStore _storages = new(new DpapiSecretProtector());
-    private readonly ModuleRegistry _modulesRegistry = new(
-    [
-        new BuiltInModuleSource([new ObsBackupModule()]),
-        new DeclarativeModuleSource(),
-    ]);
     private bool _operationRunning; // бэкап или восстановление — одновременно только одно
     private CancellationTokenSource? _backupCts; // отмена текущего бэкапа (null — бэкап не идёт)
     private double _fill;           // текущая доля заливки-прогресса нижней панели (0..1)
@@ -398,7 +397,7 @@ public sealed partial class MainWindow : Window
 
     public async Task StartBackupAsync(BackupRequest request, string trigger = "вручную")
     {
-        if (_operationRunning || request.Targets.Count == 0)
+        if (_operationRunning || request.TargetStorageIds.Count == 0)
             return;
 
         _operationRunning = true;
@@ -408,237 +407,94 @@ public sealed partial class MainWindow : Window
         BackupBtnText.Text = "Отменить"; // во время бэкапа кнопка отменяет операцию
         StatusTitle.Text = "Делаю бэкап…";
         StatusSub.Text = "подготовка…";
-
-        // Журнал «История»: запись о запуске сразу (прерванный останется виден),
-        // плюс полный лог с таймкодами на каждый шаг.
-        var history = new HistoryStore();
-        var run = new BackupRunRecord
-        {
-            Id = $"{DateTime.Now:yyyyMMdd-HHmmss}-{Guid.NewGuid().ToString("N")[..4]}",
-            StartedAt = DateTimeOffset.Now,
-            Trigger = trigger,
-            Modules = request.Modules.Select(m => m.Id).ToList(),
-            Targets = request.Targets.Select(t => t.Name).ToList()
-        };
-        void Log(string message) => history.AppendLog(run.Id, message);
-        Log($"Запуск: {trigger}");
-        Log("Модули: " + string.Join(", ", run.Modules));
-        Log("Цели: " + string.Join(", ", run.Targets));
-        if (request.Passphrase is not null)
-            Log("Шифрование: включено (AES-256-GCM, ключ из парольной фразы)");
-        var startSettings = AppSettings.Load();
-        Log($"Настройки: сжатие — {startSettings.CompressionMode switch
-        {
-            0 => "быстрое", 2 => "максимальное", _ => "обычное"
-        }} · retention — {(startSettings.RetentionCount > 0 ? $"последних {startSettings.RetentionCount}" : "хранить все")}"
-            + $" · имя ПК в имени архива — {(startSettings.IncludeMachineNameInArchive ? "да" : "нет")}");
-        await history.SaveRunAsync(run);
-
-        // Сборка архива занимает 0..70% заливки; каждое сообщение двигает её вперёд.
         SetFill(0.04);
-        var progress = new Progress<string>(s =>
-        {
-            StatusSub.Text = s;
-            Log(s);
-            BumpFill(stageEnd: 0.70);
-        });
 
-        var settings = AppSettings.Load();
-        var buildDir = Path.Combine(Path.GetTempPath(), "eBackup");
-        var name = BackupNaming.DefaultName(request.Modules,
-            machineTag: settings.IncludeMachineNameInArchive ? Environment.MachineName : null);
+        // Бэкап выполняет СЛУЖБА (под SYSTEM): окно ставит задачу и показывает живой прогресс из нот.
+        // Историю пишет служба; «Обзор» подтянет результат через неё. Шифрование архива через службу
+        // пока не подключено (S7) — при включённом шифровании честно отказываемся, чтобы не отдать открытый.
+        string? jobId = null;
+        var ok = false;
+        string? error = null;
+        var summary = "";
         try
         {
-            // Место во временной папке: точный размер архива до сборки неизвестен —
-            // оцениваем по последнему успешному запуску (сборка с шифрованием
-            // держит на диске до двух копий архива одновременно).
-            if (DiskSpace.TryGetFreeBytes(Path.GetTempPath(), out var tempFree))
+            if (request.Passphrase is not null)
+                throw new InvalidOperationException(
+                    "Шифрование архива через службу появится позже — пока сними галочку шифрования.");
+
+            var client = await ServiceConnection.GetClientAsync(ct)
+                ?? throw new InvalidOperationException(ServiceConnection.Shared.Error ?? "Служба eBackup недоступна.");
+
+            // Регистрируем выбранные «свои папки» — служба бэкапит только зарегистрированные (не сырой путь с провода).
+            foreach (var folder in request.FolderPaths)
+                await client.UpsertCustomFolderAsync(folder, ct);
+
+            var settings = AppSettings.Load();
+            var resp = await client.StartBackupAsync(new StartBackupRequest
             {
-                var estimate = (await history.LoadAsync())
-                    .FirstOrDefault(r => r.Success == true && r.SizeBytes > 0)?.SizeBytes ?? 0;
-                Log($"Место в temp: свободно {FormatBytes(tempFree)}"
-                    + (estimate > 0 ? $" · прошлый архив: {FormatBytes(estimate)}" : ""));
-                if (tempFree < 200L << 20)
-                    throw new IOException(
-                        $"Во временной папке почти нет места ({FormatBytes(tempFree)}) — "
-                        + "освободи системный диск и повтори.");
-                if (estimate > 0 && tempFree < estimate * 2)
+                ModuleIds = request.ModuleIds.ToArray(),
+                CustomFolderIds = request.FolderPaths.ToArray(),
+                TargetStorageIds = request.TargetStorageIds.ToArray(),
+                CompressionMode = settings.CompressionMode,
+                IncludeMachineName = settings.IncludeMachineNameInArchive,
+                RetentionCount = settings.RetentionCount > 0 ? settings.RetentionCount : null,
+                Trigger = trigger,
+                ClientRequestId = Guid.NewGuid().ToString("N"),
+            }, ct);
+            jobId = resp.JobId;
+
+            // Живой прогресс из нот службы (Phase двигает «воду», Log — подпись) до терминальной ноты.
+            await foreach (var f in client.AttachToJobAsync(jobId, 0, ct))
+            {
+                if (f.Op == IpcNotes.Phase && f.Body is { } pb
+                    && pb.Deserialize(IpcJsonContext.Default.PhaseNote) is { } pn)
                 {
-                    Log($"⚠ Места в temp может не хватить: свободно {FormatBytes(tempFree)}, "
-                        + $"сборка может занять до {FormatBytes(estimate * 2)}.");
-                    StatusSub.Text = "внимание: во временной папке мало места…";
+                    StatusSub.Text = pn.Phase;
+                    if (pn.ProgressFraction > 0) SetFill(0.05 + 0.9 * Math.Clamp(pn.ProgressFraction, 0, 1));
+                    else BumpFill(stageEnd: 0.9);
+                }
+                else if (f.Op == IpcNotes.Log && f.Body is { } lb
+                    && lb.Deserialize(IpcJsonContext.Default.LogNote) is { } ln)
+                {
+                    StatusSub.Text = ln.Text;
                 }
             }
 
-            // Архив собирается во временной папке и раскладывается по всем целям одинаково.
-            var engine = new BackupEngine();
-            var archive = await Task.Run(() =>
-                engine.CreateBackupAsync(request.Modules, buildDir, name, request.Passphrase,
-                    progress, settings.CompressionLevel, Log, ct: ct));
-            SetFill(0.70);
-
-            run.ArchiveName = Path.GetFileName(archive);
-            try { run.SizeBytes = new FileInfo(archive).Length; } catch { }
-            run.SkippedFiles = engine.LastSkippedCount;
-            Log($"Архив собран: {run.ArchiveName} · {run.SizeBytes / 1024.0 / 1024.0:0.#} МБ");
-
-            var done = new List<string>();
-            var failed = new List<string>();
-            var archiveSize = new FileInfo(archive).Length; // финальный .ebk (после шифрования)
-            string? localSha = null; // SHA-256 финального архива — считается один раз, по требованию
-            for (var i = 0; i < request.Targets.Count; i++)
-            {
-                var target = request.Targets[i];
-                ct.ThrowIfCancellationRequested();
-                StatusSub.Text = $"Сохраняю в «{target.Name}»…";
-                Log($"«{target.Name}»: заливаю…");
-                try
-                {
-                    // Для папок и сетевых дисков размер архива уже точный — честно
-                    // отказываемся ДО заливки, если место не влезает.
-                    if (target.Kind == StorageKind.LocalFolder && target.Path is not null
-                        && DiskSpace.TryGetFreeBytes(target.Path, out var targetFree))
-                    {
-                        if (targetFree < archiveSize)
-                            throw new IOException(
-                                $"недостаточно места: нужно {FormatBytes(archiveSize)}, "
-                                + $"свободно {FormatBytes(targetFree)}");
-                        Log($"«{target.Name}»: свободно {FormatBytes(targetFree)} — архив влезает");
-                    }
-
-                    var storage = StorageFactory.Create(target, _storages.Protector);
-                    var uploadWatch = System.Diagnostics.Stopwatch.StartNew();
-                    await storage.UploadAsync(archive, Path.GetFileName(archive), ct);
-                    var seconds = Math.Max(0.1, uploadWatch.Elapsed.TotalSeconds);
-                    Log($"«{target.Name}»: сохранено за {seconds:0.#} с"
-                        + (archiveSize > 0 ? $" ({archiveSize / 1024.0 / 1024.0 / seconds:0.#} МБ/с)" : ""));
-
-                    // Верификация на цели: файл должен появиться в листинге с верным
-                    // размером; для папочных хранилищ — ещё и полная сверка SHA-256.
-                    StatusSub.Text = $"{target.Name}: проверяю…";
-                    var files = await storage.ListDetailedAsync();
-                    var remote = files.FirstOrDefault(f => f.Name == Path.GetFileName(archive));
-                    if (remote is null)
-                        throw new IOException("верификация: файл не появился в листинге после заливки");
-                    if (remote.Length > 0 && remote.Length != archiveSize)
-                        throw new IOException(
-                            $"верификация: размер не совпал (локально {archiveSize} Б, в хранилище {remote.Length} Б)");
-
-                    if (storage is FolderStorage folder)
-                    {
-                        localSha ??= await Task.Run(() => Sha256Of(archive));
-                        var copyPath = folder.GetLocalPath(Path.GetFileName(archive));
-                        var remoteSha = await Task.Run(() => Sha256Of(copyPath));
-                        if (!remoteSha.Equals(localSha, StringComparison.OrdinalIgnoreCase))
-                            throw new IOException("верификация: SHA-256 копии не совпал с архивом");
-                        Log($"«{target.Name}»: верификация ✓ SHA-256 копии совпадает");
-                    }
-                    else
-                    {
-                        Log(remote.Length > 0
-                            ? $"«{target.Name}»: верификация ✓ размер в хранилище совпадает ({remote.Length / 1024.0 / 1024.0:0.#} МБ)"
-                            : $"«{target.Name}»: верификация — хранилище не сообщает размер, сверка пропущена");
-                    }
-
-                    done.Add(target.Name);
-
-                    // Хранение версий — по ГРУППАМ (набор модулей закодирован в имени):
-                    // считаем «последние N» только среди архивов той же группы, что текущий,
-                    // новейшие сверху. Так бэкапы разных модулей не вытесняют друг друга.
-                    if (settings.RetentionCount > 0)
-                    {
-                        StatusSub.Text = $"{target.Name}: убираю старые архивы…";
-                        var groupKey = BackupNaming.RetentionGroupKey(Path.GetFileName(archive));
-                        var sameGroup = files
-                            .Where(f => BackupNaming.RetentionGroupKey(f.Name) == groupKey)
-                            .OrderByDescending(f => f.LastWriteTime)
-                            .ToList();
-                        foreach (var old in sameGroup.Skip(settings.RetentionCount))
-                        {
-                            await storage.DeleteAsync(old.Name);
-                            Log($"«{target.Name}»: retention (группа {groupKey}) — удалил {old.Name}");
-                        }
-                    }
-                }
-                catch (OperationCanceledException)
-                {
-                    throw; // отмена — не ошибка цели, пробрасываем наверх
-                }
-                catch (Exception ex)
-                {
-                    failed.Add($"{target.Name}: {ex.Message}");
-                    Log($"«{target.Name}»: ✕ {ex.Message}");
-                }
-                SetFill(0.70 + 0.30 * (i + 1) / request.Targets.Count);
-            }
-
-            try { File.Delete(archive); } catch { /* temp */ }
-
-            run.Success = failed.Count == 0;
-            run.Error = failed.Count > 0 ? string.Join("; ", failed) : null;
-
-            StatusTitle.Text = failed.Count == 0 ? "Готов к работе" : "Бэкап завершён с ошибками";
-            StatusSub.Text = $"последний бэкап: {DateTime.Now:HH:mm}  → {string.Join(", ", done)}"
-                + (run.SkippedFiles > 0 ? $"  ⚠ пропущено файлов: {run.SkippedFiles}" : string.Empty)
-                + (failed.Count > 0 ? $"  ✕ {string.Join("; ", failed)}" : string.Empty);
+            // Поток окончился терминальной нотой — забираем финальный статус задачи.
+            var job = await client.GetJobAsync(new GetJobRequest { JobId = jobId }, ct);
+            ok = job.State == "Completed";
+            error = job.Error;
+            summary = job.ArchiveName is { } an
+                ? $"{an} · {job.SizeBytes / 1024.0 / 1024.0:0.#} МБ"
+                : (error ?? "бэкап завершён с ошибками");
+            SetFill(1.0);
+            StatusTitle.Text = ok ? "Готов к работе" : "Бэкап завершён с ошибками";
+            StatusSub.Text = ok
+                ? $"последний бэкап: {DateTime.Now:HH:mm}"
+                    + (job.SkippedFiles > 0 ? $"  ⚠ пропущено файлов: {job.SkippedFiles}" : "")
+                : $"✕ {summary}";
         }
         catch (OperationCanceledException)
         {
             cancelled = true;
-            run.Success = false;
-            run.Error = "Отменено пользователем";
-            Log("⏹ Бэкап отменён пользователем.");
-            // Недостроенный временный архив не оставляем в temp — логируем, что именно убрали.
-            var removedAny = false;
-            void TryDel(string p)
-            {
-                try
-                {
-                    if (!File.Exists(p)) return;
-                    var size = new FileInfo(p).Length;
-                    File.Delete(p);
-                    removedAny = true;
-                    Log($"  Удалён временный файл: {p} ({FormatBytes(size)})");
-                }
-                catch (Exception ex) { Log($"  Не удалось удалить временный файл {p}: {ex.Message}"); }
-            }
-            var stub = Path.Combine(buildDir, name + ".ebk");
-            TryDel(stub);
-            TryDel(stub + ".plain");
-            if (!removedAny)
-                Log($"  Временный архив не создавался (отмена до сборки): {stub}");
+            if (jobId is not null)
+                try { await CancelJobViaServiceAsync(jobId); } catch { /* best-effort: соединение/токен уже закрыты */ }
             StatusTitle.Text = "Бэкап отменён";
-            StatusSub.Text = removedAny ? "временный архив удалён" : "ничего не осталось во временной папке";
+            StatusSub.Text = "отменено пользователем";
         }
         catch (Exception ex)
         {
-            run.Success = false;
-            run.Error = ex.Message;
-            Log("✕ Ошибка: " + ex.Message);
+            error = ex.Message;
             StatusTitle.Text = "Ошибка бэкапа";
             StatusSub.Text = ex.Message;
         }
         finally
         {
-            run.FinishedAt = DateTimeOffset.Now;
-            var elapsed = run.FinishedAt.Value - run.StartedAt;
-            Log(run.Success == true
-                ? $"Готово за {elapsed:mm\\:ss}."
-                : cancelled
-                    ? $"Отменено за {elapsed:mm\\:ss}."
-                    : $"Завершено с ошибками за {elapsed:mm\\:ss}.");
-            await history.SaveRunAsync(run);
-
-            // Итог — системным уведомлением (по просьбе пользователя — всегда,
-            // не только при скрытом окне). При отмене пользователем не уведомляем.
-            if (settings.NotifyOnBackgroundBackup && !cancelled)
-                TryNotify(run.Success == true,
-                    run.Success == true
-                        ? (run.SkippedFiles > 0 ? "⚠ Бэкап выполнен (есть пропуски)" : "✅ Бэкап выполнен")
-                        : "❌ Бэкап завершён с ошибками",
-                    run.Success == true
-                        ? $"{run.ArchiveName} · {run.SizeBytes / 1024.0 / 1024.0:0.#} МБ → {string.Join(", ", run.Targets)}"
-                        : run.Error ?? "подробности — на странице «История»");
+            // Итог — системным уведомлением (при отмене пользователем не уведомляем).
+            if (AppSettings.Load().NotifyOnBackgroundBackup && !cancelled)
+                TryNotify(ok,
+                    ok ? "✅ Бэкап выполнен" : "❌ Бэкап завершён с ошибками",
+                    ok ? summary : (error ?? "подробности — на странице «История»"));
 
             _operationRunning = false;
             _backupCts?.Dispose();
@@ -650,11 +506,14 @@ public sealed partial class MainWindow : Window
         }
     }
 
-    private static string Sha256Of(string path)
+    /// <summary>Отменить задачу в службе (токен бэкапа уже отменён — берём свежее подключение).</summary>
+    private static async Task CancelJobViaServiceAsync(string jobId)
     {
-        using var stream = File.OpenRead(path);
-        return Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(stream));
+        var client = await ServiceConnection.GetClientAsync();
+        if (client is not null)
+            await client.CancelJobAsync(jobId);
     }
+
 
     // ---------- обновления (GitHub Releases, в стиле eCoda) ----------
 
@@ -846,44 +705,18 @@ public sealed partial class MainWindow : Window
         return null;
     }
 
-    /// <summary>Собрать параметры бэкапа из расписания (свой набор настроек, глобальный тумблер не важен).</summary>
+    /// <summary>Собрать параметры бэкапа из расписания (id'ы — служба резолвит их в своём конфиге).</summary>
     private async Task<BackupRequest?> BuildRequestFromScheduleAsync(BackupSchedule s, ScheduleStore store)
     {
-        var all = _modulesRegistry.LoadForRestore(); // все рабочие модули
-        var modules = all
-            .Where(m => s.ModuleIds.Contains(m.Id, StringComparer.OrdinalIgnoreCase))
-            .ToList();
-
-        // Свои папки — СВОИ у каждого расписания (не зависят от страницы «Бэкап»).
-        if (Core.Modules.CustomFolders.Build(s.CustomFolders) is { } foldersModule)
-            modules.Add(foldersModule);
-
-        if (modules.Count == 0)
+        var moduleIds = s.ModuleIds.ToList();
+        var folderPaths = s.CustomFolders.ToList(); // свои папки у каждого расписания свои
+        if (moduleIds.Count == 0 && folderPaths.Count == 0)
             return null;
 
-        List<SavedStorage> targets;
-        try
-        {
-            var storages = (await _storages.LoadAsync()).ToList();
-            targets = storages
-                .Where(st => s.TargetConnectionIds.Contains(st.Id, StringComparer.OrdinalIgnoreCase))
-                .ToList();
-
-            // Legacy: старые расписания с «локальной папкой» отдельным флагом.
-            if (s.KeepLocal)
-            {
-                var local = storages.FirstOrDefault(st => st.Id == "local")
-                    ?? storages.FirstOrDefault(st => st.Kind == StorageKind.LocalFolder);
-                if (local is not null && targets.All(t => t.Id != local.Id))
-                    targets.Add(local);
-            }
-        }
-        catch
-        {
-            targets = [];
-        }
-
-        if (targets.Count == 0)
+        var targetIds = s.TargetConnectionIds.ToList();
+        if (s.KeepLocal && !targetIds.Contains("local", StringComparer.OrdinalIgnoreCase))
+            targetIds.Add("local"); // legacy: «локальная папка» отдельным флагом
+        if (targetIds.Count == 0)
             return null;
 
         string? passphrase = null;
@@ -899,7 +732,8 @@ public sealed partial class MainWindow : Window
             }
         }
 
-        return new BackupRequest(modules, targets, passphrase);
+        await Task.CompletedTask; // сигнатура async ради совместимости с вызовами; резолв теперь в службе
+        return new BackupRequest(moduleIds, folderPaths, targetIds, passphrase);
     }
 
     // ---------- восстановление (вызывается страницей «Восстановление») ----------
