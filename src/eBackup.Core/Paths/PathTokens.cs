@@ -55,6 +55,23 @@ public static class PathTokens
         return false;
     }
 
+    /// <summary>
+    /// Если путь начинается с известного токена — вернуть сам токен ("{APPDATA}"). Корень
+    /// получают, развернув токен НУЖНЫМ резолвером (per-SID под службой) — в отличие от
+    /// <see cref="TryGetTokenRoot"/>, который всегда разворачивает в профиль процесса.
+    /// </summary>
+    public static bool TryGetTokenPrefix(string tokenPath, out string token)
+    {
+        foreach (var (t, _) in Map)
+            if (tokenPath.StartsWith(t, StringComparison.Ordinal))
+            {
+                token = t;
+                return true;
+            }
+        token = string.Empty;
+        return false;
+    }
+
     /// <summary>Развернуть токен обратно в абсолютный путь на текущей машине.</summary>
     public static string Resolve(string tokenPath)
     {

@@ -311,6 +311,7 @@ public sealed class BackupEngine
         IProgress<string>? progress = null,
         Action<string>? log = null,
         Func<string, bool>? entryFilter = null,
+        Func<string, string>? resolveDestination = null,
         CancellationToken ct = default)
     {
         // Зашифрованный архив сначала расшифровываем во временный файл.
@@ -332,7 +333,7 @@ public sealed class BackupEngine
         {
             using var zip = ZipFile.OpenRead(workingPath);
             await RestoreFromArchiveAsync(zip, modules, conflictPolicy, destinationRootOverride,
-                assetsDirectory, progress, log, entryFilter, ct).ConfigureAwait(false);
+                assetsDirectory, progress, log, entryFilter, resolveDestination, ct).ConfigureAwait(false);
         }
         finally
         {
@@ -355,11 +356,12 @@ public sealed class BackupEngine
         IProgress<string>? progress = null,
         Action<string>? log = null,
         Func<string, bool>? entryFilter = null,
+        Func<string, string>? resolveDestination = null,
         CancellationToken ct = default)
     {
         using var zip = new ZipArchive(zipStream, ZipArchiveMode.Read, leaveOpen: true);
         await RestoreFromArchiveAsync(zip, modules, conflictPolicy, destinationRootOverride,
-            assetsDirectory, progress, log, entryFilter, ct).ConfigureAwait(false);
+            assetsDirectory, progress, log, entryFilter, resolveDestination, ct).ConfigureAwait(false);
     }
 
     private async Task RestoreFromArchiveAsync(
@@ -371,8 +373,13 @@ public sealed class BackupEngine
         IProgress<string>? progress,
         Action<string>? log,
         Func<string, bool>? entryFilter,
+        Func<string, string>? resolveDestination,
         CancellationToken ct)
     {
+        // Куда писать токенизированные пути «в исходные места»: по умолчанию профиль процесса;
+        // служба передаёт резолвер по профилю ВЫЗВАВШЕГО (per-SID), чтобы {APPDATA} и т.п.
+        // указывали на его профиль, а не на systemprofile.
+        var resolveDest = resolveDestination ?? PathTokens.Resolve;
         var manifestEntry = zip.GetEntry("manifest.json")
             ?? throw new InvalidDataException("В архиве нет manifest.json — это не архив eBackup.");
 
@@ -435,9 +442,10 @@ public sealed class BackupEngine
                     throw new InvalidDataException(msg);
                 }
 
-                // В исходные места — по токену/исходному пути; «в папку» — строго внутри неё.
+                // В исходные места — по токену/исходному пути (per-SID под службой);
+                // «в папку» — строго внутри неё.
                 var target = destinationRootOverride is null
-                    ? PathTokens.Resolve(entry.TokenPath)
+                    ? resolveDest(entry.TokenPath)
                     : Path.Combine(destinationRootOverride,
                         entry.ArchivePath.Replace('/', Path.DirectorySeparatorChar));
                 if (destinationRootOverride is not null
@@ -447,11 +455,12 @@ public sealed class BackupEngine
 
                 // restore-в-исходные для токенизированных путей — канонизированный containment
                 // (надёжнее строковой HasTraversal: ловит абсолютный «хвост» вроде
-                // «{APPDATA}/C:/Windows», который Path.Combine пропускает наружу). Сырые
-                // абсолютные пути токенового корня не имеют — их граница сам архив (S4).
+                // «{APPDATA}/C:/Windows», который Path.Combine пропускает наружу). Корень токена
+                // разворачиваем ТЕМ ЖЕ резолвером (per-SID), иначе под службой containment ложно
+                // срабатывал бы на каждом пути. Сырые абсолютные пути токенового корня не имеют.
                 else if (destinationRootOverride is null
-                    && PathTokens.TryGetTokenRoot(entry.TokenPath, out var tokenRoot)
-                    && !PathSafety.IsWithin(tokenRoot, target))
+                    && PathTokens.TryGetTokenPrefix(entry.TokenPath, out var tokenPrefix)
+                    && !PathSafety.IsWithin(resolveDest(tokenPrefix), target))
                     throw new InvalidDataException(
                         $"Запись выходит за пределы корня токена: {entry.TokenPath}");
 
@@ -504,6 +513,11 @@ public sealed class BackupEngine
 
                     progress?.Report($"{moduleEntry.DisplayName}: раскладываю ассеты…");
                     log?.Invoke($"Restore-хук модуля «{moduleEntry.DisplayName}»: раскладываю ассеты…");
+
+                    // Хуку, читающему/пишущему профиль (OBS правит сцены), отдаём тот же резолвер:
+                    // под службой это профиль ВЫЗВАВШЕГО, а не systemprofile.
+                    if (module is IUserScopedDiscovery scopedHook)
+                        scopedHook.UseSourceResolver(resolveDest);
 
                     // Заужаем доступ хука до записей только этого модуля (data/<id>/).
                     var modulePrefix = "data/" + moduleEntry.ModuleId + "/";

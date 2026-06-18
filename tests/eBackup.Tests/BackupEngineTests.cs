@@ -42,6 +42,42 @@ public class BackupEngineTests
         Assert.Equal("ebackup_test_2026-06-10_14-05-33", name);
     }
 
+    [Fact]
+    public async Task Restore_To_Original_Uses_ResolveDestination_For_Tokens()
+    {
+        // Имитация службы: бэкап читает источник одним профилем, restore «в исходные» пишет в ДРУГОЙ
+        // (per-SID-резолвер). Токен {APPDATA} должен развернуться резолвером restore, containment — пройти.
+        var root = Path.Combine(Path.GetTempPath(), $"ebk-restok-{Guid.NewGuid():N}");
+        try
+        {
+            var srcAppData = Path.Combine(root, "src");
+            Directory.CreateDirectory(Path.Combine(srcAppData, "app"));
+            await File.WriteAllTextAsync(Path.Combine(srcAppData, "app", "data.txt"), "hello");
+
+            static string Redirect(string baseDir, string token) =>
+                token.StartsWith("{APPDATA}", StringComparison.Ordinal)
+                    ? Path.Combine(baseDir, token["{APPDATA}".Length..].TrimStart('/', '\\').Replace('/', Path.DirectorySeparatorChar))
+                    : token;
+
+            var engine = new BackupEngine();
+            var archive = await engine.CreateBackupAsync(
+                [new DirModule("{APPDATA}/app")], Path.Combine(root, "build"), "t", passphrase: null,
+                resolveSource: t => Redirect(srcAppData, t));
+
+            var dstAppData = Path.Combine(root, "dst");
+            await engine.RestoreAsync(archive, modules: null, conflictPolicy: ConflictPolicy.Overwrite,
+                resolveDestination: t => Redirect(dstAppData, t));
+
+            var restored = Path.Combine(dstAppData, "app", "data.txt");
+            Assert.True(File.Exists(restored));
+            Assert.Equal("hello", await File.ReadAllTextAsync(restored));
+        }
+        finally
+        {
+            if (Directory.Exists(root)) Directory.Delete(root, recursive: true);
+        }
+    }
+
     private sealed class ListProgress : IProgress<string>
     {
         public List<string> Items { get; } = [];
