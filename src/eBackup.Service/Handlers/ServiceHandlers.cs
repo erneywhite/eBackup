@@ -206,6 +206,14 @@ public sealed class ServiceHandlers : IIpcHandlers
             .ToArray();
     }
 
+    public async Task<Ack> DeleteArchiveAsync(DeleteArchiveRequest req, CallerContext caller, CancellationToken ct)
+    {
+        var saved = (await _storages.LoadAsync(ct).ConfigureAwait(false)).FirstOrDefault(s => s.Id == req.StorageId)
+            ?? throw new IpcFaultException(IpcErrorCodes.NotFound, "Хранилище не найдено.");
+        await StorageFactory.Create(saved, _storages.Protector).DeleteAsync(req.RemoteName, ct).ConfigureAwait(false);
+        return new Ack();
+    }
+
     private static bool TryFreeBytes(string path, out long free)
     {
         free = 0;

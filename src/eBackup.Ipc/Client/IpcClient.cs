@@ -165,6 +165,9 @@ public sealed class IpcClient : IDisposable
     public Task<Ack> CloseArchiveReadAsync(string handle, CancellationToken ct = default)
         => RequestAsync(IpcOps.CloseArchiveRead, new CloseArchiveReadRequest { Handle = handle }, Ctx.CloseArchiveReadRequest, Ctx.Ack, ct);
 
+    public Task<Ack> DeleteArchiveAsync(string storageId, string remoteName, CancellationToken ct = default)
+        => RequestAsync(IpcOps.DeleteArchive, new DeleteArchiveRequest { StorageId = storageId, RemoteName = remoteName }, Ctx.DeleteArchiveRequest, Ctx.Ack, ct);
+
     public Task<ModuleSummary[]> ListModulesAsync(CancellationToken ct = default)
         => RequestNoBodyAsync(IpcOps.ListModules, Ctx.ModuleSummaryArray, ct);
 

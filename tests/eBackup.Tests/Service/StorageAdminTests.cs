@@ -140,6 +140,24 @@ public sealed class StorageAdminTests : IDisposable
     }
 
     [Fact]
+    public async Task DeleteArchive_Removes_File_In_Storage()
+    {
+        var (handlers, _, jobs) = Build();
+        await using var __ = jobs;
+
+        var dir = Path.Combine(_root, "arch2");
+        Directory.CreateDirectory(dir);
+        await File.WriteAllTextAsync(Path.Combine(dir, "old.ebk"), "x");
+        await handlers.UpsertStorageAsync(new StorageInput
+        {
+            Id = "d", Name = "D", Kind = "LocalFolder", Settings = new() { ["path"] = dir },
+        }, Caller, default);
+
+        await handlers.DeleteArchiveAsync(new DeleteArchiveRequest { StorageId = "d", RemoteName = "old.ebk" }, Caller, default);
+        Assert.False(File.Exists(Path.Combine(dir, "old.ebk")));
+    }
+
+    [Fact]
     public async Task Delete_Removes_Storage()
     {
         var (handlers, _, jobs) = Build();

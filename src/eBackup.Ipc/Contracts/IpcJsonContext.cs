@@ -37,6 +37,7 @@ namespace eBackup.Ipc.Contracts;
 [JsonSerializable(typeof(ReadArchiveChunkRequest))]
 [JsonSerializable(typeof(ReadArchiveChunkResponse))]
 [JsonSerializable(typeof(CloseArchiveReadRequest))]
+[JsonSerializable(typeof(DeleteArchiveRequest))]
 [JsonSerializable(typeof(StorageInput))]
 [JsonSerializable(typeof(StorageDetail))]
 [JsonSerializable(typeof(StorageDetail[]))]

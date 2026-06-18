@@ -39,6 +39,7 @@ public static class IpcDispatcher
                 IpcOps.DeleteStorage => Resp(req.Id, await h.DeleteStorageAsync(Decode(req, Ctx.DeleteByIdRequest), caller, ct), Ctx.Ack),
                 IpcOps.TestStorage => Resp(req.Id, await h.TestStorageAsync(Decode(req, Ctx.TestStorageRequest), caller, ct), Ctx.TestResult),
                 IpcOps.ListArchives => Resp(req.Id, await h.ListArchivesAsync(Decode(req, Ctx.ListArchivesRequest), caller, ct), Ctx.RemoteFileDtoArray),
+                IpcOps.DeleteArchive => Resp(req.Id, await h.DeleteArchiveAsync(Decode(req, Ctx.DeleteArchiveRequest), caller, ct), Ctx.Ack),
 
                 IpcOps.ListSchedules => Resp(req.Id, await h.ListSchedulesAsync(caller, ct), Ctx.ScheduleSummaryArray),
                 IpcOps.UpsertSchedule => Resp(req.Id, await h.UpsertScheduleAsync(Decode(req, Ctx.ScheduleInput), caller, ct), Ctx.Ack),

@@ -776,19 +776,27 @@ public sealed partial class MainWindow : Window
             }
             else
             {
-                var storages = await _storages.LoadAsync();
-                var saved = storages.FirstOrDefault(s => s.Id == request.Source.StorageId)
-                    ?? throw new InvalidOperationException("Хранилище-источник не найдено.");
-                StatusSub.Text = $"Скачиваю {request.Source.RemoteName} из «{saved.Name}»…";
-                Log($"Источник: «{saved.Name}» / {request.Source.RemoteName} — скачиваю…");
-                var storage = StorageFactory.Create(saved, _storages.Protector);
-                tempDownloaded = Path.Combine(Path.GetTempPath(), "eBackup", request.Source.RemoteName!);
-                var downloadWatch = System.Diagnostics.Stopwatch.StartNew();
-                await storage.DownloadAsync(request.Source.RemoteName!, tempDownloaded);
+                // Архив в хранилище службы: тянем его ЧЕРЕЗ службу (seek-сессия) во временный файл —
+                // полному восстановлению (хуки модулей, ассеты, расшифровка) нужен локальный файл.
+                var client = await ServiceConnection.GetClientAsync()
+                    ?? throw new InvalidOperationException(ServiceConnection.Shared.Error ?? "Служба eBackup недоступна.");
+                StatusSub.Text = $"Получаю {request.Source.RemoteName} из службы…";
+                Log($"Источник: хранилище «{request.Source.StorageId}» / {request.Source.RemoteName} — тяну через службу…");
+                var open = await client.OpenArchiveReadAsync(request.Source.StorageId!, request.Source.RemoteName!);
+                var handle = open.Handle;
+                tempDownloaded = Path.Combine(Path.GetTempPath(), "eBackup", "restore",
+                    $"{Guid.NewGuid():N}-{request.Source.RemoteName}");
+                Directory.CreateDirectory(Path.GetDirectoryName(tempDownloaded)!);
+                var watch = System.Diagnostics.Stopwatch.StartNew();
+                using (var remote = new RangeStream(open.Length,
+                           (off, cnt, c) => client.ReadArchiveChunkAsync(handle, off, cnt, c),
+                           onDispose: () => { _ = client.CloseArchiveReadAsync(handle); }))
+                using (var fs = File.Create(tempDownloaded))
+                    await remote.CopyToAsync(fs);
                 archive = tempDownloaded;
-                var seconds = Math.Max(0.1, downloadWatch.Elapsed.TotalSeconds);
+                var seconds = Math.Max(0.1, watch.Elapsed.TotalSeconds);
                 var size = new FileInfo(archive).Length;
-                Log($"Скачано: {size / 1024.0 / 1024.0:0.#} МБ за {seconds:0.#} с ({size / 1024.0 / 1024.0 / seconds:0.#} МБ/с)");
+                Log($"Получено: {size / 1024.0 / 1024.0:0.#} МБ за {seconds:0.#} с ({size / 1024.0 / 1024.0 / seconds:0.#} МБ/с)");
                 SetFill(0.25);
             }
 

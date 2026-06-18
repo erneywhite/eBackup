@@ -1,6 +1,6 @@
 using eBackup.Core.Crypto;
 using eBackup.Core.Engine;
-using eBackup.Security;
+using eBackup.Ipc.Client;
 using eBackup.Storage;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
@@ -36,12 +36,10 @@ public sealed class ArchiveNode
 /// </summary>
 public sealed partial class ArchiveBrowsePage : Page
 {
-    private readonly StorageStore _store = new(new DpapiSecretProtector());
     private RestoreSource? _source;
     private string? _zipPath;        // локальный ZIP (после скачивания/расшифровки)
     private Stream? _remoteStream;   // удалённый ZIP с произвольным доступом — без скачивания
     private string? _encryptedPath;  // зашифрованный .ebk, ждёт парольную фразу
-    private string? _tempDownloaded; // скачанная с сервера копия (удаляется при уходе)
     private string? _tempDecrypted;  // расшифрованная копия (удаляется при уходе)
     private bool _busy;
     private bool _unloaded;
@@ -82,49 +80,36 @@ public sealed partial class ArchiveBrowsePage : Page
             }
             else
             {
-                var storages = await _store.LoadAsync();
-                var saved = storages.FirstOrDefault(s => s.Id == _source.StorageId)
-                    ?? throw new InvalidOperationException("Хранилище-источник не найдено.");
-                var storage = StorageFactory.Create(saved, _store.Protector);
+                // Архив в хранилище службы: читаем его seek-сессией через службу — оглавление и
+                // выбранные файлы тянутся кусками, без скачивания целиком (важно для 100+ ГБ).
+                // Секрет хранилища у службы (машинный ключ), поэтому GUI открывает через неё.
+                var client = await ServiceConnection.GetClientAsync(_cts.Token)
+                    ?? throw new InvalidOperationException(ServiceConnection.Shared.Error ?? "Служба eBackup недоступна.");
 
-                // Хранилище умеет произвольный доступ? Тогда читаем архив кусками —
-                // без скачивания целиком (для 100+ ГБ это единственный разумный путь).
-                // Исключение — зашифрованные: им нужен целый файл для расшифровки.
-                if (storage is ISeekableArchiveStorage seekable)
-                {
-                    SetStatus("Читаю оглавление архива (без скачивания целиком)…", dim: true);
-                    var stream = await seekable.OpenSeekableReadAsync(_source.RemoteName!, _cts.Token);
-                    if (_unloaded)
-                    {
-                        stream.Dispose();
-                        return;
-                    }
-
-                    var encrypted = await Task.Run(() => ArchiveCipher.IsEncrypted(stream));
-                    if (!encrypted)
-                    {
-                        _remoteStream = stream;
-                        TitleText.Text = _source.RemoteName;
-                        await BuildTreeAsync();
-                        return;
-                    }
-
-                    stream.Dispose(); // зашифрован — переходим к полному скачиванию
-                }
-
-                SetStatus($"Скачиваю {_source.RemoteName} из «{saved.Name}»…", dim: true);
-                // GUID в имени: повторное открытие того же архива не должно
-                // столкнуться с файлом, который ещё дописывает брошенная загрузка.
-                _tempDownloaded = Path.Combine(Path.GetTempPath(), "eBackup",
-                    $"browse-{Guid.NewGuid():N}-{_source.RemoteName}");
-                Directory.CreateDirectory(Path.GetDirectoryName(_tempDownloaded)!);
-                await storage.DownloadAsync(_source.RemoteName!, _tempDownloaded, _cts.Token);
+                SetStatus("Читаю оглавление архива из службы (без скачивания целиком)…", dim: true);
+                var open = await client.OpenArchiveReadAsync(_source.StorageId!, _source.RemoteName!, _cts.Token);
+                var handle = open.Handle;
+                var stream = new RangeStream(open.Length,
+                    fetchRange: (off, cnt, c) => client.ReadArchiveChunkAsync(handle, off, cnt, c),
+                    onDispose: () => { _ = client.CloseArchiveReadAsync(handle); }); // закрыть seek-сессию службы
                 if (_unloaded)
                 {
-                    Cleanup();
+                    stream.Dispose();
                     return;
                 }
-                path = _tempDownloaded;
+
+                var encrypted = await Task.Run(() => ArchiveCipher.IsEncrypted(stream), _cts.Token);
+                if (encrypted)
+                {
+                    stream.Dispose(); // зашифрованным нужен целый файл — через службу пока не умеем (S7)
+                    SetStatus("Зашифрованные архивы через службу пока недоступны (появится с шифрованием, S7).", dim: false);
+                    return;
+                }
+
+                _remoteStream = stream;
+                TitleText.Text = _source.RemoteName;
+                await BuildTreeAsync();
+                return;
             }
 
             TitleText.Text = Path.GetFileName(path);
@@ -426,8 +411,7 @@ public sealed partial class ArchiveBrowsePage : Page
         try { _remoteStream?.Dispose(); } catch { }
         _remoteStream = null;
 
-        foreach (var path in new[] { _tempDownloaded, _tempDecrypted })
-            if (path is not null)
-                try { File.Delete(path); } catch { }
+        if (_tempDecrypted is not null)
+            try { File.Delete(_tempDecrypted); } catch { }
     }
 }

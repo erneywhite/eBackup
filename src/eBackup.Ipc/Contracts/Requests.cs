@@ -25,6 +25,7 @@ public static class IpcOps
     public const string OpenArchiveRead = "openArchiveRead";
     public const string ReadArchiveChunk = "readArchiveChunk";
     public const string CloseArchiveRead = "closeArchiveRead";
+    public const string DeleteArchive = "deleteArchive";
     public const string ListSchedules = "listSchedules";
     public const string UpsertSchedule = "upsertSchedule";
     public const string DeleteSchedule = "deleteSchedule";
@@ -82,6 +83,7 @@ public sealed record ListArchivesRequest { public string StorageId { get; init; 
 public sealed record OpenArchiveReadRequest { public string StorageId { get; init; } = ""; public string RemoteName { get; init; } = ""; }
 public sealed record ReadArchiveChunkRequest { public string Handle { get; init; } = ""; public long Offset { get; init; } public int Count { get; init; } }
 public sealed record CloseArchiveReadRequest { public string Handle { get; init; } = ""; }
+public sealed record DeleteArchiveRequest { public string StorageId { get; init; } = ""; public string RemoteName { get; init; } = ""; }
 
 public sealed record StorageInput
 {

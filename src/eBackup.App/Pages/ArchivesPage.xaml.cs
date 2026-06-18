@@ -1,5 +1,4 @@
-using eBackup.Core.Crypto;
-using eBackup.Security;
+using eBackup.Ipc.Client;
 using eBackup.Storage;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
@@ -9,7 +8,6 @@ namespace eBackup.App.Pages;
 
 public sealed partial class ArchivesPage : Page
 {
-    private readonly StorageStore _store = new(new DpapiSecretProtector());
     private bool _refreshing;
 
     public ArchivesPage()
@@ -39,14 +37,21 @@ public sealed partial class ArchivesPage : Page
         {
             Sections.Children.Clear();
 
+            var client = await ServiceConnection.GetClientAsync();
+            if (client is null)
+            {
+                AddDim("служба eBackup недоступна: " + (ServiceConnection.Shared.Error ?? ""));
+                return;
+            }
+
             List<SavedStorage> storages;
             try
             {
-                storages = (await _store.LoadAsync()).ToList();
+                storages = (await client.ListStorageDetailsAsync()).Select(ServiceStorage.ToSaved).ToList();
             }
             catch (Exception ex)
             {
-                AddDim("не удалось прочитать конфиг хранилищ: " + ex.Message);
+                AddDim("не удалось прочитать хранилища службы: " + ex.Message);
                 return;
             }
 
@@ -77,9 +82,9 @@ public sealed partial class ArchivesPage : Page
 
                 try
                 {
-                    var storage = StorageFactory.Create(s, _store.Protector);
-                    var files = await storage.ListDetailedAsync();
-                    if (files.Count == 0)
+                    // Листинг и удаление — через службу (секрет хранилища у неё, под машинным ключом).
+                    var files = await client.ListArchivesAsync(s.Id);
+                    if (files.Length == 0)
                     {
                         AddDim("архивов нет");
                         continue;
@@ -87,21 +92,9 @@ public sealed partial class ArchivesPage : Page
 
                     foreach (var f in files)
                     {
-                        var encrypted = false;
-                        string? directPath = null;
-                        if (storage is FolderStorage folder)
-                        {
-                            directPath = folder.GetLocalPath(f.Name);
-                            try { encrypted = ArchiveCipher.IsEncrypted(directPath); } catch { }
-                        }
-
-                        var source = directPath is not null
-                            ? new RestoreSource(directPath, null, null)
-                            : new RestoreSource(null, s.Id, f.Name);
-
+                        var source = new RestoreSource(null, s.Id, f.Name); // всё единообразно через службу
                         AddRow(f.Name,
-                            $"{f.Length / 1024.0 / 1024.0:0.#} МБ · {f.LastWriteTime:dd.MM.yyyy HH:mm}"
-                            + (encrypted ? " · 🔒 зашифрован" : ""),
+                            $"{f.Length / 1024.0 / 1024.0:0.#} МБ · {f.LastWriteTime:dd.MM.yyyy HH:mm}",
                             () => OpenRestore(source),
                             async () =>
                             {
@@ -109,7 +102,7 @@ public sealed partial class ArchivesPage : Page
                                     return;
                                 try
                                 {
-                                    await storage.DeleteAsync(f.Name);
+                                    await client.DeleteArchiveAsync(s.Id, f.Name);
                                 }
                                 catch (Exception ex)
                                 {
