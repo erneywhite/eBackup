@@ -41,8 +41,8 @@ public sealed class BackupRunner : IJobRunner
         var sink = job.Channel;            // прогресс/лог идут в шину задачи (журнал + живые подписчики)
         void Log(string m) => sink.Log(m);
 
-        var allModules = new List<IBackupModule>(_resolveModules(job.Request.ModuleIds));
-        var folders = _resolveFolders?.Invoke(job.Request.CustomFolderIds) ?? [];
+        var allModules = new List<IBackupModule>(_resolveModules(job.Request!.ModuleIds));
+        var folders = _resolveFolders?.Invoke(job.Request!.CustomFolderIds) ?? [];
         if (folders.Count > 0) allModules.Add(new CustomFoldersModule(folders));
         if (allModules.Count == 0)
         {
@@ -56,8 +56,8 @@ public sealed class BackupRunner : IJobRunner
             try { File.Delete(stale); } catch { /* temp */ }
 
         var name = BackupNaming.DefaultName(allModules,
-            machineTag: job.Request.IncludeMachineName ? Environment.MachineName : null);
-        var compression = job.Request.CompressionMode switch
+            machineTag: job.Request!.IncludeMachineName ? Environment.MachineName : null);
+        var compression = job.Request!.CompressionMode switch
         {
             0 => CompressionLevel.Fastest,
             2 => CompressionLevel.SmallestSize,
@@ -91,7 +91,7 @@ public sealed class BackupRunner : IJobRunner
             var archiveName = Path.GetFileName(archive);
             Log($"Архив собран: {archiveName} — {Mb(size)} МБ, пропущено файлов: {engine.LastSkippedCount}");
 
-            var targetIds = job.Request.TargetStorageIds;
+            var targetIds = job.Request!.TargetStorageIds;
             if (_storages is null || targetIds.Length == 0)
             {
                 // Локальный режим: хранилища не выбраны — оставляем архив в build-папке.
@@ -110,7 +110,7 @@ public sealed class BackupRunner : IJobRunner
 
             var done = new List<string>();
             var failed = new List<string>();
-            var retention = job.Request.RetentionCount ?? 0;
+            var retention = job.Request!.RetentionCount ?? 0;
             string? localSha = null;
             var step = 0;
 

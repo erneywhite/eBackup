@@ -49,12 +49,18 @@ public sealed class IpcWorker : BackgroundService
             ids => registry.LoadEnabled().Where(m => ids.Contains(m.Id)).ToList(),
             resolveFolders: ids => ids.Where(folders.Contains).ToList(), // бэкапим только зарегистрированные
             storages: storages);                                          // заливка/verify/retention на выбранные хранилища
+        // Восстановление в службе (под SYSTEM): пишет Program Files + профиль пользователя per-SID,
+        // restore-хуки (OBS) per-SID. Модули для хуков — все рабочие из реестра (вкл/выкл не важен).
+        var restoreRunner = new RestoreRunner(
+            storages,
+            () => registry.Discover().Where(d => d.Problem is null && d.Instance is not null).Select(d => d.Instance!).ToList());
         var historyWriter = new JobHistoryWriter(history);
 
         await using var jobs = new JobManager(
             runner,
             channelFactory: runId => new JobChannel(history, runId),
-            onStateChanged: historyWriter.OnStateChanged);
+            onStateChanged: historyWriter.OnStateChanged,
+            restoreRunner: restoreRunner);
 
         var build = Assembly.GetExecutingAssembly().GetName().Version?.ToString(3) ?? "0.0.0";
         var handlers = new ServiceHandlers(jobs, history, registry, storages, Guid.NewGuid().ToString("N"), build, folders);

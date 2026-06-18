@@ -4,6 +4,8 @@ namespace eBackup.Service.Jobs;
 
 public enum JobState { Queued, Running, Completed, CompletedWithErrors, Failed, Cancelled }
 
+public enum JobKind { Backup, Restore }
+
 /// <summary>Итог выполнения задачи бэкапа.</summary>
 public sealed record JobOutcome(bool Success, int SkippedFiles, long SizeBytes, string? ArchiveName, string? Error);
 
@@ -22,7 +24,9 @@ public sealed class Job
     public required string OwnerSid { get; init; }
     public required string Trigger { get; init; }
     public required string Origin { get; init; }        // Interactive | Scheduled
-    public required StartBackupRequest Request { get; init; }
+    public JobKind Kind { get; init; } = JobKind.Backup;
+    public StartBackupRequest? Request { get; init; }    // для бэкап-задач
+    public StartRestoreRequest? Restore { get; init; }   // для restore-задач
 
     /// <summary>Шина прогресса/лога этой задачи (журнал + живые подписчики).</summary>
     public required JobChannel Channel { get; init; }

@@ -19,6 +19,7 @@ namespace eBackup.Ipc.Contracts;
 [JsonSerializable(typeof(HelloResponse))]
 [JsonSerializable(typeof(StartBackupRequest))]
 [JsonSerializable(typeof(StartBackupResponse))]
+[JsonSerializable(typeof(StartRestoreRequest))]
 [JsonSerializable(typeof(RunScheduleNowRequest))]
 [JsonSerializable(typeof(CancelJobRequest))]
 [JsonSerializable(typeof(GetJobRequest))]

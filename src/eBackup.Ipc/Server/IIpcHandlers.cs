@@ -12,6 +12,7 @@ public interface IIpcHandlers
 {
     Task<HelloResponse> HelloAsync(HelloRequest req, CallerContext caller, CancellationToken ct);
     Task<StartBackupResponse> StartBackupAsync(StartBackupRequest req, CallerContext caller, CancellationToken ct);
+    Task<StartBackupResponse> StartRestoreAsync(StartRestoreRequest req, CallerContext caller, CancellationToken ct);
     Task<StartBackupResponse> RunScheduleNowAsync(RunScheduleNowRequest req, CallerContext caller, CancellationToken ct);
     Task<Ack> CancelJobAsync(CancelJobRequest req, CallerContext caller, CancellationToken ct);
     Task<JobStatus> GetJobAsync(GetJobRequest req, CallerContext caller, CancellationToken ct);

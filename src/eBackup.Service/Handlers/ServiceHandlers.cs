@@ -58,6 +58,14 @@ public sealed class ServiceHandlers : IIpcHandlers
         return Task.FromResult(new StartBackupResponse { JobId = job.JobId, RunId = job.RunId, Position = _jobs.Position(job) });
     }
 
+    public Task<StartBackupResponse> StartRestoreAsync(StartRestoreRequest req, CallerContext caller, CancellationToken ct)
+    {
+        if (string.IsNullOrWhiteSpace(req.SourceStorageId) || string.IsNullOrWhiteSpace(req.RemoteName))
+            throw new IpcFaultException(IpcErrorCodes.BadRequest, "Не указан источник восстановления.");
+        var job = _jobs.EnqueueRestore(req, caller.OwnerSid);
+        return Task.FromResult(new StartBackupResponse { JobId = job.JobId, RunId = job.RunId, Position = _jobs.Position(job) });
+    }
+
     public Task<Ack> CancelJobAsync(CancelJobRequest req, CallerContext caller, CancellationToken ct)
     {
         if (!_jobs.Cancel(req.JobId, caller.OwnerSid, caller.IsAdmin))

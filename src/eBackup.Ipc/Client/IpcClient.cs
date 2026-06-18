@@ -121,6 +121,9 @@ public sealed class IpcClient : IDisposable
     public Task<StartBackupResponse> StartBackupAsync(StartBackupRequest req, CancellationToken ct = default)
         => RequestAsync(IpcOps.StartBackup, req, Ctx.StartBackupRequest, Ctx.StartBackupResponse, ct);
 
+    public Task<StartBackupResponse> StartRestoreAsync(StartRestoreRequest req, CancellationToken ct = default)
+        => RequestAsync(IpcOps.StartRestore, req, Ctx.StartRestoreRequest, Ctx.StartBackupResponse, ct);
+
     public Task<JobStatus> GetJobAsync(GetJobRequest req, CancellationToken ct = default)
         => RequestAsync(IpcOps.GetJob, req, Ctx.GetJobRequest, Ctx.JobStatus, ct);
 

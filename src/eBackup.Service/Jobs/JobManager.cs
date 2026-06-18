@@ -13,6 +13,7 @@ namespace eBackup.Service.Jobs;
 public sealed class JobManager : IAsyncDisposable
 {
     private readonly IJobRunner _runner;
+    private readonly IJobRunner? _restoreRunner;   // отдельный исполнитель restore-задач (опц.)
     private readonly Func<string, JobChannel> _channelFactory;
     private readonly Action<Job>? _onStateChanged;
     private readonly Channel<Job> _queue = Channel.CreateUnbounded<Job>(new UnboundedChannelOptions { SingleReader = true });
@@ -21,27 +22,55 @@ public sealed class JobManager : IAsyncDisposable
     private readonly Task _worker;
     private long _seq;
 
-    public JobManager(IJobRunner runner, Func<string, JobChannel> channelFactory, Action<Job>? onStateChanged = null)
+    public JobManager(IJobRunner runner, Func<string, JobChannel> channelFactory,
+        Action<Job>? onStateChanged = null, IJobRunner? restoreRunner = null)
     {
         _runner = runner;
+        _restoreRunner = restoreRunner;
         _channelFactory = channelFactory;
         _onStateChanged = onStateChanged;
         _worker = Task.Run(WorkerLoopAsync);
     }
 
     public Job Enqueue(StartBackupRequest req, string ownerSid, string origin = "Interactive")
-    {
-        var runId = $"{DateTime.Now:yyyyMMdd-HHmmss}-{Guid.NewGuid().ToString("N")[..4]}";
-        var job = new Job
+        => Submit(new Job
         {
             Seq = Interlocked.Increment(ref _seq),
             JobId = "job-" + Guid.NewGuid().ToString("N"),
-            RunId = runId,
+            RunId = NewRunId(),
             OwnerSid = ownerSid,
             Trigger = string.IsNullOrEmpty(req.Trigger) ? "вручную" : req.Trigger,
             Origin = origin,
+            Kind = JobKind.Backup,
             Request = req,
-            Channel = _channelFactory(runId),
+            Channel = null!, // выставляется в Submit
+        });
+
+    /// <summary>Поставить в ту же очередь задачу ВОССТАНОВЛЕНИЯ (single-active с бэкапом).</summary>
+    public Job EnqueueRestore(StartRestoreRequest req, string ownerSid, string origin = "Interactive")
+        => Submit(new Job
+        {
+            Seq = Interlocked.Increment(ref _seq),
+            JobId = "job-" + Guid.NewGuid().ToString("N"),
+            RunId = NewRunId(),
+            OwnerSid = ownerSid,
+            Trigger = string.IsNullOrEmpty(req.Trigger) ? "вручную" : req.Trigger,
+            Origin = origin,
+            Kind = JobKind.Restore,
+            Restore = req,
+            Channel = null!,
+        });
+
+    private static string NewRunId() => $"{DateTime.Now:yyyyMMdd-HHmmss}-{Guid.NewGuid().ToString("N")[..4]}";
+
+    private Job Submit(Job seed)
+    {
+        var job = new Job
+        {
+            Seq = seed.Seq, JobId = seed.JobId, RunId = seed.RunId, OwnerSid = seed.OwnerSid,
+            Trigger = seed.Trigger, Origin = seed.Origin, Kind = seed.Kind,
+            Request = seed.Request, Restore = seed.Restore,
+            Channel = _channelFactory(seed.RunId),
         };
         _jobs[job.JobId] = job;
         Notify(job);                 // State=Queued — журнал увидит «прерванный останется виден»
@@ -87,11 +116,18 @@ public sealed class JobManager : IAsyncDisposable
                 job.StartedAt = DateTimeOffset.Now;
                 SetState(job, JobState.Running);
 
+                var runner = job.Kind == JobKind.Restore ? _restoreRunner : _runner;
+                if (runner is null)
+                {
+                    Finish(job, JobState.Failed, new JobOutcome(false, 0, 0, null, "Этот тип задачи в службе недоступен."));
+                    continue;
+                }
+
                 JobOutcome outcome;
                 try
                 {
                     using var linked = CancellationTokenSource.CreateLinkedTokenSource(job.Cts.Token, _shutdown.Token);
-                    outcome = await _runner.RunAsync(job, linked.Token).ConfigureAwait(false);
+                    outcome = await runner.RunAsync(job, linked.Token).ConfigureAwait(false);
                 }
                 catch (OperationCanceledException)
                 {

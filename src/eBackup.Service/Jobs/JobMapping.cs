@@ -21,8 +21,10 @@ public static class JobMapping
         SizeBytes = j.Outcome?.SizeBytes ?? 0,
         SkippedFiles = j.Outcome?.SkippedFiles ?? 0,
         Error = j.Outcome?.Error,
-        Modules = j.Request.ModuleIds,
-        Targets = j.Request.TargetStorageIds,
+        Modules = j.Kind == JobKind.Restore ? [] : j.Request!.ModuleIds,
+        Targets = j.Kind == JobKind.Restore
+            ? [j.Restore!.TargetDir ?? "исходные места"]
+            : j.Request!.TargetStorageIds,
         ProgressFraction = Fraction(j.State), // настоящая доля прогресса — на S4d (стриминг)
     };
 
@@ -33,9 +35,12 @@ public static class JobMapping
         FinishedAt = j.FinishedAt,
         Trigger = j.Trigger,
         State = j.State.ToString(),
+        Operation = j.Kind == JobKind.Restore ? "восстановление" : "бэкап",
         OwnerSid = j.OwnerSid,
-        Modules = [.. j.Request.ModuleIds],
-        Targets = [.. j.Request.TargetStorageIds],
+        Modules = j.Kind == JobKind.Restore ? [] : [.. j.Request!.ModuleIds],
+        Targets = j.Kind == JobKind.Restore
+            ? [j.Restore!.TargetDir ?? "исходные места"]
+            : [.. j.Request!.TargetStorageIds],
         ArchiveName = j.Outcome?.ArchiveName,
         SizeBytes = j.Outcome?.SizeBytes ?? 0,
         SkippedFiles = j.Outcome?.SkippedFiles ?? 0,

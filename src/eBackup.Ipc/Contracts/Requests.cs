@@ -8,6 +8,7 @@ public static class IpcOps
 {
     public const string Hello = "hello";
     public const string StartBackup = "startBackup";
+    public const string StartRestore = "startRestore";
     public const string RunScheduleNow = "runScheduleNow";
     public const string CancelJob = "cancelJob";
     public const string GetJob = "getJob";
@@ -58,6 +59,19 @@ public sealed record StartBackupRequest
     public int? RetentionCount { get; init; }
     public string Trigger { get; init; } = "";
     public string ClientRequestId { get; init; } = ""; // GUID клиента → идемпотентность при потере связи
+}
+
+/// <summary>Восстановление в службе: источник (хранилище+архив), цель и режим. Шифрование — на S7
+/// (пока без парольной фразы; зашифрованный архив через службу даст внятный отказ).</summary>
+public sealed record StartRestoreRequest
+{
+    public string SourceStorageId { get; init; } = "";
+    public string RemoteName { get; init; } = "";
+    public string? TargetDir { get; init; }                 // null — в исходные места
+    public string Policy { get; init; } = "BackupExisting";  // ConflictPolicy строкой
+    public string? AssetsDir { get; init; }
+    public string Trigger { get; init; } = "";
+    public string ClientRequestId { get; init; } = "";
 }
 
 public sealed record RunScheduleNowRequest

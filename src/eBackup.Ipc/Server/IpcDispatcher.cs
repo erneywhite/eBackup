@@ -26,6 +26,7 @@ public static class IpcDispatcher
             {
                 IpcOps.Hello => Resp(req.Id, await h.HelloAsync(Decode(req, Ctx.HelloRequest), caller, ct), Ctx.HelloResponse),
                 IpcOps.StartBackup => Resp(req.Id, await h.StartBackupAsync(Decode(req, Ctx.StartBackupRequest), caller, ct), Ctx.StartBackupResponse),
+                IpcOps.StartRestore => Resp(req.Id, await h.StartRestoreAsync(Decode(req, Ctx.StartRestoreRequest), caller, ct), Ctx.StartBackupResponse),
                 IpcOps.RunScheduleNow => Resp(req.Id, await h.RunScheduleNowAsync(Decode(req, Ctx.RunScheduleNowRequest), caller, ct), Ctx.StartBackupResponse),
                 IpcOps.CancelJob => Resp(req.Id, await h.CancelJobAsync(Decode(req, Ctx.CancelJobRequest), caller, ct), Ctx.Ack),
                 IpcOps.GetJob => Resp(req.Id, await h.GetJobAsync(Decode(req, Ctx.GetJobRequest), caller, ct), Ctx.JobStatus),

@@ -36,6 +36,8 @@ public sealed class InMemoryHandlers : IIpcHandlers
     }
 
     // --- остальное: безопасные заглушки (тестами напрямую не задействованы) ---
+    public Task<StartBackupResponse> StartRestoreAsync(StartRestoreRequest req, CallerContext caller, CancellationToken ct)
+        => Task.FromResult(new StartBackupResponse { JobId = "job-restore", RunId = "run-restore" });
     public Task<StartBackupResponse> RunScheduleNowAsync(RunScheduleNowRequest req, CallerContext caller, CancellationToken ct)
         => Task.FromResult(new StartBackupResponse { JobId = "job-sched", RunId = "run-sched" });
     public Task<Ack> CancelJobAsync(CancelJobRequest req, CallerContext caller, CancellationToken ct) => Task.FromResult(new Ack());
