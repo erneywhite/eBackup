@@ -66,6 +66,14 @@ public sealed record StorageSummary
     public bool HasSecret { get; init; }
 }
 
+/// <summary>Файл-архив в хранилище (листинг через службу — у GUI нет секрета хранилища).</summary>
+public sealed record RemoteFileDto
+{
+    public string Name { get; init; } = "";
+    public long Length { get; init; }
+    public DateTime LastWriteTime { get; init; }
+}
+
 /// <summary>Полные НЕсекретные поля хранилища для редактора + имена присутствующих секретов
 /// (открытые секреты не передаются — редактор показывает «оставить прежний»).</summary>
 public sealed record StorageDetail

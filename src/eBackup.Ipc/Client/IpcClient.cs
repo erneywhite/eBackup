@@ -148,6 +148,9 @@ public sealed class IpcClient : IDisposable
     public Task<TestResult> TestStorageAsync(TestStorageRequest req, CancellationToken ct = default)
         => RequestAsync(IpcOps.TestStorage, req, Ctx.TestStorageRequest, Ctx.TestResult, ct);
 
+    public Task<RemoteFileDto[]> ListArchivesAsync(string storageId, CancellationToken ct = default)
+        => RequestAsync(IpcOps.ListArchives, new ListArchivesRequest { StorageId = storageId }, Ctx.ListArchivesRequest, Ctx.RemoteFileDtoArray, ct);
+
     public Task<ModuleSummary[]> ListModulesAsync(CancellationToken ct = default)
         => RequestNoBodyAsync(IpcOps.ListModules, Ctx.ModuleSummaryArray, ct);
 

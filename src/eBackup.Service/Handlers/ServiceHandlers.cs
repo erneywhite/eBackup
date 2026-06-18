@@ -195,6 +195,17 @@ public sealed class ServiceHandlers : IIpcHandlers
         return new TestResult { Ok = result.Success, Message = result.Message, FreeBytes = free };
     }
 
+    public async Task<RemoteFileDto[]> ListArchivesAsync(ListArchivesRequest req, CallerContext caller, CancellationToken ct)
+    {
+        // Листинг архивов ИЗ СЛУЖБЫ: у GUI нет секрета хранилища (он под машинным ключом).
+        var saved = (await _storages.LoadAsync(ct).ConfigureAwait(false)).FirstOrDefault(s => s.Id == req.StorageId)
+            ?? throw new IpcFaultException(IpcErrorCodes.NotFound, "Хранилище не найдено.");
+        var files = await StorageFactory.Create(saved, _storages.Protector).ListDetailedAsync(ct).ConfigureAwait(false);
+        return files
+            .Select(f => new RemoteFileDto { Name = f.Name, Length = f.Length, LastWriteTime = f.LastWriteTime })
+            .ToArray();
+    }
+
     private static bool TryFreeBytes(string path, out long free)
     {
         free = 0;

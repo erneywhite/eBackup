@@ -21,6 +21,7 @@ public static class IpcOps
     public const string UpsertStorage = "upsertStorage";
     public const string DeleteStorage = "deleteStorage";
     public const string TestStorage = "testStorage";
+    public const string ListArchives = "listArchives";
     public const string ListSchedules = "listSchedules";
     public const string UpsertSchedule = "upsertSchedule";
     public const string DeleteSchedule = "deleteSchedule";
@@ -71,6 +72,8 @@ public sealed record StashPassphraseRequest { public string Plaintext { get; ini
 public sealed record DeleteByIdRequest { public string Id { get; init; } = ""; }
 
 public sealed record GetStorageRequest { public string Id { get; init; } = ""; }
+
+public sealed record ListArchivesRequest { public string StorageId { get; init; } = ""; }
 
 public sealed record StorageInput
 {

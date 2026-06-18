@@ -24,6 +24,7 @@ public interface IIpcHandlers
     Task<Ack> UpsertStorageAsync(StorageInput req, CallerContext caller, CancellationToken ct);
     Task<Ack> DeleteStorageAsync(DeleteByIdRequest req, CallerContext caller, CancellationToken ct);
     Task<TestResult> TestStorageAsync(TestStorageRequest req, CallerContext caller, CancellationToken ct);
+    Task<RemoteFileDto[]> ListArchivesAsync(ListArchivesRequest req, CallerContext caller, CancellationToken ct);
 
     Task<ScheduleSummary[]> ListSchedulesAsync(CallerContext caller, CancellationToken ct);
     Task<Ack> UpsertScheduleAsync(ScheduleInput req, CallerContext caller, CancellationToken ct);

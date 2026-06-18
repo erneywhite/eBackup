@@ -119,6 +119,27 @@ public sealed class StorageAdminTests : IDisposable
     }
 
     [Fact]
+    public async Task ListArchives_Returns_Files_In_Storage()
+    {
+        var (handlers, _, jobs) = Build();
+        await using var __ = jobs;
+
+        var dir = Path.Combine(_root, "arch");
+        Directory.CreateDirectory(dir);
+        await File.WriteAllTextAsync(Path.Combine(dir, "b1.ebk"), "x");
+        await File.WriteAllTextAsync(Path.Combine(dir, "b2.ebk"), "yy");
+
+        await handlers.UpsertStorageAsync(new StorageInput
+        {
+            Id = "d", Name = "D", Kind = "LocalFolder", Settings = new() { ["path"] = dir },
+        }, Caller, default);
+
+        var files = await handlers.ListArchivesAsync(new ListArchivesRequest { StorageId = "d" }, Caller, default);
+        Assert.Contains(files, f => f.Name == "b1.ebk");
+        Assert.Contains(files, f => f.Name == "b2.ebk" && f.Length == 2);
+    }
+
+    [Fact]
     public async Task Delete_Removes_Storage()
     {
         var (handlers, _, jobs) = Build();

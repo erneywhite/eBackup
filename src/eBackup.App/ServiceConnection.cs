@@ -14,6 +14,10 @@ public sealed class ServiceConnection
     /// <summary>Единое подключение на процесс GUI (страницы берут службу отсюда).</summary>
     public static ServiceConnection Shared { get; } = new();
 
+    /// <summary>Живой клиент общей службы или null (с заполненным <see cref="Error"/>).</summary>
+    public static async Task<IpcClient?> GetClientAsync(CancellationToken ct = default)
+        => await Shared.EnsureConnectedAsync(ct).ConfigureAwait(true) ? Shared.Client : null;
+
     private readonly SemaphoreSlim _gate = new(1, 1);
 
     public ServiceState State { get; private set; } = ServiceState.Disconnected;

@@ -1,9 +1,10 @@
 using eBackup.Core.Modules;
 using eBackup.Core.Scheduling;
+using eBackup.Ipc.Client;
+using eBackup.Ipc.Contracts;
 using eBackup.Modules.Obs;
 using eBackup.Security;
 using eBackup.Storage;
-using eBackup.Storage.Sftp;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Media;
@@ -18,7 +19,6 @@ public sealed partial class OverviewPage : Page
         new BuiltInModuleSource([new ObsBackupModule()]),
         new DeclarativeModuleSource(),
     ]);
-    private readonly StorageStore _store = new(new DpapiSecretProtector());
     private bool _refreshing;
     private int _refreshGen; // защита от «опоздавших» результатов прошлого обновления
 
@@ -86,12 +86,22 @@ public sealed partial class OverviewPage : Page
                 ScheduleTileText.Text = "не удалось прочитать расписания";
             }
 
-            // ---- хранилища: строки с бейджами + счётчики архивов (один запрос на хранилище)
+            // ---- хранилища: строки с бейджами + счётчики архивов (читаем из СЛУЖБЫ; листинг — через неё же)
             StorageRows.Children.Clear();
+            var client = await ServiceConnection.GetClientAsync();
+            if (client is null)
+            {
+                LastBackupTitle.Text = "служба недоступна";
+                LastBackupSub.Text = ServiceConnection.Shared.Error ?? "не удалось подключиться к службе eBackup";
+                ArchivesTileText.Text = "служба недоступна";
+                StorageRows.Children.Add(new TextBlock { Text = "служба eBackup недоступна", FontSize = 12, Foreground = dim });
+                return;
+            }
+
             List<SavedStorage> storages;
             try
             {
-                storages = (await _store.LoadAsync()).ToList();
+                storages = (await client.ListStorageDetailsAsync()).Select(ServiceStorage.ToSaved).ToList();
             }
             catch
             {
@@ -118,7 +128,7 @@ public sealed partial class OverviewPage : Page
                 ? $"хранится последних: {settings.RetentionCount}\n" : "") + "считаю…";
 
             var gen = ++_refreshGen;
-            var checks = new List<Task<(SavedStorage Storage, IReadOnlyList<RemoteFileInfo>? Files)>>();
+            var checks = new List<Task<(SavedStorage Storage, IReadOnlyList<RemoteFileDto>? Files)>>();
             foreach (var s in storages)
             {
                 var badge = new TextBlock
@@ -157,7 +167,7 @@ public sealed partial class OverviewPage : Page
                 row.Children.Add(badge);
                 StorageRows.Children.Add(row);
 
-                checks.Add(CheckOneAsync(s, stats, badge));
+                checks.Add(CheckOneAsync(client, s, stats, badge));
             }
 
             _ = FinishStatsAsync(checks, settings, gen); // бейджи и счётчики — по мере прихода
@@ -173,12 +183,12 @@ public sealed partial class OverviewPage : Page
     /// Одно хранилище = один запрос: листинг архивов и как проверка доступности (бейдж),
     /// и как источник счётчиков и занятого места. Никогда не бросает.
     /// </summary>
-    private async Task<(SavedStorage Storage, IReadOnlyList<RemoteFileInfo>? Files)> CheckOneAsync(
-        SavedStorage s, TextBlock stats, TextBlock badge)
+    private async Task<(SavedStorage Storage, IReadOnlyList<RemoteFileDto>? Files)> CheckOneAsync(
+        IpcClient client, SavedStorage s, TextBlock stats, TextBlock badge)
     {
         try
         {
-            var files = await StorageFactory.Create(s, _store.Protector).ListDetailedAsync();
+            IReadOnlyList<RemoteFileDto> files = await client.ListArchivesAsync(s.Id);
             badge.Text = "✓";
             badge.Foreground = (Brush)Application.Current.Resources["EbOkBrush"];
             stats.Text = files.Count == 0
@@ -201,7 +211,7 @@ public sealed partial class OverviewPage : Page
 
     /// <summary>Когда все ответы собраны — плитка «Архивы» и герой «Последний бэкап».</summary>
     private async Task FinishStatsAsync(
-        List<Task<(SavedStorage Storage, IReadOnlyList<RemoteFileInfo>? Files)>> checks,
+        List<Task<(SavedStorage Storage, IReadOnlyList<RemoteFileDto>? Files)>> checks,
         AppSettings settings, int gen)
     {
         var results = await Task.WhenAll(checks);
