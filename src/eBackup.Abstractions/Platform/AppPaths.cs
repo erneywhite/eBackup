@@ -48,8 +48,10 @@ public static class AppPaths
     public static string MachineKeyFile => Path.Combine(KeysDir, "machine.key");
 
     // Машинный конфиг службы (SYSTEM-владелец, правится только через валидированный IPC, 1.2).
-    public static string MachineConfigDir   => Path.Combine(ProgramData, "config");
-    public static string MachineStoragesFile => Path.Combine(MachineConfigDir, "storages.json");
+    public static string MachineConfigDir          => Path.Combine(ProgramData, "config");
+    public static string MachineStoragesFile        => Path.Combine(MachineConfigDir, "storages.json");
+    public static string MachineModulesDir          => Path.Combine(MachineConfigDir, "modules");
+    public static string MachineDisabledModulesFile => Path.Combine(MachineConfigDir, "disabled-modules.json");
 
     /// <summary>Папки, которые движок НИКОГДА не бэкапит (тул не должен архивировать свой ключ).</summary>
     public static IReadOnlyList<string> SecretBackupExclusions => [KeysDir];

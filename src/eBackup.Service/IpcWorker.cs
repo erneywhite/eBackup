@@ -33,11 +33,12 @@ public sealed class IpcWorker : BackgroundService
         if (interrupted > 0)
             _log.LogInformation("Помечено прерванных запусков при старте: {Count}", interrupted);
 
+        // Модули/конфиг служба берёт из ProgramData (под SYSTEM per-user профиль = системный, пуст).
         var registry = new ModuleRegistry(
         [
-            new BuiltInModuleSource([new ObsBackupModule()]),
-            new DeclarativeModuleSource(),
-        ]);
+            new BuiltInModuleSource([new ObsBackupModule()]), // OBS читает per-user конфиг — под службой ограничен (нужен profile-context, отложено)
+            new DeclarativeModuleSource(AppPaths.MachineModulesDir),
+        ], disabledConfigPath: AppPaths.MachineDisabledModulesFile);
         var runner = new BackupRunner(
             ids => registry.LoadEnabled().Where(m => ids.Contains(m.Id)).ToList());
         var historyWriter = new JobHistoryWriter(history);
