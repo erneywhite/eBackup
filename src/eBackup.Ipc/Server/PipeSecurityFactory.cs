@@ -30,7 +30,9 @@ public static class PipeSecurityFactory
         var anonymous = new SecurityIdentifier(SidAnonymous);
 
         var ps = new PipeSecurity();
-        ps.SetOwner(system);
+        // Владельца НЕ задаём явно: в проде создатель = LocalSystem → владелец = SYSTEM сам по себе,
+        // а явный SetOwner(SYSTEM) требует привилегии и ломал бы консольную отладку под обычным юзером.
+        // Граница — это DACL ниже; клиент в проде дополнительно проверяет owner пайпа == SYSTEM.
         ps.SetAccessRuleProtection(isProtected: true, preserveInheritance: false);
 
         // Запреты (приоритетнее любых allow).
@@ -50,16 +52,16 @@ public static class PipeSecurityFactory
     public static string Sddl() => Create().GetSecurityDescriptorSddlForm(AccessControlSections.All);
 
     /// <summary>
-    /// Создать серверный стрим с этим DACL. FirstPipeInstance → служба падает, если имя уже занято
-    /// (защита от сквоттинга). Хостится только службой на S4 — здесь дормантно.
+    /// Создать серверный стрим с этим DACL. На ПЕРВОМ инстансе — FirstPipeInstance: служба падает,
+    /// если имя уже занято (защита от сквоттинга). Последующие инстансы accept-цикла создаются без него.
     /// </summary>
-    public static NamedPipeServerStream CreateServerStream(string pipeName = DefaultPipeName)
+    public static NamedPipeServerStream CreateServerStream(string pipeName = DefaultPipeName, bool firstInstance = true)
         => NamedPipeServerStreamAcl.Create(
             pipeName,
             PipeDirection.InOut,
             NamedPipeServerStream.MaxAllowedServerInstances,
             PipeTransmissionMode.Byte,
-            PipeOptions.Asynchronous | PipeOptions.FirstPipeInstance,
+            PipeOptions.Asynchronous | (firstInstance ? PipeOptions.FirstPipeInstance : PipeOptions.None),
             inBufferSize: 0,
             outBufferSize: 0,
             pipeSecurity: Create());

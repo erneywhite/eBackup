@@ -15,7 +15,7 @@ public class PipeSecurityTests
         var ps = PipeSecurityFactory.Create();
 
         Assert.True(ps.AreAccessRulesProtected); // наследование выключено
-        Assert.Equal("S-1-5-18", ((SecurityIdentifier)ps.GetOwner(typeof(SecurityIdentifier))!).Value);
+        // Владелец не в дескрипторе — он определяется создателем в рантайме (SYSTEM в проде).
 
         var rules = ps.GetAccessRules(true, false, typeof(SecurityIdentifier)).Cast<PipeAccessRule>().ToList();
         PipeAccessRule? Find(string sid, AccessControlType t) =>
@@ -39,8 +39,7 @@ public class PipeSecurityTests
     public void Sddl_Excludes_Everyone_And_AuthenticatedUsers()
     {
         var sddl = PipeSecurityFactory.Sddl();
-        Assert.StartsWith("O:SY", sddl);       // владелец SYSTEM
-        Assert.Contains("D:P", sddl);          // DACL protected
+        Assert.Contains("D:P", sddl);          // DACL protected (наследование выключено)
         Assert.DoesNotContain(";;;WD)", sddl); // Everyone
         Assert.DoesNotContain(";;;AU)", sddl); // Authenticated Users
     }
