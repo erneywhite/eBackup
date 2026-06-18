@@ -15,8 +15,9 @@
   </ItemGroup>
 
   <ItemGroup>
-    <!-- Контракт + транспорт + accept-loop. Core/Storage/Security добавим в S4c-2/3 (настоящие handlers). -->
+    <!-- Контракт+транспорт+accept-loop; движок/история. Storage/Security/Modules.Obs — на S4c-3b/S7. -->
     <ProjectReference Include="..\eBackup.Ipc\eBackup.Ipc.csproj" />
+    <ProjectReference Include="..\eBackup.Core\eBackup.Core.csproj" />
   </ItemGroup>
 
 </Project>
