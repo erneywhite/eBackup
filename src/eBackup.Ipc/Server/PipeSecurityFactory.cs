@@ -21,7 +21,10 @@ public static class PipeSecurityFactory
     private const string SidNetwork = "S-1-5-2";
     private const string SidAnonymous = "S-1-5-7";
 
-    public static PipeSecurity Create()
+    /// <summary>DACL пайпа (без владельца) — для golden-теста против расширения прав.</summary>
+    public static PipeSecurity Create() => Build(withSystemOwner: false);
+
+    private static PipeSecurity Build(bool withSystemOwner)
     {
         var system = new SecurityIdentifier(SidSystem);
         var admins = new SecurityIdentifier(SidAdministrators);
@@ -30,9 +33,12 @@ public static class PipeSecurityFactory
         var anonymous = new SecurityIdentifier(SidAnonymous);
 
         var ps = new PipeSecurity();
-        // Владельца НЕ задаём явно: в проде создатель = LocalSystem → владелец = SYSTEM сам по себе,
-        // а явный SetOwner(SYSTEM) требует привилегии и ломал бы консольную отладку под обычным юзером.
-        // Граница — это DACL ниже; клиент в проде дополнительно проверяет owner пайпа == SYSTEM.
+        // Владелец = SYSTEM ОБЯЗАТЕЛЕН: без явного SetOwner процесс под LocalSystem создаёт объект с
+        // владельцем «Администраторы» (S-1-5-32-544), и строгая клиентская проверка owner==SYSTEM падает
+        // («возможна подмена. Отказ»). Задаём только когда реально под SYSTEM — иначе нет привилегии
+        // (консольная отладка под обычным юзером; там GUI всё равно не пройдёт проверку — это норма).
+        if (withSystemOwner)
+            ps.SetOwner(system);
         ps.SetAccessRuleProtection(isProtected: true, preserveInheritance: false);
 
         // Запреты (приоритетнее любых allow).
@@ -48,12 +54,20 @@ public static class PipeSecurityFactory
         return ps;
     }
 
-    /// <summary>SDDL построенного дескриптора (для golden-теста против расширения прав).</summary>
+    /// <summary>SDDL построенного DACL (для golden-теста против расширения прав).</summary>
     public static string Sddl() => Create().GetSecurityDescriptorSddlForm(AccessControlSections.All);
 
+    /// <summary>true, если текущий процесс реально работает под LocalSystem (служба).</summary>
+    private static bool RunningAsSystem()
+    {
+        try { return WindowsIdentity.GetCurrent().User?.Value == SidSystem; }
+        catch { return false; }
+    }
+
     /// <summary>
-    /// Создать серверный стрим с этим DACL. На ПЕРВОМ инстансе — FirstPipeInstance: служба падает,
-    /// если имя уже занято (защита от сквоттинга). Последующие инстансы accept-цикла создаются без него.
+    /// Создать серверный стрим с DACL и (под SYSTEM) владельцем SYSTEM. На ПЕРВОМ инстансе —
+    /// FirstPipeInstance: служба падает, если имя уже занято (защита от сквоттинга). Последующие
+    /// инстансы accept-цикла создаются без него.
     /// </summary>
     public static NamedPipeServerStream CreateServerStream(string pipeName = DefaultPipeName, bool firstInstance = true)
         => NamedPipeServerStreamAcl.Create(
@@ -64,5 +78,5 @@ public static class PipeSecurityFactory
             PipeOptions.Asynchronous | (firstInstance ? PipeOptions.FirstPipeInstance : PipeOptions.None),
             inBufferSize: 0,
             outBufferSize: 0,
-            pipeSecurity: Create());
+            pipeSecurity: Build(withSystemOwner: RunningAsSystem()));
 }
