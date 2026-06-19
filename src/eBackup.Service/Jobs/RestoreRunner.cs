@@ -1,6 +1,7 @@
 using System.Security.Cryptography;
 using System.Text;
 using eBackup.Core.Abstractions;
+using eBackup.Core.Crypto;
 using eBackup.Core.Engine;
 using eBackup.Storage;
 
@@ -56,8 +57,30 @@ public sealed class RestoreRunner : IJobRunner
 
         Directory.CreateDirectory(_buildDir);
         var temp = Path.Combine(_buildDir, $"{Guid.NewGuid():N}-{r.RemoteName}");
+        var passphrase = job.ResolvedPassphrase is { Length: > 0 } pwBytes ? Encoding.UTF8.GetString(pwBytes) : null;
         try
         {
+            // Лёгкая проба фразы по началу архива (seek) — при опечатке НЕ качаем весь архив зря.
+            if (passphrase is not null && storage is ISeekableArchiveStorage seekable)
+            {
+                sink.Phase("Проверяю парольную фразу…", 0);
+                var ok = true;
+                Stream? head = null;
+                try
+                {
+                    head = await seekable.OpenSeekableReadAsync(r.RemoteName, ct).ConfigureAwait(false);
+                    ok = await ArchiveCipher.VerifyPassphraseAsync(head, passphrase, ct).ConfigureAwait(false);
+                }
+                catch (InvalidDataException ex) { Log("Проба архива не удалась: " + ex.Message + " — продолжаю полным путём."); }
+                finally { if (head is not null) await head.DisposeAsync().ConfigureAwait(false); }
+
+                if (!ok)
+                {
+                    Log("✕ Неверная парольная фраза — архив не скачивался.");
+                    return new JobOutcome(false, 0, 0, r.RemoteName, "Неверная парольная фраза.");
+                }
+            }
+
             sink.Phase($"Получаю {r.RemoteName} из «{saved.Name}»…", 0);
             await storage.DownloadAsync(r.RemoteName, temp, ct).ConfigureAwait(false);
             Log($"Архив получен: {new FileInfo(temp).Length / 1024.0 / 1024.0:0.#} МБ");
@@ -65,8 +88,6 @@ public sealed class RestoreRunner : IJobRunner
             var policy = Enum.TryParse<ConflictPolicy>(r.Policy, out var p) ? p : ConflictPolicy.BackupExisting;
             var resolveDest = new UserProfilePaths(job.OwnerSid).Resolve; // запись в профиль ВЫЗВАВШЕГО (per-SID)
             var progress = new Progress<string>(s => sink.Phase(s, 0));
-
-            var passphrase = job.ResolvedPassphrase is { Length: > 0 } pwBytes ? Encoding.UTF8.GetString(pwBytes) : null;
 
             var engine = new BackupEngine();
             await engine.RestoreAsync(

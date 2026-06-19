@@ -48,6 +48,70 @@ public static class ArchiveCipher
         }
     }
 
+    /// <summary>
+    /// Лёгкая проверка фразы по НАЧАЛУ потока: читает заголовок + ПЕРВЫЙ чанк и проверяет GCM-тег.
+    /// true — фраза верна (или поток не наш формат / пуст — проверять нечего); false — фраза неверна.
+    /// Бросает <see cref="InvalidDataException"/> только на повреждённом/неподдерживаемом заголовке.
+    /// Читает лишь первый чанк (≤ chunkSize) — для seek-потока хранилища НЕ качает весь архив.
+    /// </summary>
+    public static async Task<bool> VerifyPassphraseAsync(Stream stream, string passphrase, CancellationToken ct = default)
+    {
+        var magic = new byte[4];
+        if (await ReadBlockAsync(stream, magic, ct).ConfigureAwait(false) != 4 || !magic.AsSpan().SequenceEqual(Magic))
+            return true; // не наш зашифрованный формат — фразу проверять не на чем
+
+        if (stream.ReadByte() != Version)
+            throw new InvalidDataException("Неподдерживаемая версия формата шифрования.");
+
+        var memKb = await ReadInt32Async(stream, ct).ConfigureAwait(false);
+        var iterations = await ReadInt32Async(stream, ct).ConfigureAwait(false);
+        var parallelism = await ReadInt32Async(stream, ct).ConfigureAwait(false);
+        var chunkSize = await ReadInt32Async(stream, ct).ConfigureAwait(false);
+        if (chunkSize is <= 0 or > (64 << 20))
+            throw new InvalidDataException("Повреждён заголовок зашифрованного архива.");
+
+        var salt = new byte[16];
+        await ReadExactAsync(stream, salt, ct).ConfigureAwait(false);
+        var noncePrefix = new byte[4];
+        await ReadExactAsync(stream, noncePrefix, ct).ConfigureAwait(false);
+
+        var key = DeriveKey(passphrase, salt, memKb, iterations, parallelism);
+        try
+        {
+            var lenBuf = new byte[4];
+            if (await ReadBlockAsync(stream, lenBuf, ct).ConfigureAwait(false) == 0)
+                return true; // пустой архив — чанков нет, проверять нечего
+
+            var len = BinaryPrimitives.ReadInt32LittleEndian(lenBuf);
+            if (len <= 0 || len > chunkSize)
+                throw new InvalidDataException("Повреждён зашифрованный архив (размер чанка).");
+
+            var tag = new byte[16];
+            var cipher = new byte[len];
+            var plain = new byte[len];
+            await ReadExactAsync(stream, tag, ct).ConfigureAwait(false);
+            await ReadExactAsync(stream, cipher, ct).ConfigureAwait(false);
+
+            using var aes = new AesGcm(key, 16);
+            var nonce = new byte[12];
+            noncePrefix.CopyTo(nonce, 0);
+            BinaryPrimitives.WriteUInt64BigEndian(nonce.AsSpan(4), 0UL); // первый чанк — counter 0
+            try
+            {
+                aes.Decrypt(nonce, cipher, tag, plain);
+                return true;
+            }
+            catch (AuthenticationTagMismatchException)
+            {
+                return false; // тег не сошёлся → неверная фраза
+            }
+        }
+        finally
+        {
+            CryptographicOperations.ZeroMemory(key);
+        }
+    }
+
     public static async Task EncryptAsync(string plainPath, string encryptedPath, string passphrase, CancellationToken ct = default)
     {
         var salt = RandomNumberGenerator.GetBytes(16);

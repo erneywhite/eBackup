@@ -64,7 +64,9 @@ public sealed class ServiceHandlers : IIpcHandlers
 
     public Task<StartBackupResponse> StartBackupAsync(StartBackupRequest req, CallerContext caller, CancellationToken ct)
     {
-        var job = _jobs.Enqueue(req, caller.OwnerSid);
+        var (passphrase, requires) = ResolvePassphrase(req.Passphrase, caller);
+        if (requires) req = req with { Passphrase = null }; // тикет израсходован — не оседает в истории
+        var job = _jobs.Enqueue(req, caller.OwnerSid, resolvedPassphrase: passphrase, requiresEncryption: requires);
         return Task.FromResult(new StartBackupResponse { JobId = job.JobId, RunId = job.RunId, Position = _jobs.Position(job) });
     }
 
@@ -72,8 +74,31 @@ public sealed class ServiceHandlers : IIpcHandlers
     {
         if (string.IsNullOrWhiteSpace(req.SourceStorageId) || string.IsNullOrWhiteSpace(req.RemoteName))
             throw new IpcFaultException(IpcErrorCodes.BadRequest, "Не указан источник восстановления.");
-        var job = _jobs.EnqueueRestore(req, caller.OwnerSid);
+        var (passphrase, requires) = ResolvePassphrase(req.Passphrase, caller);
+        if (requires) req = req with { Passphrase = null };
+        var job = _jobs.EnqueueRestore(req, caller.OwnerSid, resolvedPassphrase: passphrase, requiresEncryption: requires);
         return Task.FromResult(new StartBackupResponse { JobId = job.JobId, RunId = job.RunId, Position = _jobs.Position(job) });
+    }
+
+    /// <summary>
+    /// Тикет → расшифрованная фраза (single-use через PassphraseVault). none/null → (null, false).
+    /// Ошибки тикета → типизированный fault (fail-closed: без фразы шифровать/расшифровывать нельзя).
+    /// </summary>
+    private (byte[]? passphrase, bool requiresEncryption) ResolvePassphrase(PassphraseRef? reference, CallerContext caller)
+    {
+        if (reference is null || reference.Kind != "ticket")
+            return (null, false);
+        if (string.IsNullOrEmpty(reference.Ticket))
+            throw new IpcFaultException(IpcErrorCodes.PassphraseTicketInvalid, "Пустой тикет парольной фразы.");
+
+        var (result, bytes) = _vault.Consume(reference.Ticket, caller.OwnerSid, DateTimeOffset.Now);
+        return result switch
+        {
+            PassphraseVault.TicketResult.Ok => (bytes, true),
+            PassphraseVault.TicketResult.Expired =>
+                throw new IpcFaultException(IpcErrorCodes.PassphraseTicketExpired, "Срок действия парольной фразы истёк — повторите."),
+            _ => throw new IpcFaultException(IpcErrorCodes.PassphraseTicketInvalid, "Тикет парольной фразы недействителен."),
+        };
     }
 
     public Task<Ack> CancelJobAsync(CancelJobRequest req, CallerContext caller, CancellationToken ct)

@@ -404,24 +404,25 @@ public sealed partial class MainWindow : Window
         SetFill(0.04);
 
         // Бэкап выполняет СЛУЖБА (под SYSTEM): окно ставит задачу и показывает живой прогресс из нот.
-        // Историю пишет служба; «Обзор» подтянет результат через неё. Шифрование архива через службу
-        // пока не подключено (S7) — при включённом шифровании честно отказываемся, чтобы не отдать открытый.
+        // Историю пишет служба; «Обзор» подтянет результат через неё. Шифрование: фразу отдаём службе
+        // разовым тикетом (StashPassphrase) — открытый текст по пайпу один раз, дальше служба шифрует.
         string? jobId = null;
         var ok = false;
         string? error = null;
         var summary = "";
         try
         {
-            if (request.Passphrase is not null)
-                throw new InvalidOperationException(
-                    "Шифрование архива через службу появится позже — пока сними галочку шифрования.");
-
             var client = await ServiceConnection.GetClientAsync(ct)
                 ?? throw new InvalidOperationException(ServiceConnection.Shared.Error ?? "Служба eBackup недоступна.");
 
             // Регистрируем выбранные «свои папки» — служба бэкапит только зарегистрированные (не сырой путь с провода).
             foreach (var folder in request.FolderPaths)
                 await client.UpsertCustomFolderAsync(folder, ct);
+
+            // Шифрование: фразу отдаём службе ОДИН раз перед стартом (тикет, TTL 30с) — она шифрует машинной стороной.
+            PassphraseRef? passphraseRef = null;
+            if (!string.IsNullOrEmpty(request.Passphrase))
+                passphraseRef = PassphraseRef.FromTicket((await client.StashPassphraseAsync(request.Passphrase, ct)).Ticket);
 
             var settings = AppSettings.Load();
             // Параметры прогона: расписание несёт свои (ручной запуск = плановый); иначе — настройки приложения.
@@ -430,6 +431,7 @@ public sealed partial class MainWindow : Window
                 ModuleIds = request.ModuleIds.ToArray(),
                 CustomFolderIds = request.FolderPaths.ToArray(),
                 TargetStorageIds = request.TargetStorageIds.ToArray(),
+                Passphrase = passphraseRef,
                 CompressionMode = request.CompressionMode ?? settings.CompressionMode,
                 IncludeMachineName = request.IncludeMachineName ?? settings.IncludeMachineNameInArchive,
                 RetentionCount = request.RetentionCount ?? (settings.RetentionCount > 0 ? settings.RetentionCount : null),
@@ -632,12 +634,14 @@ public sealed partial class MainWindow : Window
     /// <summary>Восстановление архива из хранилища службы — задачей в службе (живой прогресс из нот).</summary>
     private async Task RestoreViaServiceAsync(RestoreRequest request)
     {
-        if (request.Passphrase is not null)
-            throw new InvalidOperationException(
-                "Зашифрованные архивы через службу пока не восстанавливаются (появится с шифрованием, S7).");
-
         var client = await ServiceConnection.GetClientAsync()
             ?? throw new InvalidOperationException(ServiceConnection.Shared.Error ?? "Служба eBackup недоступна.");
+
+        // Шифрование: фразу отдаём службе разовым тикетом — служба проверит её (проба по 1-му чанку) и расшифрует.
+        // Неверная фраза вернётся как Failed «Неверная парольная фраза.»; повтор ввода минтит свежий тикет.
+        PassphraseRef? passphraseRef = null;
+        if (!string.IsNullOrEmpty(request.Passphrase))
+            passphraseRef = PassphraseRef.FromTicket((await client.StashPassphraseAsync(request.Passphrase)).Ticket);
 
         var resp = await client.StartRestoreAsync(new StartRestoreRequest
         {
@@ -646,6 +650,7 @@ public sealed partial class MainWindow : Window
             TargetDir = request.TargetDir,
             Policy = request.Policy.ToString(),
             AssetsDir = request.AssetsDir,
+            Passphrase = passphraseRef,
             Trigger = "вручную",
             ClientRequestId = Guid.NewGuid().ToString("N"),
         });
