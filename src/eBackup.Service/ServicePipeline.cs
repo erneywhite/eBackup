@@ -26,6 +26,7 @@ public sealed class ServicePipeline : IAsyncDisposable
     public ScheduleStore Schedules { get; }
     public CustomFolderStore Folders { get; }
     public JobManager Jobs { get; }
+    public PassphraseVault Vault { get; }
     public IIpcHandlers Handlers { get; }
     public IJobStream JobStream { get; }
     public IArchiveReader ArchiveReader { get; }
@@ -66,12 +67,18 @@ public sealed class ServicePipeline : IAsyncDisposable
             onStateChanged: historyWriter.OnStateChanged,
             restoreRunner: restoreRunner);
 
+        Vault = new PassphraseVault(); // разовые тикеты фраз для интерактивного шифрования
+
         var build = Assembly.GetExecutingAssembly().GetName().Version?.ToString(3) ?? "0.0.0";
         Handlers = new ServiceHandlers(Jobs, History, Registry, Storages, Guid.NewGuid().ToString("N"), build,
-            folders: Folders, schedules: Schedules);
+            folders: Folders, schedules: Schedules, vault: Vault);
         JobStream = new JobStreamAdapter(Jobs);
         ArchiveReader = new ServiceArchiveReader(Storages);
     }
 
-    public ValueTask DisposeAsync() => Jobs.DisposeAsync();
+    public async ValueTask DisposeAsync()
+    {
+        Vault.Dispose(); // занулить все оставшиеся фразы
+        await Jobs.DisposeAsync().ConfigureAwait(false);
+    }
 }

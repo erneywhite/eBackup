@@ -27,6 +27,7 @@ public static class IpcErrorCodes
     public const string SecretsNotMigrated = "SecretsNotMigrated";   // легаси DPAPI-секрет, служба не читает
     public const string SecretUnavailable = "SecretUnavailable";     // машинный ключ отсутствует/сменился
     public const string PassphraseTicketExpired = "PassphraseTicketExpired";
+    public const string PassphraseTicketInvalid = "PassphraseTicketInvalid"; // не найден / использован / чужой SID
     public const string Cancelled = "Cancelled";
     public const string RateLimited = "RateLimited";
     public const string Oversized = "Oversized";

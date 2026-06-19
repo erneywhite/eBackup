@@ -1,3 +1,5 @@
+using System.Security.Cryptography;
+using System.Text;
 using System.Text.Json;
 using eBackup.Core.Model;
 using eBackup.Core.Modules;
@@ -23,13 +25,15 @@ public sealed class ServiceHandlers : IIpcHandlers
     private readonly StorageStore _storages;   // машинный конфиг хранилищ (машинный ключ, ProgramData)
     private readonly ScheduleStore _schedules; // машинный конфиг расписаний (машинный ключ, ProgramData)
     private readonly CustomFolderStore _folders; // реестр «своих папок» (ProgramData)
+    private readonly PassphraseVault _vault;     // разовые тикеты фраз для интерактивного шифрования
     private readonly string _modulesDir;         // куда InstallModule пишет *.module.json (ProgramData)
     private readonly string _instanceId;
     private readonly string _build;
 
     public ServiceHandlers(JobManager jobs, Core.History.HistoryStore history, ModuleRegistry registry,
         StorageStore storages, string instanceId, string build,
-        CustomFolderStore? folders = null, string? modulesDir = null, ScheduleStore? schedules = null)
+        CustomFolderStore? folders = null, string? modulesDir = null, ScheduleStore? schedules = null,
+        PassphraseVault? vault = null)
     {
         _jobs = jobs;
         _history = history;
@@ -37,10 +41,13 @@ public sealed class ServiceHandlers : IIpcHandlers
         _storages = storages;
         _schedules = schedules ?? new ScheduleStore(storages.Protector, AppPaths.MachineSchedulesFile);
         _folders = folders ?? new CustomFolderStore();
+        _vault = vault ?? new PassphraseVault();
         _modulesDir = modulesDir ?? AppPaths.MachineModulesDir;
         _instanceId = instanceId;
         _build = build;
     }
+
+    private const int PassphraseTicketSeconds = 30; // короткое окно Stash→Start (решение пользователя)
 
     public Task<HelloResponse> HelloAsync(HelloRequest req, CallerContext caller, CancellationToken ct)
         => Task.FromResult(new HelloResponse
@@ -104,7 +111,23 @@ public sealed class ServiceHandlers : IIpcHandlers
     }
 
     public Task<StashPassphraseResponse> StashPassphraseAsync(StashPassphraseRequest req, CallerContext caller, CancellationToken ct)
-        => throw new IpcFaultException(IpcErrorCodes.Unsupported, "Шифрование разовой фразой через службу подключим позже.");
+    {
+        if (string.IsNullOrEmpty(req.Plaintext))
+            throw new IpcFaultException(IpcErrorCodes.BadRequest, "Пустая парольная фраза.");
+
+        var bytes = Encoding.UTF8.GetBytes(req.Plaintext); // string→byte[]; string-копию занулить нельзя (остаточный риск)
+        try
+        {
+            var ttl = TimeSpan.FromSeconds(PassphraseTicketSeconds);
+            var now = DateTimeOffset.Now;
+            var ticket = _vault.Issue(bytes, caller.OwnerSid, ttl, now);
+            return Task.FromResult(new StashPassphraseResponse { Ticket = ticket, ExpiresAt = now + ttl });
+        }
+        finally
+        {
+            CryptographicOperations.ZeroMemory(bytes);
+        }
+    }
 
     // ---- история ----
 
