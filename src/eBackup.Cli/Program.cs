@@ -4,14 +4,15 @@ using eBackup.Core.Crypto;
 using eBackup.Core.Engine;
 using eBackup.Core.Modules;
 using eBackup.Modules.Obs;
+using eBackup.Modules.VTubeStudio;
 using eBackup.Platform;
 using eBackup.Security;
 using eBackup.Storage;
 
-// Реестр модулей: встроенные (OBS, приоритетнее) + декларативные drop-in + (позже) DLL.
+// Реестр модулей: встроенные (OBS, VTube Studio, приоритетнее) + декларативные drop-in + (позже) DLL.
 var registry = new ModuleRegistry(
 [
-    new BuiltInModuleSource([new ObsBackupModule()]),
+    new BuiltInModuleSource([new ObsBackupModule(), new VTubeStudioBackupModule()]),
     new DeclarativeModuleSource(),
 ]);
 IReadOnlyList<IBackupModule> modules = registry.LoadEnabled();

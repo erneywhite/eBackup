@@ -50,6 +50,7 @@
     <ProjectReference Include="..\eBackup.Security\eBackup.Security.csproj" />
     <ProjectReference Include="..\eBackup.Core\eBackup.Core.csproj" />
     <ProjectReference Include="..\eBackup.Modules.Obs\eBackup.Modules.Obs.csproj" />
+    <ProjectReference Include="..\eBackup.Modules.VTubeStudio\eBackup.Modules.VTubeStudio.csproj" />
     <ProjectReference Include="..\eBackup.Storage\eBackup.Storage.csproj" />
     <ProjectReference Include="..\eBackup.Ipc\eBackup.Ipc.csproj" />
   </ItemGroup>

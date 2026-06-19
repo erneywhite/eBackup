@@ -4,6 +4,7 @@ using eBackup.Core.Modules;
 using eBackup.Core.Scheduling;
 using eBackup.Ipc.Server;
 using eBackup.Modules.Obs;
+using eBackup.Modules.VTubeStudio;
 using eBackup.Platform;
 using eBackup.Security;
 using eBackup.Service.Handlers;
@@ -38,7 +39,7 @@ public sealed class ServicePipeline : IAsyncDisposable
         // Модули/конфиг служба берёт из ProgramData (под SYSTEM per-user профиль = системный, пуст).
         Registry = new ModuleRegistry(
         [
-            new BuiltInModuleSource([new ObsBackupModule()]),
+            new BuiltInModuleSource([new ObsBackupModule(), new VTubeStudioBackupModule()]),
             new DeclarativeModuleSource(AppPaths.MachineModulesDir),
         ], disabledConfigPath: AppPaths.MachineDisabledModulesFile);
 

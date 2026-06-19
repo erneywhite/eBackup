@@ -1,0 +1,14 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <ItemGroup>
+    <ProjectReference Include="..\eBackup.Abstractions\eBackup.Abstractions.csproj" />
+  </ItemGroup>
+
+  <PropertyGroup>
+    <!-- net9.0-windows: smart-discovery читает HKLM (Microsoft.Win32.Registry), как у службы. -->
+    <TargetFramework>net9.0-windows</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+
+</Project>

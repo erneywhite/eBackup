@@ -23,6 +23,7 @@
     <ProjectReference Include="..\..\src\eBackup.Core\eBackup.Core.csproj" />
     <ProjectReference Include="..\..\src\eBackup.Storage.Sftp\eBackup.Storage.Sftp.csproj" />
     <ProjectReference Include="..\..\src\eBackup.Modules.Obs\eBackup.Modules.Obs.csproj" />
+    <ProjectReference Include="..\..\src\eBackup.Modules.VTubeStudio\eBackup.Modules.VTubeStudio.csproj" />
     <ProjectReference Include="..\..\src\eBackup.Storage\eBackup.Storage.csproj" />
     <ProjectReference Include="..\..\src\eBackup.Security\eBackup.Security.csproj" />
     <ProjectReference Include="..\..\src\eBackup.Ipc\eBackup.Ipc.csproj" />

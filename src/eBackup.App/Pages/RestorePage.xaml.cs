@@ -6,6 +6,7 @@ using eBackup.Core.Engine;
 using eBackup.Core.Model;
 using eBackup.Core.Modules;
 using eBackup.Modules.Obs;
+using eBackup.Modules.VTubeStudio;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Navigation;
@@ -19,7 +20,7 @@ public sealed partial class RestorePage : Page
 {
     private readonly ModuleRegistry _registry = new(
     [
-        new BuiltInModuleSource([new ObsBackupModule()]),
+        new BuiltInModuleSource([new ObsBackupModule(), new VTubeStudioBackupModule()]),
         new DeclarativeModuleSource(),
     ]);
 
