@@ -74,7 +74,7 @@ public sealed partial class RestorePage : Page
         {
             ArchiveName.Text = _source.RemoteName ?? "?";
             ArchiveSourceText.Text = "из хранилища (скачается во временную папку перед распаковкой)";
-            PassHint.Text = "Если архив зашифрован — введи парольную фразу (узнаем после скачивания).";
+            PassHint.Text = "Если архив зашифрован — введи парольную фразу; иначе оставь поле пустым.";
             PassBox.Visibility = Visibility.Visible;
         }
     }

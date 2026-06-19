@@ -62,7 +62,7 @@
                     <TextBlock x:Name="PassHint" FontSize="12" TextWrapping="Wrap"
                                Foreground="{StaticResource EbTextDimBrush}" />
                     <PasswordBox x:Name="PassBox" PlaceholderText="парольная фраза"
-                                 MaxWidth="380" HorizontalAlignment="Left" />
+                                 MaxWidth="380" HorizontalAlignment="Stretch" />
                 </StackPanel>
             </Border>
 
