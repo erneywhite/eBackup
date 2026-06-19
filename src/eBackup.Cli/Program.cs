@@ -401,6 +401,7 @@ static async Task StorageListAsync()
             StorageKind.WebDav => $"webdav {s.ServiceUrl}  папка={s.RemoteDirectory}",
             StorageKind.GoogleDrive => $"Google Drive  папка={(string.IsNullOrWhiteSpace(s.RemoteDirectory) ? "eBackup" : s.RemoteDirectory)}",
             StorageKind.Dropbox => $"Dropbox  папка приложения/{s.RemoteDirectory}",
+            StorageKind.Mega => $"MEGA  {s.Username}  папка={(string.IsNullOrWhiteSpace(s.RemoteDirectory) ? "eBackup" : s.RemoteDirectory)}",
             _ => ""
         };
         Console.WriteLine($"  {s.Id,-12} {s.Name,-20} [{s.Kind}] {details}");

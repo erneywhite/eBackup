@@ -51,8 +51,8 @@ public static class ScheduleInputMapper
     }
 
     /// <summary>
-    /// BackupSchedule → запрос бэкапа для очереди службы (ручной «выполнить сейчас» и таймер S6-5).
-    /// Шифрование не передаётся: на S6 зашифрованные расписания в принципе не запускаются (ждут S7).
+    /// BackupSchedule → запрос бэкапа для очереди службы (ручной «выполнить сейчас» и таймер).
+    /// Парольная фраза в DTO НЕ передаётся — служба кладёт её на Job.ResolvedPassphrase (см. EnqueueScheduled).
     /// </summary>
     public static StartBackupRequest ToBackupRequest(BackupSchedule s) => new()
     {

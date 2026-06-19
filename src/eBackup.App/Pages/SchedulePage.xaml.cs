@@ -475,9 +475,8 @@ public sealed partial class SchedulePage : Page
             await client.UpsertScheduleAsync(input);
             await ReloadAsync(selectId: input.Id);
 
-            var encNote = EncryptCheck.IsChecked == true
-                ? " · ⚠ зашифрованные расписания пока запускаются только вручную"
-                : "";
+            // Зашифрованные расписания служба выполняет автоматически (фразу хранит под машинным ключом).
+            var encNote = EncryptCheck.IsChecked == true ? " · 🔒 шифрование включено" : "";
             SetStatus(!input.Enabled
                 ? "✓ Сохранено (приостановлено)" + encNote
                 : kind == ScheduleKind.DailyWhenIdle

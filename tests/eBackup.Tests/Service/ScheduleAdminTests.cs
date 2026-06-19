@@ -9,6 +9,7 @@ using eBackup.Core.Scheduling;
 using eBackup.Ipc.Contracts;
 using eBackup.Ipc.Server;
 using eBackup.Security;
+using eBackup.Service;
 using eBackup.Service.Handlers;
 using eBackup.Service.Jobs;
 using eBackup.Storage;
@@ -55,6 +56,28 @@ public sealed class ScheduleAdminTests : IDisposable
         Id = id, Name = name, Kind = "Daily", Hour = 3, Minute = 0,
         ModuleIds = ["obs"], TargetStorageIds = ["NAS"], NewPassphrase = passphrase,
     };
+
+    [Fact]
+    public async Task Upsert_Schedule_Registers_Its_Custom_Folders()
+    {
+        // Регрессия: «свои папки» расписания должны попасть в машинный реестр при сохранении —
+        // иначе BackupRunner (бэкапит только зарегистрированные пути) молча выкинет их из планового бэкапа.
+        var history = new HistoryStore(Path.Combine(_root, "hist"));
+        var storages = new StorageStore(
+            new MachineKeyProtector(new MachineKeyStore(Path.Combine(_root, "key", "machine.key"))),
+            Path.Combine(_root, "cfg", "storages.json"), Path.Combine(_root, "cfg", "connections.json"));
+        var schedules = new ScheduleStore(storages.Protector, Path.Combine(_root, "cfg", "schedules.json"));
+        var folders = new CustomFolderStore(Path.Combine(_root, "cfg", "custom-folders.json"));
+        var jobs = new JobManager(new NoOpRunner(), rid => new JobChannel(history, rid));
+        await using var _ = jobs;
+        var handlers = new ServiceHandlers(jobs, history, new ModuleRegistry([]), storages, "inst", "1.2.0",
+            folders: folders, schedules: schedules);
+
+        var path = Path.Combine(_root, "data", "proj");
+        await handlers.UpsertScheduleAsync(Make() with { CustomFolderIds = [path] }, Alice, default);
+
+        Assert.True(folders.Contains(path), "папка расписания должна быть зарегистрирована в реестре службы");
+    }
 
     [Fact]
     public async Task Upsert_List_Delete_RoundTrip_Stamps_Owner()

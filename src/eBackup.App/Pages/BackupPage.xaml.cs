@@ -118,7 +118,7 @@ public sealed partial class BackupPage : Page
         _ => s.Name
     };
 
-    // ---------- свои папки (общий конфиг — расписания тоже его читают) ----------
+    // ---------- свои папки (локальный список этой страницы; у расписаний — свой список на каждое) ----------
 
     private static List<string> LoadFolders() => CustomFolderConfig.Load();
 

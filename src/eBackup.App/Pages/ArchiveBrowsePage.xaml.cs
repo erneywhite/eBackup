@@ -329,7 +329,9 @@ public sealed partial class ArchiveBrowsePage : Page
         var window = MainWindow.Instance;
         var succeeded = false;
 
-        // Журнал «История»: выборочные операции из браузера — тоже с полным логом.
+        // ЛОКАЛЬНЫЙ лог выборочной операции (restore/извлечение идёт в окне, под пользователем).
+        // NB: серверная «История» его пока НЕ показывает — выборочные операции живут локально (хвост 1.2,
+        // примирить отдельной IPC-операцией записи истории; не блокер релиза).
         var history = new eBackup.Core.History.HistoryStore();
         var run = new eBackup.Core.History.BackupRunRecord
         {

@@ -7,8 +7,9 @@ using eBackup.Storage.Sftp;
 namespace eBackup.Storage;
 
 /// <summary>
-/// Единый конфиг хранилищ (%LOCALAPPDATA%/eBackup/storages.json). Секреты — DPAPI.
-/// При первом запуске автоматически мигрирует старый connections.json (SFTP):
+/// Единый конфиг хранилищ. Путь и протектор инжектируются: служба передаёт %ProgramData%-файл и
+/// машинный ключ (секреты, вкл. сессию MEGA, под машинным ключом — служба читает их без логина);
+/// дефолт/CLI — %LOCALAPPDATA% + DPAPI. При первом запуске мигрирует старый connections.json (SFTP):
 /// id сохраняются, поэтому ссылки из расписаний не ломаются.
 /// </summary>
 public sealed class StorageStore(

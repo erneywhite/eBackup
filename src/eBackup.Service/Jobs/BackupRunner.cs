@@ -15,7 +15,7 @@ namespace eBackup.Service.Jobs;
 ///
 /// Сборка .ebk → заливка на выбранные хранилища (по id из машинного конфига) с верификацией и
 /// retention. Если хранилища не выбраны — архив остаётся в build-папке (локальный режим).
-/// Шифрование архива пока выключено (passphrase=null) — активация на S7 (машинный ключ).
+/// Шифрование: если задан Job.ResolvedPassphrase — архив шифруется (fail-closed, см. ниже).
 /// </summary>
 public sealed class BackupRunner : IJobRunner
 {

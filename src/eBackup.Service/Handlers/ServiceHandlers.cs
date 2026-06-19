@@ -14,8 +14,8 @@ namespace eBackup.Service.Handlers;
 
 /// <summary>
 /// Серверная реализация контракта: задачи → <see cref="JobManager"/>, история → <see cref="HistoryStore"/>,
-/// модули → <see cref="ModuleRegistry"/>. Администрирование хранилищ/расписаний и стриминг прогресса
-/// (AttachToJob) пока заглушены — придут на S4d/S4e/S6. Все решения по доступу — по OwnerSid из caller.
+/// модули → <see cref="ModuleRegistry"/>, администрирование хранилищ/расписаний, шифрование (тикеты
+/// фраз/машинный ключ) и стриминг прогресса (AttachToJob). Все решения по доступу — по OwnerSid из caller.
 /// </summary>
 public sealed class ServiceHandlers : IIpcHandlers
 {
@@ -379,6 +379,12 @@ public sealed class ServiceHandlers : IIpcHandlers
         var mapped = ScheduleInputMapper.ToSchedule(req, _schedules, existing, caller.OwnerSid);
         if (existing is null)
             mapped = mapped with { LastRunAt = DateTime.Now }; // новое не срабатывает задним числом
+
+        // Регистрируем «свои папки» расписания в машинном реестре: BackupRunner бэкапит только
+        // зарегистрированные пути (граница безопасности). Иначе папки расписания молча выпадали бы из
+        // планового бэкапа (их регистрировал только интерактивный путь). Запись — через доверенный хендлер.
+        foreach (var folder in mapped.CustomFolders)
+            _folders.Upsert(folder);
 
         list.RemoveAll(s => s.Id == req.Id);
         list.Add(mapped);

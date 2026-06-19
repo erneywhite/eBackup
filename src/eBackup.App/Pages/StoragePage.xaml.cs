@@ -698,6 +698,7 @@ public sealed partial class StoragePage : Page
                     StorageKind.WebDav => WebDavUrlBox.Text.Trim(),
                     StorageKind.GoogleDrive => "Google Drive",
                     StorageKind.Dropbox => "Dropbox",
+                    StorageKind.Mega => "MEGA",
                     _ => HostBox.Text.Trim()
                 };
 
@@ -906,6 +907,7 @@ public sealed partial class StoragePage : Page
         BrowsePathBtn.IsEnabled = !busy;
         GDriveLoginBtn.IsEnabled = !busy;
         DropboxLoginBtn.IsEnabled = !busy;
+        MegaLoginBtn.IsEnabled = !busy;
         // Список и «добавить» тоже блокируем: иначе результат незавершённой операции
         // (тест/обзор) приземлится в редактор уже другого хранилища.
         StorageList.IsEnabled = !busy;
