@@ -40,12 +40,22 @@ public sealed class BackupRunner : IJobRunner
     {
         var sink = job.Channel;            // прогресс/лог идут в шину задачи (журнал + живые подписчики)
         void Log(string m) => sink.Log(m);
+        void WipePassphrase() { if (job.ResolvedPassphrase is { } pw) CryptographicOperations.ZeroMemory(pw); }
+
+        // Fail-closed на уровне типа: шифрование затребовано, но фразы нет → НЕ зовём движок с passphrase:null
+        // (иначе отдали бы ОТКРЫТЫЙ архив). Закрывает и потерю слота при постановке, и провал резолва.
+        if (job.RequiresEncryption && (job.ResolvedPassphrase is null || job.ResolvedPassphrase.Length == 0))
+        {
+            Log("Бэкап отменён: затребовано шифрование, но парольная фраза недоступна.");
+            return new JobOutcome(false, 0, 0, null, "Шифрование затребовано, но парольная фраза недоступна.");
+        }
 
         var allModules = new List<IBackupModule>(_resolveModules(job.Request!.ModuleIds));
         var folders = _resolveFolders?.Invoke(job.Request!.CustomFolderIds) ?? [];
         if (folders.Count > 0) allModules.Add(new CustomFoldersModule(folders));
         if (allModules.Count == 0)
         {
+            WipePassphrase();
             Log("Бэкап отменён: не выбрано ни модулей, ни папок.");
             return new JobOutcome(false, 0, 0, null, "Не выбрано ни модулей, ни папок.");
         }
@@ -72,6 +82,11 @@ public sealed class BackupRunner : IJobRunner
         var progress = new Progress<string>(s => sink.Phase(s, 0));
         // Источники резолвим в профиль ВЫЗВАВШЕГО пользователя (служба под SYSTEM), а не системный.
         var resolveSource = new UserProfilePaths(job.OwnerSid).Resolve;
+        // Фраза (если есть) уже разрешена службой в Job.ResolvedPassphrase. На границе движка неизбежна
+        // managed-string копия (zeroing невозможен) — принятый остаточный риск; byte[] зануляем в finally.
+        var passphrase = job.ResolvedPassphrase is { Length: > 0 } pwBytes
+            ? System.Text.Encoding.UTF8.GetString(pwBytes)
+            : null;
 
         // Временные артефакты сборки в build-папке убираем при отмене/ошибке (как раньше делало окно).
         void CleanupBuild()
@@ -83,7 +98,7 @@ public sealed class BackupRunner : IJobRunner
         try
         {
             var archive = await engine.CreateBackupAsync(
-                allModules, _buildDir, name, passphrase: null,
+                allModules, _buildDir, name, passphrase: passphrase,
                 progress: progress, compression: compression, log: Log, resolveSource: resolveSource, ct: ct)
                 .ConfigureAwait(false);
 
@@ -198,6 +213,10 @@ public sealed class BackupRunner : IJobRunner
         {
             CleanupBuild();
             throw; // JobManager пометит задачу Failed
+        }
+        finally
+        {
+            WipePassphrase(); // занулить фразу всегда (успех/отмена/ошибка)
         }
     }
 

@@ -32,46 +32,53 @@ public sealed class JobManager : IAsyncDisposable
         _worker = Task.Run(WorkerLoopAsync);
     }
 
-    public Job Enqueue(StartBackupRequest req, string ownerSid, string origin = "Interactive")
-        => Submit(new Job
+    public Job Enqueue(StartBackupRequest req, string ownerSid, string origin = "Interactive",
+        byte[]? resolvedPassphrase = null, bool requiresEncryption = false)
+    {
+        var runId = NewRunId();
+        return Submit(new Job
         {
             Seq = Interlocked.Increment(ref _seq),
             JobId = "job-" + Guid.NewGuid().ToString("N"),
-            RunId = NewRunId(),
+            RunId = runId,
             OwnerSid = ownerSid,
             Trigger = string.IsNullOrEmpty(req.Trigger) ? "вручную" : req.Trigger,
             Origin = origin,
             Kind = JobKind.Backup,
             Request = req,
-            Channel = null!, // выставляется в Submit
+            ResolvedPassphrase = resolvedPassphrase,
+            RequiresEncryption = requiresEncryption,
+            Channel = _channelFactory(runId),
         });
+    }
 
     /// <summary>Поставить в ту же очередь задачу ВОССТАНОВЛЕНИЯ (single-active с бэкапом).</summary>
-    public Job EnqueueRestore(StartRestoreRequest req, string ownerSid, string origin = "Interactive")
-        => Submit(new Job
+    public Job EnqueueRestore(StartRestoreRequest req, string ownerSid, string origin = "Interactive",
+        byte[]? resolvedPassphrase = null, bool requiresEncryption = false)
+    {
+        var runId = NewRunId();
+        return Submit(new Job
         {
             Seq = Interlocked.Increment(ref _seq),
             JobId = "job-" + Guid.NewGuid().ToString("N"),
-            RunId = NewRunId(),
+            RunId = runId,
             OwnerSid = ownerSid,
             Trigger = string.IsNullOrEmpty(req.Trigger) ? "вручную" : req.Trigger,
             Origin = origin,
             Kind = JobKind.Restore,
             Restore = req,
-            Channel = null!,
+            ResolvedPassphrase = resolvedPassphrase,
+            RequiresEncryption = requiresEncryption,
+            Channel = _channelFactory(runId),
         });
+    }
 
     private static string NewRunId() => $"{DateTime.Now:yyyyMMdd-HHmmss}-{Guid.NewGuid().ToString("N")[..4]}";
 
-    private Job Submit(Job seed)
+    // Задача уже полностью собрана (с настоящим Channel и слотом фразы) — НЕ пересоздаём её по
+    // whitelist полей: это и был источник fail-open (новое поле молча терялось). Просто регистрируем.
+    private Job Submit(Job job)
     {
-        var job = new Job
-        {
-            Seq = seed.Seq, JobId = seed.JobId, RunId = seed.RunId, OwnerSid = seed.OwnerSid,
-            Trigger = seed.Trigger, Origin = seed.Origin, Kind = seed.Kind,
-            Request = seed.Request, Restore = seed.Restore,
-            Channel = _channelFactory(seed.RunId),
-        };
         _jobs[job.JobId] = job;
         Notify(job);                 // State=Queued — журнал увидит «прерванный останется виден»
         _queue.Writer.TryWrite(job);

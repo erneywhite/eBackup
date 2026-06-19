@@ -1,3 +1,5 @@
+using System.Security.Cryptography;
+using System.Text;
 using eBackup.Core.Abstractions;
 using eBackup.Core.Engine;
 using eBackup.Storage;
@@ -33,7 +35,15 @@ public sealed class RestoreRunner : IJobRunner
     {
         var sink = job.Channel;
         void Log(string m) => sink.Log(m);
+        void WipePassphrase() { if (job.ResolvedPassphrase is { } pw) CryptographicOperations.ZeroMemory(pw); }
         var r = job.Restore!;
+
+        // Fail-closed: затребована расшифровка, но фразы нет → не запускаем restore без неё.
+        if (job.RequiresEncryption && (job.ResolvedPassphrase is null || job.ResolvedPassphrase.Length == 0))
+        {
+            Log("Восстановление отменено: затребована расшифровка, но парольная фраза недоступна.");
+            return new JobOutcome(false, 0, 0, r.RemoteName, "Шифрование затребовано, но парольная фраза недоступна.");
+        }
 
         var targetLabel = r.TargetDir ?? "исходные места";
         Log($"Запуск: {job.Trigger}");
@@ -55,6 +65,8 @@ public sealed class RestoreRunner : IJobRunner
             var resolveDest = new UserProfilePaths(job.OwnerSid).Resolve; // запись в профиль ВЫЗВАВШЕГО (per-SID)
             var progress = new Progress<string>(s => sink.Phase(s, 0));
 
+            var passphrase = job.ResolvedPassphrase is { Length: > 0 } pwBytes ? Encoding.UTF8.GetString(pwBytes) : null;
+
             var engine = new BackupEngine();
             await engine.RestoreAsync(
                 temp,
@@ -62,7 +74,7 @@ public sealed class RestoreRunner : IJobRunner
                 policy,
                 destinationRootOverride: r.TargetDir,
                 assetsDirectory: r.AssetsDir,
-                passphrase: null,                 // шифрование через службу — S7
+                passphrase: passphrase,           // фраза (если есть) разрешена службой; null — незашифрованный
                 progress: progress,
                 log: Log,
                 resolveDestination: resolveDest,
@@ -76,6 +88,7 @@ public sealed class RestoreRunner : IJobRunner
         }
         finally
         {
+            WipePassphrase(); // занулить фразу всегда
             try { File.Delete(temp); } catch { /* temp */ }
         }
     }

@@ -28,6 +28,18 @@ public sealed class Job
     public StartBackupRequest? Request { get; init; }    // для бэкап-задач
     public StartRestoreRequest? Restore { get; init; }   // для restore-задач
 
+    /// <summary>
+    /// Разрешённая (расшифрованная) парольная фраза для шифрования/расшифровки. НИКОГДА не в DTO/логах/истории;
+    /// раннер зануляет её в finally (CryptographicOperations.ZeroMemory). null — без шифрования.
+    /// </summary>
+    public byte[]? ResolvedPassphrase { get; init; }
+
+    /// <summary>
+    /// Задача ТРЕБУЕТ шифрования (фраза обязана быть). Fail-closed на уровне типа: раннер падает, если
+    /// требуется, а фразы нет — движок с passphrase:null при этом НИКОГДА не вызывается (не отдаём открытый архив).
+    /// </summary>
+    public bool RequiresEncryption { get; init; }
+
     /// <summary>Шина прогресса/лога этой задачи (журнал + живые подписчики).</summary>
     public required JobChannel Channel { get; init; }
 
