@@ -114,6 +114,9 @@ public static class ArchiveCipher
 
     public static async Task EncryptAsync(string plainPath, string encryptedPath, string passphrase, CancellationToken ct = default)
     {
+        if (IsEncrypted(plainPath)) // защита от двойного шифрования (вход уже EBKE)
+            throw new InvalidOperationException("Вход уже зашифрован (EBKE) — двойное шифрование запрещено.");
+
         var salt = RandomNumberGenerator.GetBytes(16);
         var noncePrefix = RandomNumberGenerator.GetBytes(4);
         var key = DeriveKey(passphrase, salt, Argon2MemoryKb, Argon2Iterations, Argon2Parallelism);
@@ -152,6 +155,17 @@ public static class ArchiveCipher
 
     public static async Task DecryptAsync(string encryptedPath, string plainPath, string passphrase, CancellationToken ct = default)
     {
+        await using var output = File.Create(plainPath);
+        await DecryptAsync(encryptedPath, output, passphrase, ct).ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// Расшифровать в произвольный поток; возвращает число байт открытого текста. Проверяет ВСЕ GCM-теги
+    /// (бросает <see cref="InvalidDataException"/> при неверной фразе/повреждении). Передав
+    /// <see cref="Stream.Null"/>, получаем дешёвую сквозную верификацию готового архива без записи на диск.
+    /// </summary>
+    public static async Task<long> DecryptAsync(string encryptedPath, Stream output, string passphrase, CancellationToken ct = default)
+    {
         await using var input = File.OpenRead(encryptedPath);
 
         var magic = new byte[4];
@@ -176,7 +190,6 @@ public static class ArchiveCipher
 
         var key = DeriveKey(passphrase, salt, memKb, iterations, parallelism);
 
-        await using var output = File.Create(plainPath);
         using var aes = new AesGcm(key, 16);
         var nonce = new byte[12];
         noncePrefix.CopyTo(nonce, 0);
@@ -185,6 +198,7 @@ public static class ArchiveCipher
         var plain = new byte[chunkSize];
         var lenBuf = new byte[4];
         ulong counter = 0;
+        long total = 0;
 
         while (true)
         {
@@ -210,7 +224,9 @@ public static class ArchiveCipher
             }
 
             await output.WriteAsync(plain.AsMemory(0, len), ct).ConfigureAwait(false);
+            total += len;
         }
+        return total;
     }
 
     private static byte[] DeriveKey(string passphrase, byte[] salt, int memKb, int iterations, int parallelism)

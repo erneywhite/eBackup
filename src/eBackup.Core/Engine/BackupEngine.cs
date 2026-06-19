@@ -213,13 +213,21 @@ public sealed class BackupEngine
             var encryptWatch = Stopwatch.StartNew();
             try
             {
+                var plainSize = new FileInfo(buildPath).Length;
                 await ArchiveCipher.EncryptAsync(buildPath, archivePath, passphrase, ct).ConfigureAwait(false);
-                log?.Invoke($"Зашифровано (Argon2id + AES-256-GCM) за {encryptWatch.ElapsedMilliseconds} мс → "
+
+                // Пост-проверка ИТОГОВОГО артефакта: расшифровать готовый .ebk той же фразой в Stream.Null —
+                // проверка ВСЕХ GCM-тегов + совпадение размера с исходным ZIP. До удаления .plain и до заливки.
+                var decrypted = await ArchiveCipher.DecryptAsync(archivePath, Stream.Null, passphrase, ct).ConfigureAwait(false);
+                if (decrypted != plainSize)
+                    throw new InvalidDataException($"Пост-проверка шифрования: размер расшифровки {decrypted} != ZIP {plainSize}.");
+
+                log?.Invoke($"Зашифровано (Argon2id + AES-256-GCM) + проверено за {encryptWatch.ElapsedMilliseconds} мс → "
                     + FormatSize(new FileInfo(archivePath).Length));
             }
             finally
             {
-                // ОТКРЫТЫЙ .plain не должен пережить даже исключение в шифровании.
+                // ОТКРЫТЫЙ .plain не должен пережить даже исключение в шифровании/проверке.
                 try { if (File.Exists(buildPath)) File.Delete(buildPath); } catch { /* temp */ }
             }
         }
@@ -373,6 +381,11 @@ public sealed class BackupEngine
         Func<string, string>? resolveDestination = null,
         CancellationToken ct = default)
     {
+        // Этот путь (seek-чтение кусками) НЕ умеет расшифровывать — внятный отказ вместо мутной ZIP-ошибки.
+        if (ArchiveCipher.IsEncrypted(zipStream))
+            throw new InvalidOperationException(
+                "Архив зашифрован — выборочное чтение по кускам недоступно; восстановите его целиком (через службу).");
+
         using var zip = new ZipArchive(zipStream, ZipArchiveMode.Read, leaveOpen: true);
         await RestoreFromArchiveAsync(zip, modules, conflictPolicy, destinationRootOverride,
             assetsDirectory, progress, log, entryFilter, resolveDestination, ct).ConfigureAwait(false);
