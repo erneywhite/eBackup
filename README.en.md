@@ -160,8 +160,12 @@ Details: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) (in Russian).
 Done: ✅ [v1.1.0 release](https://github.com/erneywhite/eBackup/releases/latest),
 ✅ module catalog (one-click install), ✅ cancellable backups, ✅ self-update.
 
-Ahead:
-- Background Windows Service — backups always run with the needed rights, schedules without an open window (1.2)
+🛠️ **In development — v1.2: a background Windows Service (LocalSystem).** Backups and
+restores run with the rights they need without an open window, and schedules fire
+**even when nobody is logged in** (the GUI becomes a thin client of the service).
+Already built and under testing — shipping in the next release.
+
+Next:
 - Dynamic DLL plugins (with a trust model and signatures)
 - Windows registry key backup
 - English UI
