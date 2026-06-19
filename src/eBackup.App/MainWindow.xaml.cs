@@ -4,7 +4,6 @@ using eBackup.Core.Abstractions;
 using eBackup.Core.Engine;
 using eBackup.Core.History;
 using eBackup.Core.Modules;
-using eBackup.Core.Scheduling;
 using eBackup.Ipc.Client;
 using eBackup.Ipc.Contracts;
 using eBackup.Modules.Obs;
@@ -16,12 +15,17 @@ using Microsoft.UI.Xaml.Media.Animation;
 
 namespace eBackup.App;
 
-/// <summary>Параметры запуска бэкапа (id'ы — служба резолвит их в своём конфиге под машинным ключом).</summary>
+/// <summary>Параметры запуска бэкапа (id'ы — служба резолвит их в своём конфиге под машинным ключом).
+/// Compression/IncludeMachineName/Retention: null — взять текущие настройки приложения; иначе — это
+/// значение (расписание несёт свои, чтобы ручной запуск совпадал с плановым).</summary>
 public sealed record BackupRequest(
     IReadOnlyList<string> ModuleIds,
     IReadOnlyList<string> FolderPaths,
     IReadOnlyList<string> TargetStorageIds,
-    string? Passphrase);
+    string? Passphrase,
+    int? CompressionMode = null,
+    bool? IncludeMachineName = null,
+    int? RetentionCount = null);
 
 /// <summary>Параметры восстановления, собранные страницей «Восстановление».</summary>
 public sealed record RestoreRequest(
@@ -44,12 +48,6 @@ public sealed partial class MainWindow : Window
     private bool _operationRunning; // бэкап или восстановление — одновременно только одно
     private CancellationTokenSource? _backupCts; // отмена текущего бэкапа (null — бэкап не идёт)
     private double _fill;           // текущая доля заливки-прогресса нижней панели (0..1)
-    private DispatcherTimer? _scheduleTimer;
-    private bool _checkingSchedules;
-    // Кэш расписаний: файл перечитывается только при изменении (минутный тик
-    // стоит один stat метаданных + арифметику дат — фактически бесплатно).
-    private List<BackupSchedule>? _cachedSchedules;
-    private DateTime _schedulesStamp;
 
     public bool IsBusy => _operationRunning;
 
@@ -104,11 +102,7 @@ public sealed partial class MainWindow : Window
         // Одноразово: хранилище «Локальная папка» по умолчанию.
         _ = EnsureDefaultStorageAsync();
 
-        // Проверка расписаний: раз в минуту + сразу после запуска (догон пропущенных).
-        _scheduleTimer = new DispatcherTimer { Interval = TimeSpan.FromMinutes(1) };
-        _scheduleTimer.Tick += async (_, _) => await CheckSchedulesAsync();
-        _scheduleTimer.Start();
-        _ = CheckSchedulesAsync();
+        // Расписания исполняет служба (без вошедшего пользователя) — встроенного в GUI таймера больше нет.
 
         // Трей: клик — показать окно; закрытие окна — спрятаться в трей (настраивается).
         TrayIcon.LeftClickCommand = new RelayCommand(ShowFromTray);
@@ -430,14 +424,15 @@ public sealed partial class MainWindow : Window
                 await client.UpsertCustomFolderAsync(folder, ct);
 
             var settings = AppSettings.Load();
+            // Параметры прогона: расписание несёт свои (ручной запуск = плановый); иначе — настройки приложения.
             var resp = await client.StartBackupAsync(new StartBackupRequest
             {
                 ModuleIds = request.ModuleIds.ToArray(),
                 CustomFolderIds = request.FolderPaths.ToArray(),
                 TargetStorageIds = request.TargetStorageIds.ToArray(),
-                CompressionMode = settings.CompressionMode,
-                IncludeMachineName = settings.IncludeMachineNameInArchive,
-                RetentionCount = settings.RetentionCount > 0 ? settings.RetentionCount : null,
+                CompressionMode = request.CompressionMode ?? settings.CompressionMode,
+                IncludeMachineName = request.IncludeMachineName ?? settings.IncludeMachineNameInArchive,
+                RetentionCount = request.RetentionCount ?? (settings.RetentionCount > 0 ? settings.RetentionCount : null),
                 Trigger = trigger,
                 ClientRequestId = Guid.NewGuid().ToString("N"),
             }, ct);
@@ -596,144 +591,6 @@ public sealed partial class MainWindow : Window
         catch
         {
         }
-    }
-
-    // ---------- расписания (работают, пока приложение запущено) ----------
-
-    private async Task CheckSchedulesAsync()
-    {
-        if (_checkingSchedules || _operationRunning)
-            return;
-
-        _checkingSchedules = true;
-        try
-        {
-            var store = new ScheduleStore(new DpapiSecretProtector());
-
-            // Перечитываем файл только если он менялся (правки на странице расписаний
-            // или отметка LastRunAt после запуска тоже меняют файл — кэш сам обновится).
-            DateTime stamp;
-            try
-            {
-                var path = ScheduleStore.DefaultFilePath();
-                stamp = File.Exists(path) ? File.GetLastWriteTimeUtc(path) : DateTime.MinValue;
-            }
-            catch
-            {
-                stamp = DateTime.MinValue;
-            }
-
-            if (_cachedSchedules is null || stamp != _schedulesStamp)
-            {
-                try
-                {
-                    _cachedSchedules = (await store.LoadAsync()).ToList();
-                    _schedulesStamp = stamp;
-                }
-                catch
-                {
-                    return; // битый файл расписаний не должен ронять приложение
-                }
-            }
-
-            var schedules = _cachedSchedules;
-            if (schedules.Count == 0)
-                return;
-
-            var now = DateTime.Now;
-            var idle = IdleDetector.GetIdleTime();
-            var due = schedules.FirstOrDefault(s => ScheduleTiming.IsDue(s, now, idle));
-            if (due is null)
-                return;
-
-            // «При простое» = не только нет ввода, но и система свободна: бэкап не должен
-            // стартовать поверх тяжёлой компиляции/рендера. Занято — попробуем через минуту.
-            if (due.Kind == ScheduleKind.DailyWhenIdle)
-            {
-                var load = await SystemLoadMonitor.SampleAsync(TimeSpan.FromSeconds(1));
-                if (!load.IsCalm())
-                    return;
-            }
-
-            // Отмечаем запуск ДО выполнения: упавший бэкап не будет лупиться каждую минуту.
-            await store.SaveAllAsync(schedules.Select(s => s.Id == due.Id ? s with { LastRunAt = now } : s));
-
-            var request = await BuildRequestFromScheduleAsync(due, store);
-            if (request is null)
-            {
-                StatusTitle.Text = "Расписание пропущено";
-                StatusSub.Text = $"«{due.Name}»: нет модулей/целей или не расшифровалась парольная фраза";
-                return;
-            }
-
-            StatusSub.Text = $"по расписанию «{due.Name}»…";
-            await StartBackupAsync(request, trigger: $"расписание «{due.Name}»");
-        }
-        finally
-        {
-            _checkingSchedules = false;
-        }
-    }
-
-    /// <summary>
-    /// Запустить расписание немедленно (кнопка «Выполнить сейчас»).
-    /// Возвращает null при успешном старте, иначе — текст причины.
-    /// </summary>
-    public async Task<string?> RunScheduleNowAsync(BackupSchedule schedule)
-    {
-        if (_operationRunning)
-            return "Уже идёт бэкап или восстановление — подожди завершения.";
-
-        var store = new ScheduleStore(new DpapiSecretProtector());
-        var request = await BuildRequestFromScheduleAsync(schedule, store);
-        if (request is null)
-            return "Нет модулей/целей, или парольная фраза не расшифровалась.";
-
-        // Ручной запуск занимает сегодняшний слот так же, как плановый:
-        // дневное расписание после него не сработает повторно.
-        try
-        {
-            var all = (await store.LoadAsync()).ToList();
-            await store.SaveAllAsync(all.Select(s =>
-                s.Id == schedule.Id ? s with { LastRunAt = DateTime.Now } : s));
-        }
-        catch { /* не критично: значит, плановый запуск просто случится в своё время */ }
-
-        StatusSub.Text = $"вручную по расписанию «{schedule.Name}»…";
-        // Не ждём завершения: кнопке важен сам старт.
-        _ = StartBackupAsync(request, trigger: $"вручную · расписание «{schedule.Name}»");
-        return null;
-    }
-
-    /// <summary>Собрать параметры бэкапа из расписания (id'ы — служба резолвит их в своём конфиге).</summary>
-    private async Task<BackupRequest?> BuildRequestFromScheduleAsync(BackupSchedule s, ScheduleStore store)
-    {
-        var moduleIds = s.ModuleIds.ToList();
-        var folderPaths = s.CustomFolders.ToList(); // свои папки у каждого расписания свои
-        if (moduleIds.Count == 0 && folderPaths.Count == 0)
-            return null;
-
-        var targetIds = s.TargetConnectionIds.ToList();
-        if (s.KeepLocal && !targetIds.Contains("local", StringComparer.OrdinalIgnoreCase))
-            targetIds.Add("local"); // legacy: «локальная папка» отдельным флагом
-        if (targetIds.Count == 0)
-            return null;
-
-        string? passphrase = null;
-        if (s.ProtectedPassphrase is not null)
-        {
-            try
-            {
-                passphrase = store.UnprotectPassphrase(s.ProtectedPassphrase);
-            }
-            catch
-            {
-                return null; // фраза не расшифровалась (конфиг с другого ПК) — не бэкапим в открытую
-            }
-        }
-
-        await Task.CompletedTask; // сигнатура async ради совместимости с вызовами; резолв теперь в службе
-        return new BackupRequest(moduleIds, folderPaths, targetIds, passphrase);
     }
 
     // ---------- восстановление (вызывается страницей «Восстановление») ----------

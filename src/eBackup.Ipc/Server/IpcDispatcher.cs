@@ -42,7 +42,7 @@ public static class IpcDispatcher
                 IpcOps.ListArchives => Resp(req.Id, await h.ListArchivesAsync(Decode(req, Ctx.ListArchivesRequest), caller, ct), Ctx.RemoteFileDtoArray),
                 IpcOps.DeleteArchive => Resp(req.Id, await h.DeleteArchiveAsync(Decode(req, Ctx.DeleteArchiveRequest), caller, ct), Ctx.Ack),
 
-                IpcOps.ListSchedules => Resp(req.Id, await h.ListSchedulesAsync(caller, ct), Ctx.ScheduleSummaryArray),
+                IpcOps.ListSchedules => Resp(req.Id, await h.ListSchedulesAsync(caller, ct), Ctx.ScheduleDetailArray),
                 IpcOps.UpsertSchedule => Resp(req.Id, await h.UpsertScheduleAsync(Decode(req, Ctx.ScheduleInput), caller, ct), Ctx.Ack),
                 IpcOps.DeleteSchedule => Resp(req.Id, await h.DeleteScheduleAsync(Decode(req, Ctx.DeleteByIdRequest), caller, ct), Ctx.Ack),
 

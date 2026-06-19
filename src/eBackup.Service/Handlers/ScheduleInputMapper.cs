@@ -28,7 +28,6 @@ public static class ScheduleInputMapper
             ModuleIds = i.ModuleIds.ToList(),
             CustomFolders = i.CustomFolderIds.ToList(),
             TargetConnectionIds = i.TargetStorageIds.ToList(),
-            KeepLocal = i.KeepLocal,
             ProtectedPassphrase = i.NewPassphrase switch
             {
                 null => existing?.ProtectedPassphrase,          // оставить прежнюю
@@ -66,11 +65,11 @@ public static class ScheduleInputMapper
         ClientRequestId = "",                    // служба не повторяет запрос — идемпотентность не нужна
     };
 
-    /// <summary>BackupSchedule → сводка для GUI (без секрета фразы; только факт её наличия + расчёт NextRun).</summary>
-    public static ScheduleSummary ToSummary(BackupSchedule s, DateTime now)
+    /// <summary>BackupSchedule → полное НЕсекретное описание для GUI (список + редактор; + расчёт NextRun).</summary>
+    public static ScheduleDetail ToDetail(BackupSchedule s, DateTime now)
     {
         var next = ScheduleTiming.NextRun(s, now);
-        return new ScheduleSummary
+        return new ScheduleDetail
         {
             Id = s.Id,
             Name = s.Name,
@@ -80,6 +79,17 @@ public static class ScheduleInputMapper
             OwnerSid = s.OwnerSid,
             LastRunAt = s.LastRunAt is { } l ? new DateTimeOffset(l) : null,
             NextRun = next is { } n ? new DateTimeOffset(n) : null,
+            ModuleIds = s.ModuleIds.ToArray(),
+            CustomFolderIds = s.CustomFolders.ToArray(),
+            TargetStorageIds = s.TargetConnectionIds.ToArray(),
+            Hour = s.Hour,
+            Minute = s.Minute,
+            Days = s.Days.Select(d => (int)d).ToArray(),
+            EveryHours = s.EveryHours,
+            IdleMinutes = s.IdleMinutes,
+            CompressionMode = s.CompressionMode,
+            IncludeMachineName = s.IncludeMachineName,
+            RetentionCount = s.RetentionCount,
         };
     }
 }

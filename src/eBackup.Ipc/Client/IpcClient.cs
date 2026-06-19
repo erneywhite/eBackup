@@ -195,8 +195,8 @@ public sealed class IpcClient : IDisposable
     public Task<Ack> DeleteCustomFolderAsync(string path, CancellationToken ct = default)
         => RequestAsync(IpcOps.DeleteCustomFolder, new DeleteByIdRequest { Id = path }, Ctx.DeleteByIdRequest, Ctx.Ack, ct);
 
-    public Task<ScheduleSummary[]> ListSchedulesAsync(CancellationToken ct = default)
-        => RequestNoBodyAsync(IpcOps.ListSchedules, Ctx.ScheduleSummaryArray, ct);
+    public Task<ScheduleDetail[]> ListSchedulesAsync(CancellationToken ct = default)
+        => RequestNoBodyAsync(IpcOps.ListSchedules, Ctx.ScheduleDetailArray, ct);
 
     public Task<Ack> UpsertScheduleAsync(ScheduleInput input, CancellationToken ct = default)
         => RequestAsync(IpcOps.UpsertSchedule, input, Ctx.ScheduleInput, Ctx.Ack, ct);

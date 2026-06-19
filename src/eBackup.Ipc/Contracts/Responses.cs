@@ -98,16 +98,33 @@ public sealed record StorageDetail
     public string[] PresentSecrets { get; init; } = [];
 }
 
-public sealed record ScheduleSummary
+/// <summary>
+/// Полное НЕсекретное описание расписания для GUI (список + редактор). Секрет парольной фразы
+/// не передаётся — только факт её наличия (<see cref="HasPassphrase"/>), как у хранилищ.
+/// </summary>
+public sealed record ScheduleDetail
 {
     public string Id { get; init; } = "";
     public string Name { get; init; } = "";
-    public string Kind { get; init; } = "";
+    public string Kind { get; init; } = "Daily";
     public bool Enabled { get; init; }
     public bool HasPassphrase { get; init; }
     public string? OwnerSid { get; init; }
     public DateTimeOffset? LastRunAt { get; init; }
     public DateTimeOffset? NextRun { get; init; }
+
+    // Полный редактируемый набор (без секрета фразы) — чтобы редактор открывался из ответа службы.
+    public string[] ModuleIds { get; init; } = [];
+    public string[] CustomFolderIds { get; init; } = [];
+    public string[] TargetStorageIds { get; init; } = [];
+    public int Hour { get; init; } = 3;
+    public int Minute { get; init; }
+    public int[] Days { get; init; } = [];
+    public int EveryHours { get; init; } = 6;
+    public int IdleMinutes { get; init; } = 5;
+    public int CompressionMode { get; init; }
+    public bool IncludeMachineName { get; init; }
+    public int? RetentionCount { get; init; }
 }
 
 /// <summary>Запись, которую модуль соберёт (для детали на странице «Модули»).</summary>

@@ -28,7 +28,7 @@ public interface IIpcHandlers
     Task<RemoteFileDto[]> ListArchivesAsync(ListArchivesRequest req, CallerContext caller, CancellationToken ct);
     Task<Ack> DeleteArchiveAsync(DeleteArchiveRequest req, CallerContext caller, CancellationToken ct);
 
-    Task<ScheduleSummary[]> ListSchedulesAsync(CallerContext caller, CancellationToken ct);
+    Task<ScheduleDetail[]> ListSchedulesAsync(CallerContext caller, CancellationToken ct);
     Task<Ack> UpsertScheduleAsync(ScheduleInput req, CallerContext caller, CancellationToken ct);
     Task<Ack> DeleteScheduleAsync(DeleteByIdRequest req, CallerContext caller, CancellationToken ct);
 

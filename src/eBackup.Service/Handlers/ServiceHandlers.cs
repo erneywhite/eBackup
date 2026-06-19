@@ -49,7 +49,7 @@ public sealed class ServiceHandlers : IIpcHandlers
             MinClientProtocol = IpcContractInfo.MinClientProtocol,
             ServerBuild = _build,
             ServiceInstanceId = _instanceId,
-            Capabilities = [], // machine-key-secrets / scheduling.serviceOwned добавятся на S6/S7
+            Capabilities = [IpcContractInfo.Capabilities.SchedulingServiceOwned], // расписания исполняет служба
             UserResolved = true,
         });
 
@@ -295,12 +295,12 @@ public sealed class ServiceHandlers : IIpcHandlers
     private static bool CanManage(BackupSchedule s, CallerContext caller)
         => caller.IsAdmin || s.OwnerSid is null || s.OwnerSid == caller.OwnerSid;
 
-    public async Task<ScheduleSummary[]> ListSchedulesAsync(CallerContext caller, CancellationToken ct)
+    public async Task<ScheduleDetail[]> ListSchedulesAsync(CallerContext caller, CancellationToken ct)
     {
         var now = DateTime.Now;
         var all = await _schedules.LoadAsync(ct).ConfigureAwait(false);
         return all.Where(s => CanManage(s, caller))
-            .Select(s => ScheduleInputMapper.ToSummary(s, now))
+            .Select(s => ScheduleInputMapper.ToDetail(s, now))
             .ToArray();
     }
 

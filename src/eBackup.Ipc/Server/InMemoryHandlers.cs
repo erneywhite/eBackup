@@ -52,7 +52,7 @@ public sealed class InMemoryHandlers : IIpcHandlers
     public Task<TestResult> TestStorageAsync(TestStorageRequest req, CallerContext caller, CancellationToken ct) => Task.FromResult(new TestResult { Ok = true, Message = "ok" });
     public Task<RemoteFileDto[]> ListArchivesAsync(ListArchivesRequest req, CallerContext caller, CancellationToken ct) => Task.FromResult(Array.Empty<RemoteFileDto>());
     public Task<Ack> DeleteArchiveAsync(DeleteArchiveRequest req, CallerContext caller, CancellationToken ct) => Task.FromResult(new Ack());
-    public Task<ScheduleSummary[]> ListSchedulesAsync(CallerContext caller, CancellationToken ct) => Task.FromResult(Array.Empty<ScheduleSummary>());
+    public Task<ScheduleDetail[]> ListSchedulesAsync(CallerContext caller, CancellationToken ct) => Task.FromResult(Array.Empty<ScheduleDetail>());
     public Task<Ack> UpsertScheduleAsync(ScheduleInput req, CallerContext caller, CancellationToken ct) => Task.FromResult(new Ack());
     public Task<Ack> DeleteScheduleAsync(DeleteByIdRequest req, CallerContext caller, CancellationToken ct) => Task.FromResult(new Ack());
     public Task<ModuleSummary[]> ListModulesAsync(CallerContext caller, CancellationToken ct) => Task.FromResult(Array.Empty<ModuleSummary>());

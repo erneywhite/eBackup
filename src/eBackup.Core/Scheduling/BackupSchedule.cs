@@ -30,9 +30,7 @@ public sealed record BackupSchedule
     /// <summary>Свои папки ЭТОГО расписания (не зависят от списка на странице «Бэкап»).</summary>
     public List<string> CustomFolders { get; init; } = [];
 
-    public bool KeepLocal { get; init; } = true;
-
-    /// <summary>Id сохранённых SFTP-подключений — цели заливки.</summary>
+    /// <summary>Id сохранённых хранилищ — цели заливки.</summary>
     public List<string> TargetConnectionIds { get; init; } = [];
 
     /// <summary>Парольная фраза шифрования, зашифрованная DPAPI; null — без шифрования.</summary>

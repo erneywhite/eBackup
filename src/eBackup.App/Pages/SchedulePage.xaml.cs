@@ -1,7 +1,6 @@
-using eBackup.Core.Modules;
 using eBackup.Core.Scheduling;
-using eBackup.Modules.Obs;
-using eBackup.Security;
+using eBackup.Ipc.Client;
+using eBackup.Ipc.Contracts;
 using eBackup.Storage;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
@@ -9,28 +8,27 @@ using Microsoft.UI.Xaml.Media;
 
 namespace eBackup.App.Pages;
 
-/// <summary>Элемент списка расписаний (для x:Bind).</summary>
-public sealed class ScheduleItem(BackupSchedule schedule)
+/// <summary>Элемент списка расписаний (для x:Bind). Источник — служба (ScheduleDetail).</summary>
+public sealed class ScheduleItem(ScheduleDetail detail)
 {
-    public BackupSchedule Schedule { get; } = schedule;
-    public string Title => Schedule.Name + (Schedule.Enabled ? "" : "  ⏸");
+    public ScheduleDetail Detail { get; } = detail;
+    public string Title => Detail.Name + (Detail.Enabled ? "" : "  ⏸");
 
     public string Subtitle
     {
         get
         {
-            var when = SchedulePage.Describe(Schedule);
-            if (!Schedule.Enabled)
+            var when = SchedulePage.Describe(Detail);
+            if (!Detail.Enabled)
                 return $"{when} · приостановлено";
 
-            if (Schedule.Kind == ScheduleKind.DailyWhenIdle)
+            if (string.Equals(Detail.Kind, nameof(ScheduleKind.DailyWhenIdle), StringComparison.Ordinal))
             {
-                var ranToday = Schedule.LastRunAt is { } last && last.Date == DateTime.Now.Date;
+                var ranToday = Detail.LastRunAt is { } last && last.LocalDateTime.Date == DateTime.Now.Date;
                 return $"{when} · {(ranToday ? "сегодня уже выполнен" : "ожидает простоя")}";
             }
 
-            var next = ScheduleTiming.NextRun(Schedule, DateTime.Now);
-            return next is null ? when : $"{when} · следующий: {next:dd.MM HH:mm}";
+            return Detail.NextRun is { } next ? $"{when} · следующий: {next.LocalDateTime:dd.MM HH:mm}" : when;
         }
     }
 }
@@ -43,16 +41,8 @@ public sealed partial class SchedulePage : Page
     private static DayOfWeek DayFromIndex(int i) => (DayOfWeek)((i + 1) % 7);
     private static int IndexFromDay(DayOfWeek d) => ((int)d + 6) % 7;
 
-    private readonly ScheduleStore _scheduleStore = new(new DpapiSecretProtector());
-    private readonly StorageStore _storageStore = new(new DpapiSecretProtector());
-    private readonly ModuleRegistry _registry = new(
-    [
-        new BuiltInModuleSource([new ObsBackupModule()]),
-        new DeclarativeModuleSource(),
-    ]);
-
-    private List<BackupSchedule> _schedules = [];
-    private BackupSchedule? _editing;   // null — создаём новое
+    private List<ScheduleDetail> _schedules = [];
+    private ScheduleDetail? _editing;   // null — создаём новое
     private bool _suppressSelection;
     private readonly List<CheckBox> _moduleChecks = [];
     private readonly List<CheckBox> _storageChecks = [];
@@ -77,23 +67,38 @@ public sealed partial class SchedulePage : Page
         Loaded += async (_, _) => await ReloadAsync(selectId: null);
     }
 
+    private static ScheduleKind KindOf(ScheduleDetail s)
+        => Enum.TryParse<ScheduleKind>(s.Kind, out var k) ? k : ScheduleKind.DailyWhenIdle;
+
     /// <summary>Человекочитаемое описание периодичности.</summary>
-    public static string Describe(BackupSchedule s) => s.Kind switch
+    public static string Describe(ScheduleDetail s) => KindOf(s) switch
     {
         ScheduleKind.Daily => $"ежедневно в {s.Hour:00}:{s.Minute:00}",
         ScheduleKind.Weekly =>
-            $"еженедельно: {string.Join(", ", s.Days.OrderBy(IndexFromDay).Select(d => ShortDays[IndexFromDay(d)]))} в {s.Hour:00}:{s.Minute:00}",
+            $"еженедельно: {string.Join(", ", s.Days.OrderBy(d => IndexFromDay((DayOfWeek)d)).Select(d => ShortDays[IndexFromDay((DayOfWeek)d)]))} в {s.Hour:00}:{s.Minute:00}",
         ScheduleKind.EveryHours => $"каждые {s.EveryHours} ч",
         _ => "раз в день, при простое ПК"
     };
+
+    /// <summary>Подключение к службе для текущей операции (с заполнением статуса при ошибке).</summary>
+    private async Task<IpcClient?> ClientOrStatusAsync()
+    {
+        var client = await ServiceConnection.GetClientAsync();
+        if (client is null)
+            SetStatus("✕ Служба eBackup недоступна: " + (ServiceConnection.Shared.Error ?? ""), ok: false);
+        return client;
+    }
 
     // ---------- список ----------
 
     private async Task ReloadAsync(string? selectId)
     {
+        var client = await ServiceConnection.GetClientAsync();
         try
         {
-            _schedules = (await _scheduleStore.LoadAsync()).ToList();
+            _schedules = client is null ? [] : (await client.ListSchedulesAsync()).ToList();
+            if (client is null)
+                SetStatus("✕ Служба eBackup недоступна: " + (ServiceConnection.Shared.Error ?? ""), ok: false);
         }
         catch (Exception ex)
         {
@@ -106,7 +111,7 @@ public sealed partial class SchedulePage : Page
         ScheduleList.ItemsSource = items;
         _suppressSelection = false;
 
-        var toSelect = selectId is null ? null : items.FirstOrDefault(i => i.Schedule.Id == selectId);
+        var toSelect = selectId is null ? null : items.FirstOrDefault(i => i.Detail.Id == selectId);
         if (toSelect is not null)
         {
             ScheduleList.SelectedItem = toSelect;
@@ -123,8 +128,8 @@ public sealed partial class SchedulePage : Page
         if (_suppressSelection || ScheduleList.SelectedItem is not ScheduleItem item)
             return;
 
-        _editing = item.Schedule;
-        await ShowEditorAsync(item.Schedule);
+        _editing = item.Detail;
+        await ShowEditorAsync(item.Detail);
     }
 
     private async void AddBtn_Click(object sender, RoutedEventArgs e)
@@ -139,53 +144,61 @@ public sealed partial class SchedulePage : Page
 
     // ---------- редактор ----------
 
-    private async Task ShowEditorAsync(BackupSchedule? s)
+    private async Task ShowEditorAsync(ScheduleDetail? s)
     {
         EmptyHintPanel.Visibility = Visibility.Collapsed;
         Editor.Visibility = Visibility.Visible;
         EditorTitle.Text = s is null ? "Новое расписание" : s.Name;
         NameBox.Text = s?.Name ?? string.Empty;
 
-        // Модули (свой набор расписания; глобальный выключатель здесь не действует)
+        var client = await ServiceConnection.GetClientAsync();
+
+        // Модули: все рабочие из реестра службы (свой набор расписания; глобальный выключатель не действует).
         ModulesPanel.Children.Clear();
         _moduleChecks.Clear();
-        foreach (var d in _registry.Discover().Where(d => d.Problem is null && d.Instance is not null))
+        if (client is not null)
         {
-            var cb = new CheckBox
+            try
             {
-                Content = d.DisplayName,
-                Tag = d.Id,
-                IsChecked = s?.ModuleIds.Contains(d.Id, StringComparer.OrdinalIgnoreCase) ?? true
-            };
-            _moduleChecks.Add(cb);
-            ModulesPanel.Children.Add(cb);
+                foreach (var m in (await client.ListModulesAsync()).Where(m => m.Problem is null))
+                {
+                    var cb = new CheckBox
+                    {
+                        Content = m.DisplayName,
+                        Tag = m.Id,
+                        IsChecked = s?.ModuleIds.Contains(m.Id, StringComparer.OrdinalIgnoreCase) ?? true
+                    };
+                    _moduleChecks.Add(cb);
+                    ModulesPanel.Children.Add(cb);
+                }
+            }
+            catch { /* модули недоступны — можно бэкапить «свои папки» */ }
         }
 
         // Свои папки — собственный список расписания.
-        _schedFolders = s?.CustomFolders.ToList() ?? [];
+        _schedFolders = s?.CustomFolderIds.ToList() ?? [];
         RenderSchedFolders();
 
-        // Цели: единый список хранилищ. Legacy-флаг KeepLocal старых расписаний
-        // отмечает дефолтное локальное хранилище.
+        // Цели: хранилища службы.
         StoragesPanel.Children.Clear();
         _storageChecks.Clear();
-        List<SavedStorage> storages;
-        try
+        var dim = (Brush)Application.Current.Resources["EbTextDimBrush"];
+        List<SavedStorage> storages = [];
+        if (client is not null)
         {
-            storages = (await _storageStore.LoadAsync()).ToList();
-        }
-        catch
-        {
-            storages = [];
+            try { storages = (await client.ListStorageDetailsAsync()).Select(ServiceStorage.ToSaved).ToList(); }
+            catch { storages = []; }
         }
 
         if (storages.Count == 0)
         {
             StoragesPanel.Children.Add(new TextBlock
             {
-                Text = "хранилищ нет — добавь на странице «Хранилища»",
+                Text = client is null
+                    ? "служба eBackup недоступна"
+                    : "хранилищ нет — добавь на странице «Хранилища»",
                 FontSize = 12,
-                Foreground = (Brush)Application.Current.Resources["EbTextDimBrush"]
+                Foreground = dim
             });
         }
         else
@@ -194,10 +207,7 @@ public sealed partial class SchedulePage : Page
             {
                 var isChecked = s is null
                     ? st.Kind == StorageKind.LocalFolder
-                    : s.TargetConnectionIds.Contains(st.Id, StringComparer.OrdinalIgnoreCase)
-                      || (s.KeepLocal && (st.Id == "local" ||
-                          (st.Kind == StorageKind.LocalFolder && storages.All(x => x.Id != "local") &&
-                           ReferenceEquals(st, storages.First(x => x.Kind == StorageKind.LocalFolder)))));
+                    : s.TargetStorageIds.Contains(st.Id, StringComparer.OrdinalIgnoreCase);
                 var cb = new CheckBox
                 {
                     Content = BackupPage.DescribeStorage(st),
@@ -210,19 +220,20 @@ public sealed partial class SchedulePage : Page
         }
 
         // Шифрование: фразу не показываем; пусто при редактировании = оставить прежнюю
-        EncryptCheck.IsChecked = s?.ProtectedPassphrase is not null;
+        EncryptCheck.IsChecked = s?.HasPassphrase == true;
         Pass1.Password = string.Empty;
         Pass2.Password = string.Empty;
-        Pass1.PlaceholderText = s?.ProtectedPassphrase is null ? "парольная фраза" : "пусто — оставить прежнюю";
-        Pass2.PlaceholderText = s?.ProtectedPassphrase is null ? "повтори фразу" : "пусто — оставить прежнюю";
+        Pass1.PlaceholderText = s?.HasPassphrase == true ? "пусто — оставить прежнюю" : "парольная фраза";
+        Pass2.PlaceholderText = s?.HasPassphrase == true ? "пусто — оставить прежнюю" : "повтори фразу";
 
         // Когда («при простое» — рекомендуемый дефолт для нового)
-        IdleRadio.IsChecked = s is null || s.Kind == ScheduleKind.DailyWhenIdle;
-        DailyRadio.IsChecked = s?.Kind == ScheduleKind.Daily;
-        WeeklyRadio.IsChecked = s?.Kind == ScheduleKind.Weekly;
-        EveryRadio.IsChecked = s?.Kind == ScheduleKind.EveryHours;
+        var kind = s is null ? ScheduleKind.DailyWhenIdle : KindOf(s);
+        IdleRadio.IsChecked = kind == ScheduleKind.DailyWhenIdle;
+        DailyRadio.IsChecked = kind == ScheduleKind.Daily;
+        WeeklyRadio.IsChecked = kind == ScheduleKind.Weekly;
+        EveryRadio.IsChecked = kind == ScheduleKind.EveryHours;
         TimeBox.SelectedTime = new TimeSpan(s?.Hour ?? 3, s?.Minute ?? 0, 0);
-        var days = s?.Days ?? [DayOfWeek.Monday];
+        var days = s?.Days.Select(d => (DayOfWeek)d).ToList() ?? [DayOfWeek.Monday];
         foreach (var cb in _dayChecks)
             cb.IsChecked = days.Contains(DayFromIndex((int)cb.Tag));
         EveryBox.Text = (s?.EveryHours ?? 6).ToString();
@@ -234,24 +245,46 @@ public sealed partial class SchedulePage : Page
         SetStatus(string.Empty, ok: true);
     }
 
-    /// <summary>Ручной запуск расписания — по СОХРАНЁННЫМ настройкам (правки формы не участвуют).</summary>
-    private async void RunNowBtn_Click(object sender, RoutedEventArgs e)
+    /// <summary>
+    /// Ручной запуск — по СОХРАНЁННЫМ настройкам расписания (правки формы не участвуют).
+    /// Выполняет служба как обычный бэкап текущего пользователя (живой прогресс снизу).
+    /// Зашифрованные расписания запустить нельзя: фраза под машинным ключом службы, GUI её не видит.
+    /// </summary>
+    private void RunNowBtn_Click(object sender, RoutedEventArgs e)
     {
         if (_editing is null || MainWindow.Instance is null)
             return;
 
-        RunNowBtn.IsEnabled = false;
-        try
+        if (_editing.HasPassphrase)
         {
-            var error = await MainWindow.Instance.RunScheduleNowAsync(_editing);
-            SetStatus(error is null
-                ? "✓ Запущено — прогресс в нижней панели."
-                : "✕ " + error, ok: error is null);
+            SetStatus("Зашифрованные расписания пока нельзя запускать вручную (появится позже).", ok: false);
+            return;
         }
-        finally
+        if (MainWindow.Instance.IsBusy)
         {
-            RunNowBtn.IsEnabled = true;
+            SetStatus("Уже идёт бэкап или восстановление — подожди завершения.", ok: false);
+            return;
         }
+        if (_editing.ModuleIds.Length == 0 && _editing.CustomFolderIds.Length == 0)
+        {
+            SetStatus("В расписании нет ни модулей, ни папок.", ok: false);
+            return;
+        }
+        if (_editing.TargetStorageIds.Length == 0)
+        {
+            SetStatus("В расписании не выбрано ни одного хранилища.", ok: false);
+            return;
+        }
+
+        // Несём настройки прогона ИЗ расписания (сжатие/имя ПК/retention) — ручной запуск = плановый.
+        var request = new BackupRequest(
+            _editing.ModuleIds.ToList(), _editing.CustomFolderIds.ToList(), _editing.TargetStorageIds.ToList(), null,
+            CompressionMode: _editing.CompressionMode,
+            IncludeMachineName: _editing.IncludeMachineName,
+            RetentionCount: _editing.RetentionCount);
+        // Не ждём завершения: кнопке важен сам старт, прогресс — в нижней панели.
+        _ = MainWindow.Instance.StartBackupAsync(request, trigger: $"вручную · расписание «{_editing.Name}»");
+        SetStatus("✓ Запущено — прогресс в нижней панели.", ok: true);
     }
 
     private void EncryptCheck_Changed(object sender, RoutedEventArgs e)
@@ -371,8 +404,8 @@ public sealed partial class SchedulePage : Page
             return;
         }
 
-        // Парольная фраза: новая, прежняя или отсутствие шифрования.
-        string? protectedPassphrase = null;
+        // Парольная фраза: служба шифрует машинным ключом. null — оставить прежнюю; "" — снять; иначе — задать.
+        string? newPassphrase;
         if (EncryptCheck.IsChecked == true)
         {
             if (Pass1.Password.Length > 0 || Pass2.Password.Length > 0)
@@ -382,17 +415,21 @@ public sealed partial class SchedulePage : Page
                     SetStatus("Парольные фразы не совпадают.", ok: false);
                     return;
                 }
-                protectedPassphrase = _scheduleStore.ProtectPassphrase(Pass1.Password);
+                newPassphrase = Pass1.Password;
             }
-            else if (_editing?.ProtectedPassphrase is not null)
+            else if (_editing?.HasPassphrase == true)
             {
-                protectedPassphrase = _editing.ProtectedPassphrase; // оставить прежнюю
+                newPassphrase = null; // оставить прежнюю
             }
             else
             {
                 SetStatus("Введи парольную фразу для шифрования.", ok: false);
                 return;
             }
+        }
+        else
+        {
+            newPassphrase = ""; // шифрование выключено
         }
 
         var kind = WeeklyRadio.IsChecked == true ? ScheduleKind.Weekly
@@ -428,39 +465,50 @@ public sealed partial class SchedulePage : Page
         if (days.Count == 0)
             days = [DayOfWeek.Monday];
 
-        var schedule = new BackupSchedule
+        // Параметры прогона: у службы нет настроек GUI, поэтому несём их в расписании.
+        // При правке сохраняем прежние, для нового — берём текущие настройки приложения.
+        var settings = AppSettings.Load();
+        var input = new ScheduleInput
         {
             Id = _editing?.Id ?? Guid.NewGuid().ToString("N")[..8],
             Name = name,
-            ModuleIds = moduleIds,
-            CustomFolders = _schedFolders.ToList(),
-            KeepLocal = false, // legacy-флаг: новые расписания целиком на единых хранилищах
-            TargetConnectionIds = targetIds,
-            ProtectedPassphrase = protectedPassphrase,
-            Kind = kind,
+            ModuleIds = moduleIds.ToArray(),
+            CustomFolderIds = _schedFolders.ToArray(),
+            TargetStorageIds = targetIds.ToArray(),
+            Kind = kind.ToString(),
             Hour = time.Hours,
             Minute = time.Minutes,
-            Days = days,
+            Days = days.Select(d => (int)d).ToArray(),
             EveryHours = everyHours,
             IdleMinutes = idleMinutes,
             Enabled = EnabledToggle.IsOn,
-            // Точные расписания стартуют «с этого момента» (без задним-числом);
-            // «при простое» — без отметки, чтобы выполниться при первом же простое.
-            LastRunAt = _editing?.LastRunAt
-                ?? (kind == ScheduleKind.DailyWhenIdle ? null : DateTime.Now)
+            CompressionMode = _editing?.CompressionMode ?? settings.CompressionMode,
+            IncludeMachineName = _editing?.IncludeMachineName ?? settings.IncludeMachineNameInArchive,
+            RetentionCount = _editing?.RetentionCount ?? (settings.RetentionCount > 0 ? settings.RetentionCount : null),
+            NewPassphrase = newPassphrase,
         };
+
+        var client = await ClientOrStatusAsync();
+        if (client is null)
+            return;
 
         try
         {
-            var all = _schedules.Where(s => s.Id != schedule.Id).Append(schedule).ToList();
-            await _scheduleStore.SaveAllAsync(all);
-            await ReloadAsync(selectId: schedule.Id);
-            var next = ScheduleTiming.NextRun(schedule, DateTime.Now);
-            SetStatus(!schedule.Enabled
-                ? "✓ Сохранено (приостановлено)"
-                : schedule.Kind == ScheduleKind.DailyWhenIdle
-                    ? "✓ Сохранено · выполнится при ближайшем простое ПК"
-                    : $"✓ Сохранено · следующий запуск: {next:dd.MM.yyyy HH:mm}", ok: true);
+            await client.UpsertScheduleAsync(input);
+            await ReloadAsync(selectId: input.Id);
+
+            var encNote = EncryptCheck.IsChecked == true
+                ? " · ⚠ зашифрованные расписания пока запускаются только вручную"
+                : "";
+            SetStatus(!input.Enabled
+                ? "✓ Сохранено (приостановлено)" + encNote
+                : kind == ScheduleKind.DailyWhenIdle
+                    ? "✓ Сохранено · выполнится при ближайшем простое ПК" + encNote
+                    : "✓ Сохранено" + encNote, ok: true);
+        }
+        catch (IpcRequestException ex)
+        {
+            SetStatus("✕ " + ex.Error.Message, ok: false);
         }
         catch (Exception ex)
         {
@@ -492,11 +540,19 @@ public sealed partial class SchedulePage : Page
         if (await dialog.ShowAsync() != ContentDialogResult.Primary)
             return;
 
+        var client = await ClientOrStatusAsync();
+        if (client is null)
+            return;
+
         try
         {
-            await _scheduleStore.SaveAllAsync(_schedules.Where(s => s.Id != _editing.Id));
+            await client.DeleteScheduleAsync(_editing.Id);
             _editing = null;
             await ReloadAsync(selectId: null);
+        }
+        catch (IpcRequestException ex)
+        {
+            SetStatus("✕ " + ex.Error.Message, ok: false);
         }
         catch (Exception ex)
         {

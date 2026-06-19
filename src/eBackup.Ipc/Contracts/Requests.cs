@@ -124,7 +124,6 @@ public sealed record ScheduleInput
     public string[] ModuleIds { get; init; } = [];
     public string[] CustomFolderIds { get; init; } = [];
     public string[] TargetStorageIds { get; init; } = [];
-    public bool KeepLocal { get; init; } = true;
     public string Kind { get; init; } = "Daily"; // enum строкой
     public int Hour { get; init; } = 3;
     public int Minute { get; init; }

@@ -1,9 +1,6 @@
-using eBackup.Core.Modules;
 using eBackup.Core.Scheduling;
 using eBackup.Ipc.Client;
 using eBackup.Ipc.Contracts;
-using eBackup.Modules.Obs;
-using eBackup.Security;
 using eBackup.Storage;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
@@ -67,33 +64,40 @@ public sealed partial class OverviewPage : Page
                 }
             }
 
-            // ---- расписания
-            try
+            // ---- расписания (из службы — их теперь исполняет служба, GUI лишь читает)
+            if (moduleClient is null)
             {
-                var schedules = await new ScheduleStore(new DpapiSecretProtector()).LoadAsync();
-                var active = schedules.Where(x => x.Enabled).ToList();
-                if (active.Count == 0)
-                {
-                    ScheduleTileText.Text = "нет активных — создай в «Расписании»";
-                }
-                else
-                {
-                    var now = DateTime.Now;
-                    var nexts = active.Select(x => ScheduleTiming.NextRun(x, now))
-                        .Where(n => n is not null)
-                        .Select(n => n!.Value)
-                        .ToList();
-                    var idlePending = active.Any(x => x.Kind == ScheduleKind.DailyWhenIdle
-                        && (x.LastRunAt is null || x.LastRunAt.Value.Date < now.Date));
-
-                    ScheduleTileText.Text = $"активных: {active.Count}"
-                        + (nexts.Count > 0 ? $"\nближайший: {nexts.Min():dd.MM HH:mm}" : "")
-                        + (idlePending ? "\nожидает простоя ПК" : "");
-                }
+                ScheduleTileText.Text = "служба недоступна";
             }
-            catch
+            else
             {
-                ScheduleTileText.Text = "не удалось прочитать расписания";
+                try
+                {
+                    var schedules = await moduleClient.ListSchedulesAsync();
+                    var active = schedules.Where(x => x.Enabled).ToList();
+                    if (active.Count == 0)
+                    {
+                        ScheduleTileText.Text = "нет активных — создай в «Расписании»";
+                    }
+                    else
+                    {
+                        var now = DateTime.Now;
+                        var nexts = active.Where(x => x.NextRun is not null)
+                            .Select(x => x.NextRun!.Value.LocalDateTime)
+                            .ToList();
+                        var idlePending = active.Any(x =>
+                            string.Equals(x.Kind, nameof(ScheduleKind.DailyWhenIdle), StringComparison.Ordinal)
+                            && (x.LastRunAt is null || x.LastRunAt.Value.LocalDateTime.Date < now.Date));
+
+                        ScheduleTileText.Text = $"активных: {active.Count}"
+                            + (nexts.Count > 0 ? $"\nближайший: {nexts.Min():dd.MM HH:mm}" : "")
+                            + (idlePending ? "\nожидает простоя ПК" : "");
+                    }
+                }
+                catch
+                {
+                    ScheduleTileText.Text = "не удалось прочитать расписания";
+                }
             }
 
             // ---- хранилища: строки с бейджами + счётчики архивов (читаем из СЛУЖБЫ; листинг — через неё же)

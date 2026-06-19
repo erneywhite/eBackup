@@ -79,20 +79,26 @@ public class ScheduleInputMapperTests
     }
 
     [Fact]
-    public void Summary_Reports_Passphrase_Presence_And_NextRun()
+    public void Detail_Reports_Passphrase_Presence_NextRun_And_Editable_Fields()
     {
         var s = new BackupSchedule
         {
             Id = "s1", Name = "Ежедневный", Kind = ScheduleKind.Daily, Hour = 3, Minute = 0,
             ProtectedPassphrase = "enc:x", OwnerSid = "sid",
+            ModuleIds = ["obs"], CustomFolders = [@"D:\p"], TargetConnectionIds = ["NAS"],
+            Days = [DayOfWeek.Monday, DayOfWeek.Friday],
             LastRunAt = new DateTime(2026, 6, 18, 3, 0, 0),
         };
         var now = new DateTime(2026, 6, 19, 10, 0, 0);
 
-        var dto = ScheduleInputMapper.ToSummary(s, now);
+        var dto = ScheduleInputMapper.ToDetail(s, now);
 
         Assert.True(dto.HasPassphrase);
         Assert.Equal("sid", dto.OwnerSid);
         Assert.Equal(new DateTimeOffset(new DateTime(2026, 6, 20, 3, 0, 0)), dto.NextRun); // завтра 03:00
+        Assert.Equal(["obs"], dto.ModuleIds);
+        Assert.Equal([@"D:\p"], dto.CustomFolderIds);
+        Assert.Equal(["NAS"], dto.TargetStorageIds);
+        Assert.Equal([(int)DayOfWeek.Monday, (int)DayOfWeek.Friday], dto.Days); // DayOfWeek → int
     }
 }
