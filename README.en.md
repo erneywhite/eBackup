@@ -1,108 +1,128 @@
-# eBackup
+<p align="center">
+  <img src="src/eBackup.App/Assets/eBackup.png" alt="eBackup" width="140">
+</p>
 
-> 🌐 **Languages:** [Русский](README.md) · **English** (this file)
+<h1 align="center">eBackup</h1>
 
-**eBackup** is a modular Windows backup app: it backs up application settings and
-any folders you pick, stores archives in several places at once — from a local
-folder or NAS to the cloud (Google Drive, Dropbox, MEGA) — and restores everything
-back into place, even on another PC or after an OS reinstall. Branded dark UI plus a full CLI.
+<p align="center"><b>Backups that move with you.</b></p>
 
-Free, open source, no subscriptions. If eBackup turns out useful, you can
+<p align="center">
+  <a href="https://github.com/erneywhite/eBackup/releases/latest"><img src="https://img.shields.io/github/v/release/erneywhite/eBackup?color=C97DF6&label=release" alt="Release"></a>
+  <a href="https://github.com/erneywhite/eBackup/releases"><img src="https://img.shields.io/github/downloads/erneywhite/eBackup/total?color=FF6DC8&label=downloads" alt="Downloads"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-green" alt="License"></a>
+  <img src="https://img.shields.io/badge/Windows-10%2F11%20x64-0078D6" alt="Windows">
+  <img src="https://img.shields.io/badge/.NET-9-512BD4" alt=".NET 9">
+</p>
+
+<p align="center">🌐 <a href="README.md">Русский</a> · <b>English</b></p>
+
+---
+
+**eBackup** backs up application settings and any folders you pick, stores archives in several
+places at once — from a local folder or NAS to Google Drive, Dropbox and MEGA — and carefully
+puts everything back, even on another computer or after an OS reinstall. A branded dark UI,
+a background service and a full CLI.
+
+Free, open source, no subscriptions or paywalls. If eBackup came in handy, you can
 [buy the author a coffee ☕](https://dalink.to/toristarm).
 
-> 🎉 **Version 1.2.0** — a background Windows service (LocalSystem): backups, restores
-> and schedules run with the rights they need and **even when nobody is logged in**;
-> encryption runs through the service; and an 8th storage — **MEGA** — has been added.
+## Why eBackup
+
+- 🗄️ **8 storage types at once** — local folder, NAS, SFTP, FTP/FTPS, S3, WebDAV, Google Drive, Dropbox, MEGA. One backup, several destinations.
+- 🛡️ **Background service** — backups and schedules run even when nobody is logged in, with no window open.
+- 🔐 **AES-256-GCM encryption** — archives are safe to put even on a server you don't own.
+- ✅ **Every backup is verified** — the archive is re-read and checked against SHA-256; corrupted data never reaches any storage.
+- 🧩 **Modules and a catalog** — OBS, VTube Studio, browsers, games and more; one-click install.
+- 📦 **Portable `.ebk` format** — paths inside the archive are tokenized, so restore works on any PC.
 
 ## Install
 
-Grab the installer from the [**Releases**](https://github.com/erneywhite/eBackup/releases/latest)
-page (`eBackup-setup-x.y.z-x64.exe`) and run it. The app is **self-contained** —
-no .NET required. After install, eBackup checks for updates and can update itself
-with one click.
+Download the installer from the [**Releases**](https://github.com/erneywhite/eBackup/releases/latest)
+page (`eBackup-setup-x.y.z-x64.exe`) and run it. The app is **self-contained** — no .NET needed.
+After install, eBackup checks for updates and can update itself with one click.
 
-Windows 10/11 (x64). Installing into Program Files needs administrator rights.
+A background **eBackup** service (LocalSystem, auto-start) is installed alongside the app — it's
+what lets backups and schedules run without an open window and even with nobody logged in.
+Uninstalling the app removes the service too.
 
-A background **eBackup** service (LocalSystem, auto-start) is installed alongside the
-app — it's what lets backups and schedules run without an open window and even with
-nobody logged in. Uninstalling the app removes the service too.
+> Windows 10/11 (x64). Installing into Program Files needs administrator rights.
 
-## Screenshots
+## How it looks
 
 The main dashboard — "Overview": your latest backup, storages with their status, and one-click backup.
 
 ![eBackup — Overview screen](docs/screenshots/overview.png)
 
-<!-- More screens (Backup, Storage, History) to be added later under docs/screenshots/. -->
+## Storage
 
-## Storage — 8 kinds, as many as you like at once
+As many as you like at once. Each gets a Test button, automatic availability badges ✓/✕ and a
+used-space counter on the Overview.
 
 | Kind | Details |
 |---|---|
-| 📁 Folder / network drive | UNC paths `\\nas\share`, optional SMB credentials (temporary connection, password in DPAPI) |
-| 🔑 SFTP | password or a private key pasted **as content** (stored encrypted); remote folder picking via a **tree** |
-| 📡 FTP / FTPS | FluentFTP; self-signed NAS certificates are accepted |
-| 🪣 S3-compatible | AWS S3, MinIO, Backblaze B2, Cloudflare R2…; path-style addressing, prefix "folders" |
+| 📁 Folder / network drive | UNC paths `\\nas\share`, optional SMB credentials (temporary connection) |
+| 🔑 SFTP | password or a private key pasted **as content**; remote folder picking via a **tree** |
+| 📡 FTP / FTPS | FluentFTP; self-signed NAS certificates allowed via an explicit flag |
+| 🪣 S3-compatible | AWS S3, MinIO, Backblaze B2, Cloudflare R2…; path-style, prefix "folders" |
 | ☁️ WebDAV | Nextcloud, ownCloud, Yandex.Disk etc. (app passwords) |
-| 🟢 Google Drive | OAuth sign-in via the browser; `drive.file` scope — the app sees **only its own** files |
-| 🔵 Dropbox | OAuth sign-in; isolated app folder |
-| 🔴 MEGA | sign in once (login + password + 2FA code), then it rides the saved session with no password or 2FA, schedules included; isolated app folder |
+| 🟢 Google Drive | OAuth via the browser; `drive.file` scope — the app sees **only its own** files |
+| 🔵 Dropbox | OAuth; isolated app folder |
+| 🔴 MEGA | sign in once (login + password + 2FA code), then via the saved session, schedules included |
 
-Every storage gets a Test button, automatic availability badges ✓/✕ and a
-used-space counter on the Overview.
+## What it does
 
-## Features
+**Backup.** Modules and any custom folders, several destinations per run, optional encryption,
+machine name in the archive name, compression level. Free space is checked before starting — a
+clean refusal instead of a mid-copy crash. And a liquid water progress bar with honest physics 🌊
 
-**Backup:**
-- modules (OBS Studio) + **any custom folders**; several destinations per run
-- optional encryption; machine name in the archive name; compression level choice
-- ✅ **Verification after every backup**: the archive is fully re-read
-  (decompression validates CRC32), files are checked against their manifest
-  SHA-256, and every destination is verified by size (folders get a full
-  SHA-256 of the copy). Corrupted data never reaches a single storage.
-- free-space checks **before** starting — a clean refusal instead of a mid-copy crash
-- a liquid progress bar: water with honest physics, splashes and bubbles 🌊
+**Verification.** After every backup the archive is fully re-read (decompression checks CRC32),
+files are matched against the manifest by SHA-256, and each destination is verified by size.
+Corrupted data never reaches a storage.
 
-**Schedules:** daily / weekdays / every N hours / **once a day when the PC is
-idle** (no input and the system is calm). Each schedule owns its module set,
-folders, destinations and encryption; there is a "Run now" button. They are run by
-the background service — they fire **even when nobody is logged in**, and you don't
-need to keep the app open. Encrypted schedules run automatically too (the service
-keeps the passphrase under a machine key).
+**Schedules.** Daily / weekdays / every N hours / **once a day when the PC is idle**. Each schedule
+has its own modules, folders, destinations and encryption; there's a "Run now" button. The
+background service runs them — they fire **even when nobody is logged in**, no need to keep the app
+open. Encrypted schedules run on their own too (the service keeps the passphrase under a machine key).
 
-**Archives and the archive browser:**
-- listings across all storages: size, date, 🔒 for encrypted; confirmed deletion
-- **"Open"** shows a checkbox tree of the archive contents: restore the selected
-  files to their original paths **or just download them** into any folder
-- remote archives are read **in ranges** (SFTP seek / HTTP Range): a 100+ GB
-  cloud archive opens its table of contents in seconds, and only the selected
-  files are actually transferred
+**Restore.** To the original locations or any folder; conflict modes (replace with `.bak` /
+overwrite / add missing only). External OBS scene assets land wherever you choose, and the paths
+inside the scenes are rewritten automatically.
 
-**Restore:** to the original locations or to any folder you choose; conflict
-modes (replace with `.bak` / overwrite / add missing only); external OBS scene
-assets land in a folder you pick and scene paths are rewritten automatically.
+**Archives and browser.** Listings across all storages (size, date, 🔒 for encrypted). "Open" shows
+a checkbox tree of the contents: restore selected files or just download them into a folder. Remote
+archives are read **in ranges** (SFTP seek / HTTP Range): a 100 GB cloud archive opens its table of
+contents in seconds, and only the selected files are downloaded.
 
-**History:** a journal of every operation — backups (manual and scheduled),
-restores, extractions. Each run keeps a full log with millisecond timecodes:
-every file with its size, per-target upload speeds, verification, errors.
-Interrupted runs are honestly marked as such.
+**History.** A journal of every operation (manual and scheduled backups, restores, extractions).
+Each run keeps a full log with millisecond timecodes: every file with its size, per-target upload
+speed, verification, errors. Interrupted runs are honestly marked.
 
-**Also nice:** result notifications (✅/❌), tray + autostart with Windows,
-keep-last-N retention on all destinations, temp cleanup, quick links to
-configs/logs from Settings.
+**Little things.** Result notifications (✅/❌), tray and autostart with Windows, keep-last-N
+retention on every destination, temp cleanup, quick links to configs and logs.
 
-**CLI** — everything is scriptable: `backup`, `restore`, `storage-list/test/ls`,
-`module-add`; the passphrase for automation goes through the
-`EBACKUP_PASSPHRASE` environment variable.
+## Security
+
+- 🔐 **Archive encryption** — chunked AES-256-GCM, key derived from the passphrase via **Argon2id**.
+- 🔑 **Connection secrets** (passwords, keys, OAuth tokens, the MEGA session) are stored encrypted
+  and intentionally **not portable** to another PC: the service keeps them under a machine key, the CLI uses Windows DPAPI.
+- 🚫 **Fail-closed** — the passphrase travels as a single-use ticket and never lands in logs or history; no passphrase, no archive.
+- 🛡️ Archives are checked against path traversal, and every backup is verified before it ships.
+
+**The `.ebk` format** is a ZIP + `manifest.json` with tokenized paths (`{APPDATA}` etc.), so the
+archive is portable between machines. Names are descriptive and sortable:
+`ebackup_MY-PC_obs_2026-06-19_19-40-01.ebk`.
 
 ## Modules
 
-- 🎬 **OBS Studio** (built-in): configuration without caches and logs, plugins
-  from the install folder, and **dependent scene assets** (background images,
-  videos etc. living outside OBS) — with path rewriting on restore
-- 🧩 **Declarative drop-in modules**: drop a `*.module.json` into
-  `%APPDATA%\eBackup\modules` (or `ebackup module-add file`) — and the app
-  starts backing up the described paths. No code, no rebuild.
+A module describes *what* to back up for a given app — no hand-picking dozens of folders.
+
+- 🎬 **Built-in** (with smart install discovery): **OBS Studio** (config without caches, plugins
+  and dependent scene assets) and **VTube Studio** (models, items, backgrounds and configs; finds
+  the game in any Steam library, skips the heavy trackers).
+- 🧩 **Catalog** — "Modules → Catalog" inside the app: SSH, VS Code, Minecraft, Vintage Story,
+  Firefox, Waterfox… One-click install, the list lives in this repository.
+- 📝 **Your own declarative modules** — drop a `*.module.json` into `%APPDATA%\eBackup\modules`
+  (or `ebackup module-add file`), and the app starts backing up the described paths. No code, no rebuild:
 
 ```json
 {
@@ -115,73 +135,36 @@ configs/logs from Settings.
 }
 ```
 
-## Security
+Want to share a module with others — add it to the [catalog](catalog/) via a pull request.
 
-- 🔐 Optional archive encryption: chunked **AES-256-GCM**, key derived from the
-  passphrase via **Argon2id** — safe to put on servers you don't own
-- 🔑 Connection secrets (passwords, keys, OAuth tokens, the MEGA session) are stored
-  encrypted, never in plain text, and intentionally **not portable** to another PC:
-  the background service keeps them under a **machine key** in ProgramData (so
-  schedules can decrypt them with nobody logged in), the CLI uses **Windows DPAPI**
-- 🔒 When encrypting through the service the passphrase travels as a single-use
-  ticket and is **never written** to history or logs; it is fail-closed — no
-  passphrase, no archive
-- 🛡️ Declarative modules are restricted to app-data paths (no `.ssh`/keys/
-  Program Files), archives are checked against path traversal, and every
-  backup is verified before it ships
+## CLI
 
-**The `.ebk` archive format** is ZIP + `manifest.json` with tokenized paths
-(`{APPDATA}` etc.), which makes archives **portable between machines**. Names
-are descriptive and sortable: `ebackup_MY-PC_obs-folders_2026-06-11_19-40-01.ebk`.
+Everything is scriptable: `backup`, `restore`, `storage-list` / `storage-test` / `storage-ls`,
+`module-add`. The passphrase for automation goes through the `EBACKUP_PASSPHRASE` environment variable.
 
-## Build and run
+## For developers
 
-Requires the [.NET SDK 9.0+](https://dotnet.microsoft.com/download) (Windows 10/11).
+You need the [.NET SDK 9.0+](https://dotnet.microsoft.com/download) (Windows 10/11).
 
 ```powershell
 dotnet build eBackup.sln
 dotnet test  eBackup.sln
-
-# GUI
-.\src\eBackup.App\bin\x64\Debug\net9.0-windows10.0.19041.0\win-x64\eBackup.App.exe
-
-# CLI
-dotnet run --project src/eBackup.Cli -- list-modules
-dotnet run --project src/eBackup.Cli -- backup --out .\backups --encrypt
-dotnet run --project src/eBackup.Cli -- restore --archive .\backups\<name>.ebk --to C:\Temp\check
 ```
-
-## Architecture
 
 | Project | Purpose |
 |---|---|
 | `eBackup.Abstractions` | Plugin contract (interfaces, manifest model) — a stable boundary |
-| `eBackup.Core` | Backup/restore engine with verification, encryption, module registry, schedules, the History journal |
-| `eBackup.Security` | Secret protection: Windows DPAPI (CLI/local) and the service's **machine key** (ProgramData) |
-| `eBackup.Storage` | Unified storage model: folders/SMB, FTP/FTPS, S3, WebDAV, Google Drive, Dropbox, **MEGA**; OAuth (PKCE + loopback); ranged reads of remote archives |
-| `eBackup.Storage.Sftp` | SFTP on SSH.NET (+ seekable streams), `eBackup.Storage.Local` — the basic local provider |
-| `eBackup.Modules.Obs` | The OBS Studio module (config + plugins + scene assets) |
+| `eBackup.Core` | Backup/restore engine with verification, encryption, module registry, schedules, history |
+| `eBackup.Security` | Secret protection: Windows DPAPI (CLI) and the service's machine key |
+| `eBackup.Storage` (+ `.Sftp`, `.Local`) | Unified storage model, OAuth (PKCE + loopback), ranged reads of remote archives |
+| `eBackup.Modules.Obs`, `eBackup.Modules.VTubeStudio` | Built-in modules with smart discovery |
 | `eBackup.Ipc` | Named-pipe contract and transport between the GUI and the service |
-| `eBackup.Service` | The LocalSystem background service: backup/restore/history/archives/modules/schedules |
-| `eBackup.App` | WinUI 3 GUI (a thin named-pipe client of the service) |
+| `eBackup.Service` | The LocalSystem background service: all privileged work |
+| `eBackup.App` | WinUI 3 GUI — a thin client of the service |
 | `eBackup.Cli` | Command-line interface |
-| `eBackup.Tests` | Tests |
 
-Details: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) (in Russian).
-
-## Roadmap
-
-Done: ✅ [v1.2.0 release](https://github.com/erneywhite/eBackup/releases/latest) —
-a **background Windows service (LocalSystem)**: backups, restores and schedules without
-an open window and **with nobody logged in**, encryption through the service, an 8th
-storage — **MEGA**. Earlier: ✅ v1.1.0 (one-click module catalog, cancellable backups),
-✅ 7 storage kinds, ✅ archive browser with ranged reads, ✅ self-update.
-
-Next:
-- Dynamic DLL plugins (with a trust model and signatures)
-- Windows registry key backup
-- English UI
-- Selective reads of **encrypted** archives without a full download
+More about the design — in [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) (in Russian).
 
 ## License
-[MIT](LICENSE) © Erney White (erneywhite)
+
+[MIT](LICENSE) © Erney White ([@erneywhite](https://github.com/erneywhite))
