@@ -7,8 +7,8 @@
 <p align="center"><b>Бэкапы, которые переезжают с тобой.</b></p>
 
 <p align="center">
-  <a href="https://github.com/erneywhite/eBackup/releases/latest"><img src="https://img.shields.io/github/v/release/erneywhite/eBackup?color=C97DF6&label=релиз" alt="Release"></a>
-  <a href="https://github.com/erneywhite/eBackup/releases"><img src="https://img.shields.io/github/downloads/erneywhite/eBackup/total?color=FF6DC8&label=загрузки" alt="Downloads"></a>
+  <a href="https://github.com/erneywhite/eBackup/releases/latest"><img src="https://img.shields.io/github/v/release/erneywhite/eBackup?color=C97DF6&label=%D1%80%D0%B5%D0%BB%D0%B8%D0%B7" alt="Release"></a>
+  <a href="https://github.com/erneywhite/eBackup/releases"><img src="https://img.shields.io/github/downloads/erneywhite/eBackup/total?color=FF6DC8&label=%D0%B7%D0%B0%D0%B3%D1%80%D1%83%D0%B7%D0%BA%D0%B8" alt="Downloads"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/лицензия-MIT-green" alt="License"></a>
   <img src="https://img.shields.io/badge/Windows-10%2F11%20x64-0078D6" alt="Windows">
   <img src="https://img.shields.io/badge/.NET-9-512BD4" alt=".NET 9">
