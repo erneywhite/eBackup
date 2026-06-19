@@ -15,6 +15,7 @@
   <ItemGroup>
     <PackageReference Include="Microsoft.Extensions.Hosting" Version="10.0.9" />
     <PackageReference Include="Microsoft.Extensions.Hosting.WindowsServices" Version="10.0.9" />
+    <PackageReference Include="System.Diagnostics.PerformanceCounter" Version="10.0.9" /> <!-- монитор нагрузки планировщика -->
   </ItemGroup>
 
   <ItemGroup>

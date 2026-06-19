@@ -34,7 +34,7 @@ public sealed class ScheduleWorkerTests : IDisposable
 
     private sealed class FakeIdle(TimeSpan idle) : IIdleSource
     {
-        public TimeSpan GetIdle() => idle;
+        public Task<TimeSpan> GetIdleAsync(CancellationToken ct) => Task.FromResult(idle);
     }
 
     private sealed class NoOpRunner : IJobRunner

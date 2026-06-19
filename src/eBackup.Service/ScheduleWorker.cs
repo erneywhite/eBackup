@@ -54,7 +54,7 @@ public sealed class ScheduleWorker : BackgroundService
     /// </summary>
     public async Task<int> TickAsync(DateTime now, CancellationToken ct)
     {
-        var idle = _idle.GetIdle();
+        var idle = await _idle.GetIdleAsync(ct).ConfigureAwait(false);
         var list = (await _schedules.LoadAsync(ct).ConfigureAwait(false)).ToList();
 
         var queued = 0;

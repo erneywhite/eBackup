@@ -28,7 +28,7 @@ builder.Services.AddSingleton<ServicePipeline>();   // общий конвейе
 // Расписаниям и IPC нужна ОДНА очередь задач и ОДИН конфиг — отдаём их из общего конвейера.
 builder.Services.AddSingleton(sp => sp.GetRequiredService<ServicePipeline>().Schedules);
 builder.Services.AddSingleton(sp => sp.GetRequiredService<ServicePipeline>().Jobs);
-builder.Services.AddSingleton<IIdleSource, NeverIdleSource>(); // настоящий источник простоя — на S6-6
+builder.Services.AddSingleton<IIdleSource, SessionIdleSource>(); // WTS-сеансы Session 0 + монитор нагрузки
 builder.Services.AddHostedService<IpcWorker>();
 builder.Services.AddHostedService<ScheduleWorker>();
 builder.Build().Run();
