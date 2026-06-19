@@ -3,11 +3,9 @@ using eBackup.App.Pages;
 using eBackup.Core.Abstractions;
 using eBackup.Core.Engine;
 using eBackup.Core.History;
-using eBackup.Core.Modules;
 using eBackup.Ipc.Client;
 using eBackup.Ipc.Contracts;
 using eBackup.Modules.Obs;
-using eBackup.Security;
 using eBackup.Storage;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
@@ -44,7 +42,6 @@ public sealed partial class MainWindow : Window
     /// <summary>Срабатывает по завершении бэкапа — страницы (напр. «Архивы») обновляются сами.</summary>
     public static event Action? BackupCompleted;
 
-    private readonly StorageStore _storages = new(new DpapiSecretProtector());
     private bool _operationRunning; // бэкап или восстановление — одновременно только одно
     private CancellationTokenSource? _backupCts; // отмена текущего бэкапа (null — бэкап не идёт)
     private double _fill;           // текущая доля заливки-прогресса нижней панели (0..1)
@@ -255,22 +252,29 @@ public sealed partial class MainWindow : Window
             if (settings.DefaultStorageCreated)
                 return;
 
-            var list = (await _storages.LoadAsync()).ToList();
-            if (!list.Any(s => s.Kind == StorageKind.LocalFolder))
+            // Первичная настройка идёт ЧЕРЕЗ СЛУЖБУ (она владеет хранилищами/реестром модулей).
+            // Раньше GUI сеял это в локальный DPAPI-конфиг, который служба игнорирует, — орфан.
+            var client = await ServiceConnection.GetClientAsync();
+            if (client is null)
+                return; // служба не поднялась — повторим при следующем запуске (флаг НЕ ставим)
+
+            // Дефолтная «Локальная папка»: путь резолвится в контексте пользователя, запись — в службу.
+            var existing = await client.ListStorageDetailsAsync();
+            if (!existing.Any(s => string.Equals(s.Kind, nameof(StorageKind.LocalFolder), StringComparison.OrdinalIgnoreCase)))
             {
-                list.Add(new SavedStorage
+                var dir = settings.LocalBackupDir;
+                try { Directory.CreateDirectory(dir); } catch { /* создаст служба при заливке */ }
+                await client.UpsertStorageAsync(new StorageInput
                 {
                     Id = "local",
                     Name = "Локальная папка",
-                    Kind = StorageKind.LocalFolder,
-                    Path = settings.LocalBackupDir
+                    Kind = nameof(StorageKind.LocalFolder),
+                    Settings = new() { ["path"] = dir },
                 });
-                await _storages.SaveAllAsync(list);
             }
 
-            // Свежая установка: встроенный модуль OBS выключен по умолчанию — база не
-            // навязывает модули; нужный пользователь включит его тумблером в «Модулях».
-            new eBackup.Core.Modules.ModuleRegistry([]).SetEnabled("obs", false);
+            // Свежая установка: встроенный OBS выключен по умолчанию (в реестре СЛУЖБЫ — источнике истины).
+            try { await client.SetModuleEnabledAsync("obs", false); } catch { /* OBS может отсутствовать */ }
 
             settings.DefaultStorageCreated = true;
             settings.Save();
