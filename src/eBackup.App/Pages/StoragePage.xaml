@@ -69,6 +69,7 @@
                         <MenuFlyoutItem Text="WebDAV (Nextcloud, Яндекс.Диск…)" Click="AddWebDav_Click" />
                         <MenuFlyoutItem Text="Google Drive" Click="AddGDrive_Click" />
                         <MenuFlyoutItem Text="Dropbox" Click="AddDropbox_Click" />
+                        <MenuFlyoutItem Text="MEGA (mega.nz)" Click="AddMega_Click" />
                     </MenuFlyout>
                 </Button.Flyout>
             </Button>
@@ -172,6 +173,22 @@
 
                             <PasswordBox x:Name="WebDavPassBox" PlaceholderText="пароль" />
                             <TextBlock Text="Для Яндекс.Диска используй «пароль приложения» (создаётся в настройках Яндекс ID), для Nextcloud — пароль приложения из настроек безопасности."
+                                       FontSize="11" TextWrapping="Wrap"
+                                       Foreground="{StaticResource EbTextDimBrush}" />
+                        </StackPanel>
+
+                        <!-- ===== MEGA ===== -->
+                        <StackPanel x:Name="MegaPanel" Spacing="10" Visibility="Collapsed">
+                            <TextBlock Text="E-mail аккаунта MEGA" FontSize="12"
+                                       Foreground="{StaticResource EbTextDimBrush}" />
+                            <TextBox x:Name="MegaEmailBox" PlaceholderText="you@example.com" />
+
+                            <PasswordBox x:Name="MegaPassBox" PlaceholderText="пароль аккаунта" />
+
+                            <TextBlock Text="Папка для архивов" FontSize="12"
+                                       Foreground="{StaticResource EbTextDimBrush}" />
+                            <TextBox x:Name="MegaDirBox" PlaceholderText="например: eBackup (пусто — eBackup)" />
+                            <TextBlock Text="MEGA шифрует данные на своей стороне. Пароль хранится зашифрованным (машинный ключ службы)."
                                        FontSize="11" TextWrapping="Wrap"
                                        Foreground="{StaticResource EbTextDimBrush}" />
                         </StackPanel>

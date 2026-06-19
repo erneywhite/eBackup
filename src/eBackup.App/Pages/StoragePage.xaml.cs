@@ -28,6 +28,7 @@ public sealed class StorageItem(SavedStorage storage) : INotifyPropertyChanged
         StorageKind.GoogleDrive => $"gdrive · папка {(string.IsNullOrWhiteSpace(Storage.RemoteDirectory) ? "eBackup" : Storage.RemoteDirectory)}",
         StorageKind.Dropbox => "dropbox · папка приложения" +
             (string.IsNullOrWhiteSpace(Storage.RemoteDirectory) ? "" : $"/{Storage.RemoteDirectory!.Trim('/')}"),
+        StorageKind.Mega => $"mega · {Storage.Username} · папка {(string.IsNullOrWhiteSpace(Storage.RemoteDirectory) ? "eBackup" : Storage.RemoteDirectory)}",
         _ => Storage.Kind.ToString()
     };
 
@@ -176,6 +177,7 @@ public sealed partial class StoragePage : Page
     private void AddWebDav_Click(object sender, RoutedEventArgs e) => StartNew(StorageKind.WebDav);
     private void AddGDrive_Click(object sender, RoutedEventArgs e) => StartNew(StorageKind.GoogleDrive);
     private void AddDropbox_Click(object sender, RoutedEventArgs e) => StartNew(StorageKind.Dropbox);
+    private void AddMega_Click(object sender, RoutedEventArgs e) => StartNew(StorageKind.Mega);
 
     private void StartNew(StorageKind kind)
     {
@@ -204,6 +206,7 @@ public sealed partial class StoragePage : Page
             StorageKind.WebDav => "Новое WebDAV-хранилище",
             StorageKind.GoogleDrive => "Google Drive",
             StorageKind.Dropbox => "Dropbox",
+            StorageKind.Mega => "MEGA",
             _ => "Новое SFTP-подключение"
         };
         NameBox.Text = s?.Name ?? string.Empty;
@@ -217,6 +220,15 @@ public sealed partial class StoragePage : Page
         WebDavPanel.Visibility = _editorKind == StorageKind.WebDav ? Visibility.Visible : Visibility.Collapsed;
         GDrivePanel.Visibility = _editorKind == StorageKind.GoogleDrive ? Visibility.Visible : Visibility.Collapsed;
         DropboxPanel.Visibility = _editorKind == StorageKind.Dropbox ? Visibility.Visible : Visibility.Collapsed;
+        MegaPanel.Visibility = _editorKind == StorageKind.Mega ? Visibility.Visible : Visibility.Collapsed;
+
+        // MEGA (e-mail = Username, пароль — секрет, папка — RemoteDirectory)
+        MegaEmailBox.Text = s?.Kind == StorageKind.Mega ? s.Username ?? "" : "";
+        MegaDirBox.Text = s?.Kind == StorageKind.Mega ? s.RemoteDirectory ?? "" : "";
+        MegaPassBox.Password = string.Empty;
+        MegaPassBox.PlaceholderText = s?.Kind == StorageKind.Mega && HasSecret("password")
+            ? "пусто — оставить прежний"
+            : "пароль аккаунта";
 
         // OAuth-облака: статус подключения аккаунта
         GDriveFolderBox.Text = s?.Kind == StorageKind.GoogleDrive ? s.RemoteDirectory ?? "" : "";
@@ -548,6 +560,17 @@ public sealed partial class StoragePage : Page
             settings["remoteDirectory"] = FtpDirBox.Text.Trim() is { Length: > 0 } d ? d : ".";
             settings["useFtps"] = (FtpsCheck.IsChecked == true).ToString();
             settings["allowUntrustedCertificate"] = (FtpAllowUntrustedCheck.IsChecked == true).ToString();
+            return Make();
+        }
+
+        if (_editorKind == StorageKind.Mega)
+        {
+            var megaEmail = MegaEmailBox.Text.Trim();
+            if (megaEmail.Length == 0) { error = "Укажи e-mail аккаунта MEGA."; return null; }
+            if (MegaPassBox.Password.Length > 0) secrets["password"] = MegaPassBox.Password;
+            else if (!HasSecret("password")) { error = "Введи пароль."; return null; }
+            settings["username"] = megaEmail;
+            settings["remoteDirectory"] = MegaDirBox.Text.Trim();
             return Make();
         }
 
