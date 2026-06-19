@@ -1,6 +1,5 @@
 using eBackup.Core.Scheduling;
 using eBackup.Platform;
-using eBackup.Security;
 using eBackup.Service.Handlers;
 using eBackup.Service.Jobs;
 using Microsoft.Extensions.Hosting;
@@ -82,10 +81,12 @@ public sealed class ScheduleWorker : BackgroundService
                     // чтобы при отсутствии ключа НЕ штамповать и не зацикливать постановку.
                     ScheduleInputMapper.EnqueueScheduled(_jobs, _schedules, s, s.OwnerSid);
                 }
-                catch (MachineKeyException ex)
+                catch (Exception ex)
                 {
-                    // Ключ недоступен/сменился → пропуск БЕЗ штампа (оживёт после восстановления ключа), тик не валим.
-                    _log.LogWarning(ex, "Расписание «{Name}»: машинный ключ недоступен — пропуск без штампа.", s.Name);
+                    // ЛЮБОЙ сбой постановки/расшифровки (нет машинного ключа: MachineKeyException; повреждён блоб
+                    // фразы: InvalidDataException/FormatException) → пропуск ЭТОГО расписания БЕЗ штампа, тик не валим
+                    // и не голодаем соседей (оживёт после восстановления ключа/исправления блоба).
+                    _log.LogWarning(ex, "Расписание «{Name}»: не удалось поставить (ключ недоступен или повреждена фраза) — пропуск без штампа.", s.Name);
                     continue;
                 }
 
@@ -117,6 +118,12 @@ public sealed class ScheduleWorker : BackgroundService
         try
         {
             var now = DateTime.Now;
+            // Маркер пишем ПЕРВЫМ: если его запись упадёт — штамп не делаем и спокойно повторим на след. старте.
+            // Если упадёт уже штамп ПОСЛЕ маркера — повтора не будет (это лишь защита от ретро-залпа, не корректность),
+            // иначе каждый рестарт с неудачной записью маркера двигал бы LastRunAt вперёд и глушил созревшие бэкапы.
+            Directory.CreateDirectory(AppPaths.MachineConfigDir);
+            await File.WriteAllTextAsync(marker, now.ToString("o"), ct).ConfigureAwait(false);
+
             var list = (await _schedules.LoadAsync(ct).ConfigureAwait(false)).ToList();
             var changed = false;
             for (var i = 0; i < list.Count; i++)
@@ -130,8 +137,6 @@ public sealed class ScheduleWorker : BackgroundService
                 await _schedules.SaveAllAsync(list, ct).ConfigureAwait(false);
                 _log.LogInformation("S7-выкатка: проштамповано зашифрованных расписаний — без залпа задним числом.");
             }
-            Directory.CreateDirectory(AppPaths.MachineConfigDir);
-            await File.WriteAllTextAsync(marker, now.ToString("o"), ct).ConfigureAwait(false);
         }
         catch (Exception ex)
         {

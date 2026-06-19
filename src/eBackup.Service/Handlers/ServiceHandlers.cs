@@ -138,10 +138,11 @@ public sealed class ServiceHandlers : IIpcHandlers
         {
             job = ScheduleInputMapper.EnqueueScheduled(_jobs, _schedules, s, s.OwnerSid ?? caller.OwnerSid);
         }
-        catch (eBackup.Security.MachineKeyException)
+        catch (Exception ex) when (ex is eBackup.Security.MachineKeyException or InvalidDataException or FormatException)
         {
+            // Машинный ключ недоступен/сменился ИЛИ повреждён блоб фразы — оба фейл-клоузед, внятный код вместо Internal.
             throw new IpcFaultException(IpcErrorCodes.SecretUnavailable,
-                "Машинный ключ недоступен — зашифрованное расписание сейчас запустить нельзя.");
+                "Не удалось расшифровать парольную фразу расписания (машинный ключ недоступен или фраза повреждена).");
         }
         return new StartBackupResponse { JobId = job.JobId, RunId = job.RunId, Position = _jobs.Position(job) };
     }

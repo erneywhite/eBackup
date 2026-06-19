@@ -644,6 +644,12 @@ public sealed partial class MainWindow : Window
             else
                 await RestoreLocalFileAsync(request);
         }
+        catch (IpcRequestException ex)
+        {
+            // Типизированный отказ службы (напр. тикет фразы истёк) — показываем чистый текст без кода-префикса.
+            StatusTitle.Text = "Ошибка восстановления";
+            StatusSub.Text = "✕ " + ex.Error.Message;
+        }
         catch (Exception ex)
         {
             StatusTitle.Text = "Ошибка восстановления";

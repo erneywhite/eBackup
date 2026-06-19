@@ -39,6 +39,13 @@ public sealed class ScheduleWorkerTests : IDisposable
         public string Unprotect(string p) => throw new eBackup.Security.MachineKeyException("ключ недоступен");
     }
 
+    /// <summary>Протектор, чей Unprotect бросает InvalidDataException (повреждённый блоб — НЕ MachineKeyException).</summary>
+    private sealed class CorruptBlobProtector : ISecretProtector
+    {
+        public string Protect(string p) => "enc:" + p;
+        public string Unprotect(string p) => throw new InvalidDataException("повреждённый блоб фразы");
+    }
+
     private sealed class FakeIdle(TimeSpan idle) : IIdleSource
     {
         public Task<TimeSpan> GetIdleAsync(CancellationToken ct) => Task.FromResult(idle);
@@ -107,9 +114,9 @@ public sealed class ScheduleWorkerTests : IDisposable
         Assert.Equal(1, await worker.TickAsync(now, default)); // S7: зашифрованное теперь срабатывает
 
         var job = Assert.Single(jobs.List("S-1-5-21-ALICE", isAdmin: false, includeFinished: true));
-        Assert.True(job.RequiresEncryption);
-        Assert.Equal(Encoding.UTF8.GetBytes("secret"), job.ResolvedPassphrase); // фраза расшифрована машинным ключом
-        Assert.Equal(now, Assert.Single(await store.LoadAsync()).LastRunAt);     // проштамповано
+        Assert.True(job.RequiresEncryption); // зашифрованное поставлено с требованием шифрования (фраза расшифрована машинным ключом)
+        Assert.Equal(now, Assert.Single(await store.LoadAsync()).LastRunAt); // проштамповано
+        // (значение расшифрованной фразы JobManager зануляет после прогона — корректность decrypt покрыта S7de round-trip)
     }
 
     [Fact]
@@ -143,6 +150,31 @@ public sealed class ScheduleWorkerTests : IDisposable
         await store.SaveAllAsync([Daily("s1", new DateTime(2026, 6, 18, 3, 0, 0), owner: null)]);
 
         Assert.Equal(0, await worker.TickAsync(new DateTime(2026, 6, 19, 3, 0, 20), default));
+    }
+
+    [Fact]
+    public async Task Corrupt_Encrypted_Passphrase_Skips_Without_Crashing_Tick_And_Later_Sibling_Runs()
+    {
+        // Регресс на находку ревью: повреждённый блоб бросает InvalidDataException (НЕ MachineKeyException).
+        // Раньше это роняло весь тик и голодало расписания ПОСЛЕ повреждённого. Теперь — пропуск только его.
+        var history = new HistoryStore(Path.Combine(_root, "hist"));
+        var store = new ScheduleStore(new CorruptBlobProtector(), Path.Combine(_root, "cfg", "schedules.json"));
+        await using var jobs = new JobManager(new NoOpRunner(), rid => new JobChannel(history, rid));
+        var worker = new ScheduleWorker(store, jobs, new FakeIdle(TimeSpan.Zero), NullLogger<ScheduleWorker>.Instance);
+
+        var encLast = new DateTime(2026, 6, 18, 3, 0, 0);
+        await store.SaveAllAsync(
+        [
+            Daily("enc", encLast, pass: "enc:corrupt"),                  // повреждённое — ПЕРВЫМ в списке
+            Daily("plain", new DateTime(2026, 6, 18, 3, 0, 0)),         // обычное — ПОСЛЕ него
+        ]);
+
+        var now = new DateTime(2026, 6, 19, 3, 0, 20);
+        Assert.Equal(1, await worker.TickAsync(now, default)); // тик не упал; обычное (после повреждённого) поставлено
+
+        var reloaded = (await store.LoadAsync()).ToDictionary(s => s.Id);
+        Assert.Equal(now, reloaded["plain"].LastRunAt);    // сосед отработал и проштампован
+        Assert.Equal(encLast, reloaded["enc"].LastRunAt);  // повреждённое пропущено без штампа
     }
 
     [Fact]

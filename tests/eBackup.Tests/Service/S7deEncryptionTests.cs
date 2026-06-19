@@ -29,12 +29,16 @@ public sealed class S7deEncryptionTests : IDisposable
 
     private sealed class CapturingRunner : IJobRunner
     {
-        public Job? Captured;
+        public bool CapturedRequires;
+        public byte[]? CapturedPassphrase;          // снимок ДО зануления JobManager'ом
+        public PassphraseRef? CapturedRequestPassphrase;
         private readonly TaskCompletionSource _done = new(TaskCreationOptions.RunContinuationsAsynchronously);
         public Task Done => _done.Task;
         public Task<JobOutcome> RunAsync(Job job, CancellationToken ct)
         {
-            Captured = job;
+            CapturedRequires = job.RequiresEncryption;
+            CapturedPassphrase = job.ResolvedPassphrase?.ToArray();
+            CapturedRequestPassphrase = job.Request?.Passphrase;
             _done.TrySetResult();
             return Task.FromResult(new JobOutcome(true, 0, 0, null, null));
         }
@@ -169,9 +173,9 @@ public sealed class S7deEncryptionTests : IDisposable
             new StartBackupRequest { ModuleIds = ["x"], Passphrase = PassphraseRef.FromTicket(ticket) }, Caller, default);
 
         await runner.Done.WaitAsync(TimeSpan.FromSeconds(10));
-        Assert.True(runner.Captured!.RequiresEncryption);
-        Assert.Equal(Encoding.UTF8.GetBytes("topsecret"), runner.Captured.ResolvedPassphrase);
-        Assert.Null(runner.Captured.Request!.Passphrase); // тикет не оседает в задаче/истории
+        Assert.True(runner.CapturedRequires);
+        Assert.Equal(Encoding.UTF8.GetBytes("topsecret"), runner.CapturedPassphrase);
+        Assert.Null(runner.CapturedRequestPassphrase); // тикет не оседает в задаче/истории
     }
 
     [Fact]

@@ -1,4 +1,5 @@
 using System.Collections.Concurrent;
+using System.Security.Cryptography;
 using System.Threading.Channels;
 using eBackup.Ipc.Contracts;
 
@@ -145,6 +146,12 @@ public sealed class JobManager : IAsyncDisposable
                 {
                     Finish(job, JobState.Failed, new JobOutcome(false, 0, 0, null, ex.Message));
                     continue;
+                }
+                finally
+                {
+                    // Гарантированно зануляем фразу, даже если раннер бросил ДО своего try/finally —
+                    // Job живёт в _jobs до конца процесса, иначе открытая фраза осталась бы в памяти навсегда.
+                    if (job.ResolvedPassphrase is { } pw) CryptographicOperations.ZeroMemory(pw);
                 }
 
                 var state = !outcome.Success ? JobState.Failed

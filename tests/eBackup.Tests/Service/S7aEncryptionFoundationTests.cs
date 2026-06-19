@@ -64,6 +64,30 @@ public sealed class S7aEncryptionFoundationTests : IDisposable
         };
     }
 
+    /// <summary>Раннер, который бросает СРАЗУ (до своего try/finally) — имитация «не нашли хранилище» и т.п.</summary>
+    private sealed class ThrowingRunner : IJobRunner
+    {
+        public Task<JobOutcome> RunAsync(Job job, CancellationToken ct) => throw new InvalidOperationException("boom до try");
+    }
+
+    [Fact]
+    public async Task JobManager_Zeroes_Passphrase_Even_When_Runner_Throws_Before_Its_Finally()
+    {
+        // Регресс на находку ревью: byte[] фразы живёт на Job (Job хранится в _jobs до конца процесса).
+        // Если раннер бросил ДО своего try/finally, центральное зануление в JobManager обязано её затереть.
+        var history = new HistoryStore(Path.Combine(_root, "hist"));
+        var done = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        await using var jobs = new JobManager(new ThrowingRunner(), rid => new JobChannel(history, rid),
+            onStateChanged: j => { if (j.State == JobState.Failed) done.TrySetResult(); });
+
+        var pw = Encoding.UTF8.GetBytes("secret");
+        jobs.Enqueue(new StartBackupRequest { ModuleIds = ["x"] }, "S-1-5-21-1",
+            resolvedPassphrase: pw, requiresEncryption: true);
+
+        await done.Task.WaitAsync(TimeSpan.FromSeconds(10));
+        Assert.All(pw, b => Assert.Equal(0, b)); // фраза занулена, несмотря на бросок раннера до try
+    }
+
     [Fact]
     public async Task Passphrase_Slot_And_Flag_Survive_Enqueue_Submit()
     {
