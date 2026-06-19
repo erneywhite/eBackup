@@ -70,6 +70,53 @@ public sealed class StorageAdminTests : IDisposable
     }
 
     [Fact]
+    public async Task Upsert_RoundTrips_All_Fields_And_Secrets_The_Migration_Sends()
+    {
+        // Закрепляет контракт ключей settings/секретов, на который опирается перенос со старой версии
+        // (LegacyConfigMigrator.ToInput в GUI зеркалит ИМЕННО эти ключи). Переименуют ключ в маппере —
+        // тест упадёт, напомнив, что и перенос надо обновить.
+        var (handlers, storages, jobs) = Build();
+        await using var _ = jobs;
+
+        await handlers.UpsertStorageAsync(new StorageInput
+        {
+            Id = "full", Name = "Full", Kind = "S3",
+            Settings = new()
+            {
+                ["path"] = "D:\\b", ["shareUsername"] = "su", ["host"] = "h", ["port"] = "2022",
+                ["username"] = "u", ["remoteDirectory"] = "rd", ["useFtps"] = "true",
+                ["allowUntrustedCertificate"] = "true", ["serviceUrl"] = "svc", ["bucket"] = "bk",
+                ["accessKeyId"] = "ak", ["forcePathStyle"] = "false",
+            },
+            PlaintextSecrets = new()
+            {
+                ["sharePassword"] = "sp", ["password"] = "pw", ["privateKey"] = "pk",
+                ["keyPassphrase"] = "kp", ["secretKey"] = "sk", ["oauthToken"] = "ot",
+            },
+        }, Caller, default);
+
+        var s = (await storages.LoadAsync()).Single(x => x.Id == "full");
+        Assert.Equal("D:\\b", s.Path);
+        Assert.Equal("su", s.ShareUsername);
+        Assert.Equal("h", s.Host);
+        Assert.Equal(2022, s.Port);
+        Assert.Equal("u", s.Username);
+        Assert.Equal("rd", s.RemoteDirectory);
+        Assert.True(s.UseFtps);
+        Assert.True(s.AllowUntrustedCertificate);
+        Assert.Equal("svc", s.ServiceUrl);
+        Assert.Equal("bk", s.Bucket);
+        Assert.Equal("ak", s.AccessKeyId);
+        Assert.False(s.ForcePathStyle);
+        Assert.Equal("sp", storages.Unprotect(s.ProtectedSharePassword!));
+        Assert.Equal("pw", storages.Unprotect(s.ProtectedPassword!));
+        Assert.Equal("pk", storages.Unprotect(s.ProtectedPrivateKey!));
+        Assert.Equal("kp", storages.Unprotect(s.ProtectedKeyPassphrase!));
+        Assert.Equal("sk", storages.Unprotect(s.ProtectedSecretKey!));
+        Assert.Equal("ot", storages.Unprotect(s.ProtectedOAuthToken!));
+    }
+
+    [Fact]
     public async Task Edit_Without_Secret_Keeps_It_And_GetStorage_Returns_Fields()
     {
         var (handlers, storages, jobs) = Build();

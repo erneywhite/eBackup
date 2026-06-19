@@ -21,6 +21,10 @@ public sealed class AppSettings
     /// <summary>Дефолтное хранилище «Локальная папка» уже создано (одноразовая инициализация).</summary>
     public bool DefaultStorageCreated { get; set; }
 
+    /// <summary>Конфиг прошлой версии (per-user DPAPI) уже перенесён в службу 1.2 (машинный ключ).
+    /// Одноразовый импорт при первом запуске после обновления — чтобы хранилища/расписания не пропали.</summary>
+    public bool MigratedFromLegacy { get; set; }
+
     /// <summary>Добавлять имя компьютера в имя архива (несколько ПК в одном хранилище).</summary>
     public bool IncludeMachineNameInArchive { get; set; }
 
