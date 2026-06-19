@@ -70,11 +70,10 @@ public sealed class StorageAdminTests : IDisposable
     }
 
     [Fact]
-    public async Task Upsert_RoundTrips_All_Fields_And_Secrets_The_Migration_Sends()
+    public async Task Upsert_RoundTrips_All_Fields_And_Secrets()
     {
-        // Закрепляет контракт ключей settings/секретов, на который опирается перенос со старой версии
-        // (LegacyConfigMigrator.ToInput в GUI зеркалит ИМЕННО эти ключи). Переименуют ключ в маппере —
-        // тест упадёт, напомнив, что и перенос надо обновить.
+        // Полный round-trip всех полей хранилища и шести секретов через StorageInput → SavedStorage:
+        // секреты шифруются машинным ключом и расшифровываются обратно, несекретные поля сохраняются.
         var (handlers, storages, jobs) = Build();
         await using var _ = jobs;
 

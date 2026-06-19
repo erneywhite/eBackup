@@ -96,8 +96,8 @@ public sealed partial class MainWindow : Window
 
         ContentFrame.Navigate(typeof(OverviewPage));
 
-        // Одноразово: перенос конфига прошлой версии в службу, затем дефолтное хранилище.
-        _ = InitConfigAsync();
+        // Одноразово: хранилище «Локальная папка» по умолчанию.
+        _ = EnsureDefaultStorageAsync();
 
         // Расписания исполняет служба (без вошедшего пользователя) — встроенного в GUI таймера больше нет.
 
@@ -241,57 +241,6 @@ public sealed partial class MainWindow : Window
         sb.Children.Add(slide);
         sb.Children.Add(fade);
         sb.Begin();
-    }
-
-    /// <summary>Стартовая инициализация конфига: сперва перенос со старой версии, затем дефолтное
-    /// хранилище. Порядок важен — миграция должна успеть до проверки «есть ли уже хранилища».</summary>
-    private async Task InitConfigAsync()
-    {
-        await MigrateLegacyConfigAsync();
-        await EnsureDefaultStorageAsync();
-    }
-
-    /// <summary>Одноразовый перенос конфига прошлой версии (per-user DPAPI) в службу 1.2 (машинный ключ).
-    /// Без него обновление 1.1→1.2 потеряло бы хранилища/расписания (служба читает другой стор).</summary>
-    private async Task MigrateLegacyConfigAsync()
-    {
-        try
-        {
-            var settings = AppSettings.Load();
-            if (settings.MigratedFromLegacy)
-                return;
-
-            var client = await ServiceConnection.GetClientAsync();
-            if (client is null)
-                return; // служба не поднялась — повторим при следующем запуске (флаг НЕ ставим)
-
-            var result = await LegacyConfigMigrator.MigrateAsync(client);
-
-            settings.MigratedFromLegacy = true;
-            settings.Save();
-
-            if (result.Total > 0)
-            {
-                var parts = new List<string>();
-                if (result.Storages > 0) parts.Add($"хранилищ: {result.Storages}");
-                if (result.Schedules > 0) parts.Add($"расписаний: {result.Schedules}");
-                if (result.Folders > 0) parts.Add($"папок: {result.Folders}");
-                if (result.Modules > 0) parts.Add($"модулей: {result.Modules}");
-                TryNotify(true, "✅ Настройки перенесены",
-                    "Из прошлой версии — " + string.Join(", ", parts) + ".");
-            }
-
-            // Зашифрованные расписания, чью фразу не удалось расшифровать, мы НЕ перенесли (fail-closed) —
-            // честно просим пересоздать, чтобы они не делали незашифрованные архивы втихую.
-            if (result.SchedulesNeedPassphrase > 0)
-                TryNotify(false, "⚠ Пересоздайте зашифрованные расписания",
-                    $"Не удалось перенести парольную фразу у расписаний: {result.SchedulesNeedPassphrase}. " +
-                    "Создайте их заново с фразой шифрования.");
-        }
-        catch
-        {
-            // перенос best-effort: при сбое пользователь добавит руками; запуск не блокируем
-        }
     }
 
     /// <summary>При первом запуске создаёт хранилище «Локальная папка» (один раз).</summary>
