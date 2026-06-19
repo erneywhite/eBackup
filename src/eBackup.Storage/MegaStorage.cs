@@ -5,46 +5,45 @@ using eBackup.Storage.Sftp; // RemoteFileInfo, ConnectionTestResult
 namespace eBackup.Storage;
 
 /// <summary>
-/// Хранилище MEGA (mega.nz) на community-либе MegaApiClient. Папка приложения — в корне аккаунта
-/// (config.RemoteDirectory, по умолчанию «eBackup»; поддержаны вложенные через «/»). Секрет —
-/// пароль аккаунта (как у FTP/WebDAV; MEGA шифрует на своей стороне, своё E2E не пишем).
-/// На каждую операцию — отдельный логин/логаут (служба под SYSTEM, без долгоживущей сессии).
-/// Range-чтение не поддержано (MegaApiClient качает целиком) → НЕ ISeekableArchiveStorage:
-/// удалённый браузер архива тянет файл целиком, как у FTP.
+/// Хранилище MEGA (mega.nz) на community-либе MegaApiClient. Аутентификация — по СОХРАНЁННОЙ СЕССИИ
+/// (config.ProtectedOAuthToken): пользователь один раз вошёл с паролем и 2FA-кодом в редакторе (см.
+/// <see cref="MegaSession"/>), дальше служба ходит по сессии без пароля/2FA — в т.ч. по расписанию.
+/// Папка приложения в корне аккаунта (RemoteDirectory, дефолт «eBackup»; вложенные через «/»).
+/// На каждую операцию — отдельный клиент + LoginAsync(сессия); БЕЗ logout (он убил бы сессию).
+/// НЕ seekable (MegaApiClient качает целиком) → удалённый браузер тянет файл целиком, как у FTP.
 /// </summary>
 public sealed class MegaStorage(SavedStorage config, ISecretProtector protector) : IArchiveStorage
 {
     public string Name => config.Name;
 
-    private string Email => config.Username
-        ?? throw new InvalidOperationException("У MEGA-хранилища не задан e-mail.");
-
-    private string Password => config.ProtectedPassword is null
-        ? throw new InvalidOperationException("У MEGA-хранилища не задан пароль.")
-        : protector.Unprotect(config.ProtectedPassword);
-
     private string FolderName => string.IsNullOrWhiteSpace(config.RemoteDirectory)
         ? "eBackup"
         : config.RemoteDirectory!.Trim().Trim('/');
 
+    /// <summary>Новый клиент, вошедший по сохранённой сессии (без пароля/2FA, без logout).</summary>
+    private async Task<MegaApiClient> LoginAsync()
+    {
+        if (config.ProtectedOAuthToken is null)
+            throw new InvalidOperationException("MEGA не подключена — войди в аккаунт в настройках хранилища.");
+        var token = MegaSession.Deserialize(protector.Unprotect(config.ProtectedOAuthToken));
+        var client = new MegaApiClient();
+        await client.LoginAsync(token).ConfigureAwait(false);
+        return client;
+    }
+
     public async Task UploadAsync(string localFilePath, string remoteName, CancellationToken ct = default)
     {
-        var client = new MegaApiClient();
-        await client.LoginAsync(Email, Password, null).ConfigureAwait(false);
-        try
-        {
-            var (folder, nodes) = await EnsureFolderAsync(client, create: true).ConfigureAwait(false);
-            // MEGA допускает одноимённые файлы в папке — старую копию убираем (перезалив, чистый листинг/retention).
-            var dup = nodes.FirstOrDefault(n => n.Type == NodeType.File && n.ParentId == folder!.Id
-                && string.Equals(n.Name, remoteName, StringComparison.OrdinalIgnoreCase));
-            if (dup is not null)
-                await client.DeleteAsync(dup, moveToTrash: false).ConfigureAwait(false);
+        var client = await LoginAsync().ConfigureAwait(false);
+        var (folder, nodes) = await EnsureFolderAsync(client, create: true).ConfigureAwait(false);
+        // MEGA допускает одноимённые файлы в папке — старую копию убираем (перезалив, чистый листинг/retention).
+        var dup = nodes.FirstOrDefault(n => n.Type == NodeType.File && n.ParentId == folder!.Id
+            && string.Equals(n.Name, remoteName, StringComparison.OrdinalIgnoreCase));
+        if (dup is not null)
+            await client.DeleteAsync(dup, moveToTrash: false).ConfigureAwait(false);
 
-            await using var stream = File.OpenRead(localFilePath);
-            await client.UploadAsync(stream, remoteName, folder, progress: null, modificationDate: null, cancellationToken: ct)
-                .ConfigureAwait(false);
-        }
-        finally { await SafeLogoutAsync(client).ConfigureAwait(false); }
+        await using var stream = File.OpenRead(localFilePath);
+        await client.UploadAsync(stream, remoteName, folder, progress: null, modificationDate: null, cancellationToken: ct)
+            .ConfigureAwait(false);
     }
 
     public async Task DownloadAsync(string remoteName, string localFilePath, CancellationToken ct = default)
@@ -53,57 +52,41 @@ public sealed class MegaStorage(SavedStorage config, ISecretProtector protector)
         if (!string.IsNullOrEmpty(dir))
             Directory.CreateDirectory(dir);
 
-        var client = new MegaApiClient();
-        await client.LoginAsync(Email, Password, null).ConfigureAwait(false);
-        try
-        {
-            var node = await FindFileAsync(client, remoteName).ConfigureAwait(false)
-                ?? throw new FileNotFoundException($"В MEGA не найден архив «{remoteName}».");
-            await client.DownloadFileAsync(node, localFilePath, progress: null, cancellationToken: ct).ConfigureAwait(false);
-        }
-        finally { await SafeLogoutAsync(client).ConfigureAwait(false); }
+        var client = await LoginAsync().ConfigureAwait(false);
+        var node = await FindFileAsync(client, remoteName).ConfigureAwait(false)
+            ?? throw new FileNotFoundException($"В MEGA не найден архив «{remoteName}».");
+        await client.DownloadFileAsync(node, localFilePath, progress: null, cancellationToken: ct).ConfigureAwait(false);
     }
 
     public async Task<IReadOnlyList<RemoteFileInfo>> ListDetailedAsync(CancellationToken ct = default)
     {
-        var client = new MegaApiClient();
-        await client.LoginAsync(Email, Password, null).ConfigureAwait(false);
-        try
-        {
-            var (folder, nodes) = await EnsureFolderAsync(client, create: false).ConfigureAwait(false);
-            if (folder is null)
-                return [];
+        var client = await LoginAsync().ConfigureAwait(false);
+        var (folder, nodes) = await EnsureFolderAsync(client, create: false).ConfigureAwait(false);
+        if (folder is null)
+            return [];
 
-            return nodes
-                .Where(n => n.Type == NodeType.File && n.ParentId == folder.Id
-                    && n.Name.EndsWith(".ebk", StringComparison.OrdinalIgnoreCase))
-                .Select(n => new RemoteFileInfo(n.Name, n.Size,
-                    (n.ModificationDate ?? n.CreationDate ?? DateTime.Now).ToLocalTime()))
-                .OrderByDescending(f => f.LastWriteTime)
-                .ToList();
-        }
-        finally { await SafeLogoutAsync(client).ConfigureAwait(false); }
+        return nodes
+            .Where(n => n.Type == NodeType.File && n.ParentId == folder.Id
+                && n.Name.EndsWith(".ebk", StringComparison.OrdinalIgnoreCase))
+            .Select(n => new RemoteFileInfo(n.Name, n.Size,
+                (n.ModificationDate ?? n.CreationDate ?? DateTime.Now).ToLocalTime()))
+            .OrderByDescending(f => f.LastWriteTime)
+            .ToList();
     }
 
     public async Task DeleteAsync(string remoteName, CancellationToken ct = default)
     {
-        var client = new MegaApiClient();
-        await client.LoginAsync(Email, Password, null).ConfigureAwait(false);
-        try
-        {
-            var node = await FindFileAsync(client, remoteName).ConfigureAwait(false);
-            if (node is not null)
-                await client.DeleteAsync(node, moveToTrash: false).ConfigureAwait(false);
-        }
-        finally { await SafeLogoutAsync(client).ConfigureAwait(false); }
+        var client = await LoginAsync().ConfigureAwait(false);
+        var node = await FindFileAsync(client, remoteName).ConfigureAwait(false);
+        if (node is not null)
+            await client.DeleteAsync(node, moveToTrash: false).ConfigureAwait(false);
     }
 
     public async Task<ConnectionTestResult> TestAsync(CancellationToken ct = default)
     {
-        var client = new MegaApiClient();
         try
         {
-            await client.LoginAsync(Email, Password, null).ConfigureAwait(false);
+            var client = await LoginAsync().ConfigureAwait(false);
             await EnsureFolderAsync(client, create: true).ConfigureAwait(false);
             return ConnectionTestResult.Ok($"MEGA доступна, папка «{FolderName}».");
         }
@@ -111,7 +94,6 @@ public sealed class MegaStorage(SavedStorage config, ISecretProtector protector)
         {
             return ConnectionTestResult.Fail(ex.Message);
         }
-        finally { await SafeLogoutAsync(client).ConfigureAwait(false); }
     }
 
     /// <summary>Найти узел-файл по имени в папке приложения (или null).</summary>
@@ -141,10 +123,5 @@ public sealed class MegaStorage(SavedStorage config, ISecretProtector protector)
             parent = child;
         }
         return (parent, nodes);
-    }
-
-    private static async Task SafeLogoutAsync(IMegaApiClient client)
-    {
-        try { if (client.IsLoggedIn) await client.LogoutAsync().ConfigureAwait(false); } catch { /* best-effort */ }
     }
 }

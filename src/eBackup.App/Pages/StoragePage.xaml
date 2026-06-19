@@ -185,10 +185,19 @@
 
                             <PasswordBox x:Name="MegaPassBox" PlaceholderText="пароль аккаунта" />
 
+                            <TextBlock Text="Код 2FA (если включена двухфакторная аутентификация)" FontSize="12"
+                                       Foreground="{StaticResource EbTextDimBrush}" />
+                            <TextBox x:Name="MegaMfaBox" PlaceholderText="6 цифр из приложения-аутентификатора" MaxWidth="280" HorizontalAlignment="Left" />
+
+                            <StackPanel Orientation="Horizontal" Spacing="12">
+                                <Button x:Name="MegaLoginBtn" Content="Войти" CornerRadius="10" Click="MegaLogin_Click" />
+                                <TextBlock x:Name="MegaStatus" FontSize="12" VerticalAlignment="Center" />
+                            </StackPanel>
+
                             <TextBlock Text="Папка для архивов" FontSize="12"
                                        Foreground="{StaticResource EbTextDimBrush}" />
                             <TextBox x:Name="MegaDirBox" PlaceholderText="например: eBackup (пусто — eBackup)" />
-                            <TextBlock Text="MEGA шифрует данные на своей стороне. Пароль хранится зашифрованным (машинный ключ службы)."
+                            <TextBlock Text="Входишь один раз — дальше служба ходит в MEGA по сохранённой сессии (без пароля и 2FA, в т.ч. по расписанию). Пароль не хранится."
                                        FontSize="11" TextWrapping="Wrap"
                                        Foreground="{StaticResource EbTextDimBrush}" />
                         </StackPanel>

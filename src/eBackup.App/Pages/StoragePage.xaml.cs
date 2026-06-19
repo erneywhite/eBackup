@@ -60,6 +60,7 @@ public sealed partial class StoragePage : Page
     private StorageKind _editorKind;           // тип редактируемого/создаваемого
     private string? _pendingGDriveToken;       // refresh-токен после «Войти», ещё не сохранён
     private string? _pendingDropboxToken;
+    private string? _pendingMegaToken;         // сериализованная сессия MEGA после «Войти», ещё не сохранена
 
     // OAuth-вход держит loopback-порт до завершения (до 3 минут, если редирект не
     // пришёл). Статически — чтобы новая попытка отменяла прошлую даже с пересозданной
@@ -212,6 +213,7 @@ public sealed partial class StoragePage : Page
         NameBox.Text = s?.Name ?? string.Empty;
         _pendingGDriveToken = null;
         _pendingDropboxToken = null;
+        _pendingMegaToken = null;
 
         FolderPanel.Visibility = _editorKind == StorageKind.LocalFolder ? Visibility.Visible : Visibility.Collapsed;
         SftpPanel.Visibility = _editorKind == StorageKind.Sftp ? Visibility.Visible : Visibility.Collapsed;
@@ -222,13 +224,12 @@ public sealed partial class StoragePage : Page
         DropboxPanel.Visibility = _editorKind == StorageKind.Dropbox ? Visibility.Visible : Visibility.Collapsed;
         MegaPanel.Visibility = _editorKind == StorageKind.Mega ? Visibility.Visible : Visibility.Collapsed;
 
-        // MEGA (e-mail = Username, пароль — секрет, папка — RemoteDirectory)
+        // MEGA: e-mail/папка — обычные поля; пароль+2FA только для входа (не хранятся); статус — по наличию сессии.
         MegaEmailBox.Text = s?.Kind == StorageKind.Mega ? s.Username ?? "" : "";
         MegaDirBox.Text = s?.Kind == StorageKind.Mega ? s.RemoteDirectory ?? "" : "";
         MegaPassBox.Password = string.Empty;
-        MegaPassBox.PlaceholderText = s?.Kind == StorageKind.Mega && HasSecret("password")
-            ? "пусто — оставить прежний"
-            : "пароль аккаунта";
+        MegaMfaBox.Text = string.Empty;
+        SetOAuthStatus(MegaStatus, s?.Kind == StorageKind.Mega && HasSecret("oauthToken"));
 
         // OAuth-облака: статус подключения аккаунта
         GDriveFolderBox.Text = s?.Kind == StorageKind.GoogleDrive ? s.RemoteDirectory ?? "" : "";
@@ -364,6 +365,42 @@ public sealed partial class StoragePage : Page
         catch (Exception ex)
         {
             SetStatus("✕ " + ex.Message, ok: false);
+        }
+        finally
+        {
+            SetBusy(false);
+        }
+    }
+
+    private async void MegaLogin_Click(object sender, RoutedEventArgs e)
+    {
+        var email = MegaEmailBox.Text.Trim();
+        if (email.Length == 0 || MegaPassBox.Password.Length == 0)
+        {
+            SetStatus("Введи e-mail и пароль аккаунта MEGA.", ok: false);
+            return;
+        }
+
+        SetBusy(true);
+        SetStatus("Вхожу в MEGA…", ok: true, dim: true);
+        try
+        {
+            // Вход выполняем здесь, в окне (пароль/2FA не покидают GUI) → получаем СЕССИЮ,
+            // её и сохраним секретом. Дальше служба ходит по сессии без пароля и 2FA.
+            var mfa = MegaMfaBox.Text.Trim();
+            _pendingMegaToken = await MegaSession.ConnectAsync(email, MegaPassBox.Password, mfa.Length > 0 ? mfa : null);
+            SetOAuthStatus(MegaStatus, connected: true);
+            SetStatus("✓ Вход выполнен — нажми «Сохранить».", ok: true);
+            MegaPassBox.Password = string.Empty; // пароль больше не нужен — храним сессию
+            MegaMfaBox.Text = string.Empty;
+        }
+        catch (Exception ex)
+        {
+            SetOAuthStatus(MegaStatus, connected: false);
+            var msg = ex.Message.Contains("TwoFactor", StringComparison.OrdinalIgnoreCase)
+                ? "Нужен код 2FA из приложения-аутентификатора — введи его и нажми «Войти»."
+                : ex.Message;
+            SetStatus("✕ " + msg, ok: false);
         }
         finally
         {
@@ -565,11 +602,14 @@ public sealed partial class StoragePage : Page
 
         if (_editorKind == StorageKind.Mega)
         {
-            var megaEmail = MegaEmailBox.Text.Trim();
-            if (megaEmail.Length == 0) { error = "Укажи e-mail аккаунта MEGA."; return null; }
-            if (MegaPassBox.Password.Length > 0) secrets["password"] = MegaPassBox.Password;
-            else if (!HasSecret("password")) { error = "Введи пароль."; return null; }
-            settings["username"] = megaEmail;
+            // Аутентификация — по сессии (кнопка «Войти»), не по паролю: пароль/2FA не хранятся.
+            if (_pendingMegaToken is null && !HasSecret("oauthToken"))
+            {
+                error = "Сначала войди в аккаунт MEGA (кнопка «Войти»).";
+                return null;
+            }
+            if (_pendingMegaToken is not null) secrets["oauthToken"] = _pendingMegaToken;
+            settings["username"] = MegaEmailBox.Text.Trim();
             settings["remoteDirectory"] = MegaDirBox.Text.Trim();
             return Make();
         }
@@ -703,6 +743,7 @@ public sealed partial class StoragePage : Page
         _editing = null;
         _pendingGDriveToken = null;
         _pendingDropboxToken = null;
+        _pendingMegaToken = null;
         ResetTransientUi();
         Editor.Visibility = Visibility.Collapsed;
         EmptyHint.Text = "Выбери хранилище слева или добавь новое";
