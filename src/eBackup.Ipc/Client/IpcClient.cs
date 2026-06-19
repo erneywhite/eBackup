@@ -124,6 +124,11 @@ public sealed class IpcClient : IDisposable
     public Task<StartBackupResponse> StartRestoreAsync(StartRestoreRequest req, CancellationToken ct = default)
         => RequestAsync(IpcOps.StartRestore, req, Ctx.StartRestoreRequest, Ctx.StartBackupResponse, ct);
 
+    /// <summary>Отдать службе разовую парольную фразу (один раз по пайпу) → тикет для StartBackup/StartRestore.</summary>
+    public Task<StashPassphraseResponse> StashPassphraseAsync(string plaintext, CancellationToken ct = default)
+        => RequestAsync(IpcOps.StashPassphrase, new StashPassphraseRequest { Plaintext = plaintext },
+            Ctx.StashPassphraseRequest, Ctx.StashPassphraseResponse, ct);
+
     public Task<JobStatus> GetJobAsync(GetJobRequest req, CancellationToken ct = default)
         => RequestAsync(IpcOps.GetJob, req, Ctx.GetJobRequest, Ctx.JobStatus, ct);
 

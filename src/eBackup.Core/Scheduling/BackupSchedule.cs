@@ -33,7 +33,8 @@ public sealed record BackupSchedule
     /// <summary>Id сохранённых хранилищ — цели заливки.</summary>
     public List<string> TargetConnectionIds { get; init; } = [];
 
-    /// <summary>Парольная фраза шифрования, зашифрованная DPAPI; null — без шифрования.</summary>
+    /// <summary>Парольная фраза шифрования, зашифрованная машинным ключом службы (служба расшифрует
+    /// её без вошедшего пользователя для планового бэкапа); null — без шифрования.</summary>
     public string? ProtectedPassphrase { get; init; }
 
     public ScheduleKind Kind { get; init; } = ScheduleKind.Daily;

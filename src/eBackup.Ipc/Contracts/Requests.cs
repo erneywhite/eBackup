@@ -61,8 +61,8 @@ public sealed record StartBackupRequest
     public string ClientRequestId { get; init; } = ""; // GUID клиента → идемпотентность при потере связи
 }
 
-/// <summary>Восстановление в службе: источник (хранилище+архив), цель и режим. Шифрование — на S7
-/// (пока без парольной фразы; зашифрованный архив через службу даст внятный отказ).</summary>
+/// <summary>Восстановление в службе: источник (хранилище+архив), цель и режим. Для зашифрованного
+/// архива — <see cref="Passphrase"/> через разовый тикет (как у бэкапа); null/none — незашифрованный.</summary>
 public sealed record StartRestoreRequest
 {
     public string SourceStorageId { get; init; } = "";
@@ -70,6 +70,7 @@ public sealed record StartRestoreRequest
     public string? TargetDir { get; init; }                 // null — в исходные места
     public string Policy { get; init; } = "BackupExisting";  // ConflictPolicy строкой
     public string? AssetsDir { get; init; }
+    public PassphraseRef? Passphrase { get; init; }          // тикет фразы для EBKE; null — без расшифровки
     public string Trigger { get; init; } = "";
     public string ClientRequestId { get; init; } = "";
 }
