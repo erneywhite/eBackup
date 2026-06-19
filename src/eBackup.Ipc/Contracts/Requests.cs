@@ -132,7 +132,12 @@ public sealed record ScheduleInput
     public int EveryHours { get; init; } = 6;
     public int IdleMinutes { get; init; } = 5;
     public bool Enabled { get; init; } = true;
-    public PassphraseRef? Passphrase { get; init; }
+    public int CompressionMode { get; init; }
+    public bool IncludeMachineName { get; init; }
+    public int? RetentionCount { get; init; }
+    // Парольная фраза задаётся как открытый текст один раз (служба шифрует машинным ключом):
+    // null — оставить прежнюю; "" — снять шифрование; иначе — задать. Как PlaintextSecrets у хранилищ.
+    public string? NewPassphrase { get; init; }
 }
 
 public sealed record SetModuleEnabledRequest { public string Id { get; init; } = ""; public bool Enabled { get; init; } }

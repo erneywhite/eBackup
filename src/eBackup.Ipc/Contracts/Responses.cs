@@ -105,7 +105,9 @@ public sealed record ScheduleSummary
     public string Kind { get; init; } = "";
     public bool Enabled { get; init; }
     public bool HasPassphrase { get; init; }
+    public string? OwnerSid { get; init; }
     public DateTimeOffset? LastRunAt { get; init; }
+    public DateTimeOffset? NextRun { get; init; }
 }
 
 /// <summary>Запись, которую модуль соберёт (для детали на странице «Модули»).</summary>

@@ -21,6 +21,9 @@ public sealed record BackupSchedule
     public required string Id { get; init; }
     public required string Name { get; init; }
 
+    /// <summary>SID владельца (кто создал) — служба резолвит источники per-SID и проверяет права.</summary>
+    public string? OwnerSid { get; init; }
+
     /// <summary>Id модулей, входящих в этот бэкап (своя выборка расписания).</summary>
     public List<string> ModuleIds { get; init; } = [];
 
@@ -51,6 +54,12 @@ public sealed record BackupSchedule
     public int IdleMinutes { get; init; } = 5;
 
     public bool Enabled { get; init; } = true;
+
+    // Настройки прогона: у службы нет per-user AppSettings, поэтому расписание несёт их само
+    // (раньше брались из настроек GUI). 0 быстрое / 1 обычное / 2 максимальное сжатие.
+    public int CompressionMode { get; init; }
+    public bool IncludeMachineName { get; init; }
+    public int? RetentionCount { get; init; }
 
     /// <summary>
     /// Последний запуск (локальное время). При создании ставится «сейчас», чтобы

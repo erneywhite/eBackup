@@ -50,6 +50,7 @@ public static class AppPaths
     // Машинный конфиг службы (SYSTEM-владелец, правится только через валидированный IPC, 1.2).
     public static string MachineConfigDir          => Path.Combine(ProgramData, "config");
     public static string MachineStoragesFile        => Path.Combine(MachineConfigDir, "storages.json");
+    public static string MachineSchedulesFile       => Path.Combine(MachineConfigDir, "schedules.json");
     public static string MachineModulesDir          => Path.Combine(MachineConfigDir, "modules");
     public static string MachineDisabledModulesFile => Path.Combine(MachineConfigDir, "disabled-modules.json");
 

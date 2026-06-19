@@ -1,4 +1,7 @@
 using System;
+using System.Collections.Generic;
+using System.Text.Json;
+using eBackup.Core.Model;
 using eBackup.Core.Scheduling;
 using Xunit;
 
@@ -7,6 +10,20 @@ namespace eBackup.Tests;
 public class ScheduleTimingTests
 {
     private static readonly TimeSpan NoIdle = TimeSpan.Zero;
+
+    [Fact]
+    public void Old_Schedule_Json_Deserializes_With_New_Field_Defaults()
+    {
+        // Старый schedules.json (без полей S6) должен читаться с дефолтами (back-compat).
+        const string oldJson = """[{"id":"x","name":"Тест","kind":"Daily","hour":3,"enabled":true}]""";
+        var list = JsonSerializer.Deserialize<List<BackupSchedule>>(oldJson, ManifestJson.Options);
+        var s = Assert.Single(list!);
+        Assert.Equal("x", s.Id);
+        Assert.Null(s.OwnerSid);
+        Assert.Equal(0, s.CompressionMode);
+        Assert.False(s.IncludeMachineName);
+        Assert.Null(s.RetentionCount);
+    }
 
     private static BackupSchedule Make(ScheduleKind kind) => new() { Id = "s1", Name = "test", Kind = kind };
 
