@@ -1,0 +1,74 @@
+using System.Reflection;
+using eBackup.Core.History;
+using eBackup.Core.Modules;
+using eBackup.Core.Scheduling;
+using eBackup.Ipc.Server;
+using eBackup.Modules.Obs;
+using eBackup.Platform;
+using eBackup.Security;
+using eBackup.Service.Handlers;
+using eBackup.Service.Jobs;
+using eBackup.Storage;
+
+namespace eBackup.Service;
+
+/// <summary>
+/// Композиционный корень службы: строит весь конвейер ОДИН раз (история, реестр модулей, хранилища,
+/// расписания, «свои папки», движки бэкапа/восстановления, единый <see cref="JobManager"/>) и делится
+/// им между <see cref="IpcWorker"/> (named-pipe) и ScheduleWorker (таймер) — чтобы оба писали в ОДНУ
+/// очередь задач и ОДИН машинный конфиг. Регистрируется синглтоном; хост зовёт DisposeAsync на остановке.
+/// </summary>
+public sealed class ServicePipeline : IAsyncDisposable
+{
+    public HistoryStore History { get; }
+    public ModuleRegistry Registry { get; }
+    public StorageStore Storages { get; }
+    public ScheduleStore Schedules { get; }
+    public CustomFolderStore Folders { get; }
+    public JobManager Jobs { get; }
+    public IIpcHandlers Handlers { get; }
+    public IJobStream JobStream { get; }
+    public IArchiveReader ArchiveReader { get; }
+
+    public ServicePipeline()
+    {
+        History = new HistoryStore();
+
+        // Модули/конфиг служба берёт из ProgramData (под SYSTEM per-user профиль = системный, пуст).
+        Registry = new ModuleRegistry(
+        [
+            new BuiltInModuleSource([new ObsBackupModule()]),
+            new DeclarativeModuleSource(AppPaths.MachineModulesDir),
+        ], disabledConfigPath: AppPaths.MachineDisabledModulesFile);
+
+        // Один машинный протектор на хранилища И расписания (SYSTEM расшифрует секреты офлайн).
+        var machineProtector = new MachineKeyProtector(new MachineKeyStore());
+        Storages = new StorageStore(machineProtector, AppPaths.MachineStoragesFile,
+            Path.Combine(AppPaths.MachineConfigDir, "connections.json"));
+        Schedules = new ScheduleStore(machineProtector, AppPaths.MachineSchedulesFile);
+        Folders = new CustomFolderStore();
+
+        var backupRunner = new BackupRunner(
+            ids => Registry.LoadEnabled().Where(m => ids.Contains(m.Id)).ToList(),
+            resolveFolders: ids => ids.Where(Folders.Contains).ToList(),
+            storages: Storages);
+        var restoreRunner = new RestoreRunner(
+            Storages,
+            () => Registry.Discover().Where(d => d.Problem is null && d.Instance is not null).Select(d => d.Instance!).ToList());
+
+        var historyWriter = new JobHistoryWriter(History);
+        Jobs = new JobManager(
+            backupRunner,
+            channelFactory: runId => new JobChannel(History, runId),
+            onStateChanged: historyWriter.OnStateChanged,
+            restoreRunner: restoreRunner);
+
+        var build = Assembly.GetExecutingAssembly().GetName().Version?.ToString(3) ?? "0.0.0";
+        Handlers = new ServiceHandlers(Jobs, History, Registry, Storages, Guid.NewGuid().ToString("N"), build,
+            folders: Folders, schedules: Schedules);
+        JobStream = new JobStreamAdapter(Jobs);
+        ArchiveReader = new ServiceArchiveReader(Storages);
+    }
+
+    public ValueTask DisposeAsync() => Jobs.DisposeAsync();
+}

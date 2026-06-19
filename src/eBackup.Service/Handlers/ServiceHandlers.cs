@@ -1,6 +1,7 @@
 using System.Text.Json;
 using eBackup.Core.Model;
 using eBackup.Core.Modules;
+using eBackup.Core.Scheduling;
 using eBackup.Ipc.Contracts;
 using eBackup.Ipc.Server;
 using eBackup.Platform;
@@ -20,6 +21,7 @@ public sealed class ServiceHandlers : IIpcHandlers
     private readonly Core.History.HistoryStore _history;
     private readonly ModuleRegistry _registry;
     private readonly StorageStore _storages;   // машинный конфиг хранилищ (машинный ключ, ProgramData)
+    private readonly ScheduleStore _schedules; // машинный конфиг расписаний (машинный ключ, ProgramData)
     private readonly CustomFolderStore _folders; // реестр «своих папок» (ProgramData)
     private readonly string _modulesDir;         // куда InstallModule пишет *.module.json (ProgramData)
     private readonly string _instanceId;
@@ -27,12 +29,13 @@ public sealed class ServiceHandlers : IIpcHandlers
 
     public ServiceHandlers(JobManager jobs, Core.History.HistoryStore history, ModuleRegistry registry,
         StorageStore storages, string instanceId, string build,
-        CustomFolderStore? folders = null, string? modulesDir = null)
+        CustomFolderStore? folders = null, string? modulesDir = null, ScheduleStore? schedules = null)
     {
         _jobs = jobs;
         _history = history;
         _registry = registry;
         _storages = storages;
+        _schedules = schedules ?? new ScheduleStore(storages.Protector, AppPaths.MachineSchedulesFile);
         _folders = folders ?? new CustomFolderStore();
         _modulesDir = modulesDir ?? AppPaths.MachineModulesDir;
         _instanceId = instanceId;

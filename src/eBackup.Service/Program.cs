@@ -24,6 +24,7 @@ catch (Exception)
 
 var builder = Host.CreateApplicationBuilder(args);
 builder.Services.AddWindowsService(options => options.ServiceName = "eBackup");
+builder.Services.AddSingleton<ServicePipeline>();   // общий конвейер для IPC- и Schedule-воркеров
 builder.Services.AddHostedService<IpcWorker>();
 builder.Build().Run();
 
