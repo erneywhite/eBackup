@@ -126,12 +126,23 @@ public sealed class ServiceHandlers : IIpcHandlers
             ?? throw new IpcFaultException(IpcErrorCodes.NotFound, "Расписание не найдено.");
         if (!CanManage(s, caller))
             throw new IpcFaultException(IpcErrorCodes.NotOwner, "Это расписание создано другим пользователем.");
-        if (s.ProtectedPassphrase is not null)
-            throw new IpcFaultException(IpcErrorCodes.Unsupported,
-                "Зашифрованные бэкапы по расписанию пока выполняются только вручную (появится в следующем обновлении).");
 
-        // Запускаем под профилем ВЛАДЕЛЬЦА расписания (per-SID резолв источников), помечаем как Scheduled.
-        var job = _jobs.Enqueue(ScheduleInputMapper.ToBackupRequest(s), s.OwnerSid ?? caller.OwnerSid, origin: "Scheduled");
+        // ЗАШИФРОВАННОЕ run-now — строго владелец (фраза принадлежит ему; CanManage пускает и бесхозные/админа).
+        if (s.ProtectedPassphrase is not null && (string.IsNullOrEmpty(s.OwnerSid) || s.OwnerSid != caller.OwnerSid))
+            throw new IpcFaultException(IpcErrorCodes.NotOwner, "Зашифрованное расписание может запустить только его владелец.");
+
+        // Запускаем под профилем ВЛАДЕЛЬЦА (per-SID резолв; для бесхозного незашифрованного — вызывающий),
+        // тем же путём, что и таймер (без дрейфа). Зашифрованную фразу служба расшифрует машинным ключом.
+        Job job;
+        try
+        {
+            job = ScheduleInputMapper.EnqueueScheduled(_jobs, _schedules, s, s.OwnerSid ?? caller.OwnerSid);
+        }
+        catch (eBackup.Security.MachineKeyException)
+        {
+            throw new IpcFaultException(IpcErrorCodes.SecretUnavailable,
+                "Машинный ключ недоступен — зашифрованное расписание сейчас запустить нельзя.");
+        }
         return new StartBackupResponse { JobId = job.JobId, RunId = job.RunId, Position = _jobs.Position(job) };
     }
 

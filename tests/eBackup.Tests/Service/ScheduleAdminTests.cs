@@ -121,17 +121,21 @@ public sealed class ScheduleAdminTests : IDisposable
     }
 
     [Fact]
-    public async Task RunNow_On_Encrypted_Schedule_Is_Unsupported()
+    public async Task RunNow_On_Encrypted_Schedule_Owner_Succeeds_NonOwner_Rejected()
     {
         var (handlers, jobs) = Build();
         await using var _ = jobs;
         await handlers.UpsertScheduleAsync(Make(passphrase: "secret"), Alice, default);
+        Assert.True(Assert.Single(await handlers.ListSchedulesAsync(Alice, default)).HasPassphrase);
 
-        var listed = await handlers.ListSchedulesAsync(Alice, default);
-        Assert.True(Assert.Single(listed).HasPassphrase);
+        // Владелец запускает зашифрованное (служба расшифрует машинным ключом).
+        var resp = await handlers.RunScheduleNowAsync(new RunScheduleNowRequest { ScheduleId = "s1" }, Alice, default);
+        Assert.NotEmpty(resp.JobId);
+        Assert.Equal("Scheduled", (await handlers.GetJobAsync(new GetJobRequest { JobId = resp.JobId }, Alice, default)).JobOrigin);
 
+        // Админ (НЕ владелец) зашифрованное run-now — запрещено (фраза принадлежит владельцу).
         await Assert.ThrowsAsync<IpcFaultException>(
-            () => handlers.RunScheduleNowAsync(new RunScheduleNowRequest { ScheduleId = "s1" }, Alice, default));
+            () => handlers.RunScheduleNowAsync(new RunScheduleNowRequest { ScheduleId = "s1" }, Admin, default));
     }
 
     [Fact]

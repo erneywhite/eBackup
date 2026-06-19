@@ -246,44 +246,22 @@ public sealed partial class SchedulePage : Page
     }
 
     /// <summary>
-    /// Ручной запуск — по СОХРАНЁННЫМ настройкам расписания (правки формы не участвуют).
-    /// Выполняет служба как обычный бэкап текущего пользователя (живой прогресс снизу).
-    /// Зашифрованные расписания запустить нельзя: фраза под машинным ключом службы, GUI её не видит.
+    /// Ручной запуск — по СОХРАНЁННЫМ настройкам расписания (правки формы не участвуют). Идёт ЧЕРЕЗ СЛУЖБУ
+    /// тем же путём, что и таймер: совпадает с плановым (свои сжатие/имя ПК/retention), а зашифрованное
+    /// служба расшифрует машинным ключом сама (GUI фразы не видит). Ошибки приходят в нижнюю панель.
     /// </summary>
     private void RunNowBtn_Click(object sender, RoutedEventArgs e)
     {
         if (_editing is null || MainWindow.Instance is null)
             return;
-
-        if (_editing.HasPassphrase)
-        {
-            SetStatus("Зашифрованные расписания пока нельзя запускать вручную (появится позже).", ok: false);
-            return;
-        }
         if (MainWindow.Instance.IsBusy)
         {
             SetStatus("Уже идёт бэкап или восстановление — подожди завершения.", ok: false);
             return;
         }
-        if (_editing.ModuleIds.Length == 0 && _editing.CustomFolderIds.Length == 0)
-        {
-            SetStatus("В расписании нет ни модулей, ни папок.", ok: false);
-            return;
-        }
-        if (_editing.TargetStorageIds.Length == 0)
-        {
-            SetStatus("В расписании не выбрано ни одного хранилища.", ok: false);
-            return;
-        }
 
-        // Несём настройки прогона ИЗ расписания (сжатие/имя ПК/retention) — ручной запуск = плановый.
-        var request = new BackupRequest(
-            _editing.ModuleIds.ToList(), _editing.CustomFolderIds.ToList(), _editing.TargetStorageIds.ToList(), null,
-            CompressionMode: _editing.CompressionMode,
-            IncludeMachineName: _editing.IncludeMachineName,
-            RetentionCount: _editing.RetentionCount);
         // Не ждём завершения: кнопке важен сам старт, прогресс — в нижней панели.
-        _ = MainWindow.Instance.StartBackupAsync(request, trigger: $"вручную · расписание «{_editing.Name}»");
+        _ = MainWindow.Instance.RunScheduleNowAsync(_editing.Id, _editing.Name);
         SetStatus("✓ Запущено — прогресс в нижней панели.", ok: true);
     }
 

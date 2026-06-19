@@ -1,4 +1,6 @@
 using eBackup.Core.Scheduling;
+using eBackup.Platform;
+using eBackup.Security;
 using eBackup.Service.Handlers;
 using eBackup.Service.Jobs;
 using Microsoft.Extensions.Hosting;
@@ -10,7 +12,8 @@ namespace eBackup.Service;
 /// Планировщик службы: раз в минуту проверяет расписания и ставит «созревшие» в ОБЩУЮ очередь задач
 /// (тот же <see cref="JobManager"/>, что у IPC) — поэтому бэкап идёт даже без вошедшего пользователя.
 /// LastRunAt штампуется при ПОСТАНОВКЕ в очередь: без повторов и без догона пропущенных (политика S6).
-/// Зашифрованные расписания пока пропускаются и НЕ штампуются (заработают на S7).
+/// Зашифрованные расписания служба расшифровывает машинным ключом сама (S7); если ключ недоступен —
+/// расписание пропускается БЕЗ штампа (оживёт после восстановления ключа), тик при этом не падает.
 /// </summary>
 public sealed class ScheduleWorker : BackgroundService
 {
@@ -32,6 +35,7 @@ public sealed class ScheduleWorker : BackgroundService
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
         _log.LogInformation("Планировщик бэкапов запущен (тик {Sec} с).", (int)TickInterval.TotalSeconds);
+        await StampSleepingEncryptedOnceAsync(stoppingToken).ConfigureAwait(false);
         using var timer = new PeriodicTimer(TickInterval);
         do
         {
@@ -59,34 +63,79 @@ public sealed class ScheduleWorker : BackgroundService
 
         var queued = 0;
         var changed = false;
-        for (var i = 0; i < list.Count; i++)
+        try
         {
-            var s = list[i];
-            if (!ScheduleTiming.IsDue(s, now, idle))
-                continue;
-
-            if (s.ProtectedPassphrase is not null)
+            for (var i = 0; i < list.Count; i++)
             {
-                // S6: зашифрованные бэкапы по расписанию не запускаем и НЕ штампуем — оживут на S7.
-                _log.LogInformation("Расписание «{Name}»: шифрование по расписанию пока не поддержано — пропуск.", s.Name);
-                continue;
-            }
-            if (string.IsNullOrEmpty(s.OwnerSid))
-            {
-                _log.LogWarning("Расписание «{Name}»: не задан владелец (OwnerSid) — пропуск.", s.Name);
-                continue;
-            }
+                var s = list[i];
+                if (!ScheduleTiming.IsDue(s, now, idle))
+                    continue;
+                if (string.IsNullOrEmpty(s.OwnerSid))
+                {
+                    _log.LogWarning("Расписание «{Name}»: не задан владелец (OwnerSid) — пропуск.", s.Name);
+                    continue;
+                }
 
-            // Под профилем владельца (per-SID резолв источников), помечаем Scheduled.
-            _jobs.Enqueue(ScheduleInputMapper.ToBackupRequest(s), s.OwnerSid, origin: "Scheduled");
-            list[i] = s with { LastRunAt = now };  // штамп при постановке → без повтора и без догона
-            changed = true;
-            queued++;
-            _log.LogInformation("Расписание «{Name}»: бэкап поставлен в очередь.", s.Name);
+                try
+                {
+                    // Зашифрованное — расшифровываем фразу машинным ключом синхронно ЗДЕСЬ (а не в раннере),
+                    // чтобы при отсутствии ключа НЕ штамповать и не зацикливать постановку.
+                    ScheduleInputMapper.EnqueueScheduled(_jobs, _schedules, s, s.OwnerSid);
+                }
+                catch (MachineKeyException ex)
+                {
+                    // Ключ недоступен/сменился → пропуск БЕЗ штампа (оживёт после восстановления ключа), тик не валим.
+                    _log.LogWarning(ex, "Расписание «{Name}»: машинный ключ недоступен — пропуск без штампа.", s.Name);
+                    continue;
+                }
+
+                list[i] = s with { LastRunAt = now };  // штамп при постановке → без повтора и без догона
+                changed = true;
+                queued++;
+                _log.LogInformation("Расписание «{Name}»: бэкап поставлен в очередь.", s.Name);
+            }
         }
-
-        if (changed)
-            await _schedules.SaveAllAsync(list, ct).ConfigureAwait(false);
+        finally
+        {
+            // Сохраняем ГАРАНТИРОВАННО: иначе упавшее расписание потеряло бы штампы успешных в этом же тике.
+            if (changed)
+                await _schedules.SaveAllAsync(list, ct).ConfigureAwait(false);
+        }
         return queued;
+    }
+
+    /// <summary>
+    /// Одноразовая выкатка S7: ранее «спавшие» зашифрованные расписания (S6 их пропускал и не штамповал)
+    /// помечаем «выполнено сейчас», чтобы при включении шифрования они НЕ выстрелили пачкой задним числом
+    /// (у EveryHours/DailyWhenIdle нет grace-окна). Маркер в ProgramData делает это ровно один раз.
+    /// </summary>
+    private async Task StampSleepingEncryptedOnceAsync(CancellationToken ct)
+    {
+        var marker = Path.Combine(AppPaths.MachineConfigDir, "s7-encrypted-stamped.marker");
+        if (File.Exists(marker))
+            return;
+        try
+        {
+            var now = DateTime.Now;
+            var list = (await _schedules.LoadAsync(ct).ConfigureAwait(false)).ToList();
+            var changed = false;
+            for (var i = 0; i < list.Count; i++)
+                if (list[i].ProtectedPassphrase is not null)
+                {
+                    list[i] = list[i] with { LastRunAt = now };
+                    changed = true;
+                }
+            if (changed)
+            {
+                await _schedules.SaveAllAsync(list, ct).ConfigureAwait(false);
+                _log.LogInformation("S7-выкатка: проштамповано зашифрованных расписаний — без залпа задним числом.");
+            }
+            Directory.CreateDirectory(AppPaths.MachineConfigDir);
+            await File.WriteAllTextAsync(marker, now.ToString("o"), ct).ConfigureAwait(false);
+        }
+        catch (Exception ex)
+        {
+            _log.LogWarning(ex, "Не удалось выполнить one-time stamp зашифрованных расписаний.");
+        }
     }
 }

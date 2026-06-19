@@ -32,6 +32,13 @@ public sealed class ScheduleWorkerTests : IDisposable
         public string Unprotect(string p) => Encoding.UTF8.GetString(Convert.FromBase64String(p["enc:".Length..]));
     }
 
+    /// <summary>Протектор, чей Unprotect всегда бросает MachineKeyException (имитация недоступного ключа).</summary>
+    private sealed class ThrowingKeyProtector : ISecretProtector
+    {
+        public string Protect(string p) => "enc:" + p;
+        public string Unprotect(string p) => throw new eBackup.Security.MachineKeyException("ключ недоступен");
+    }
+
     private sealed class FakeIdle(TimeSpan idle) : IIdleSource
     {
         public Task<TimeSpan> GetIdleAsync(CancellationToken ct) => Task.FromResult(idle);
@@ -89,17 +96,43 @@ public sealed class ScheduleWorkerTests : IDisposable
     }
 
     [Fact]
-    public async Task Encrypted_Schedule_Is_Skipped_Without_Stamping()
+    public async Task Encrypted_Schedule_Fires_And_Is_Stamped_When_Key_Available()
     {
         var (worker, store, jobs) = Build(TimeSpan.Zero);
         await using var _ = jobs;
         var last = new DateTime(2026, 6, 18, 3, 0, 0);
-        await store.SaveAllAsync([Daily("s1", last, pass: "enc:secret")]);
+        await store.SaveAllAsync([Daily("s1", last, pass: store.ProtectPassphrase("secret"))]);
 
-        Assert.Equal(0, await worker.TickAsync(new DateTime(2026, 6, 19, 3, 0, 20), default));
+        var now = new DateTime(2026, 6, 19, 3, 0, 20);
+        Assert.Equal(1, await worker.TickAsync(now, default)); // S7: зашифрованное теперь срабатывает
 
-        // НЕ проштамповано → когда S7 включит шифрование, расписание оживёт.
-        Assert.Equal(last, Assert.Single(await store.LoadAsync()).LastRunAt);
+        var job = Assert.Single(jobs.List("S-1-5-21-ALICE", isAdmin: false, includeFinished: true));
+        Assert.True(job.RequiresEncryption);
+        Assert.Equal(Encoding.UTF8.GetBytes("secret"), job.ResolvedPassphrase); // фраза расшифрована машинным ключом
+        Assert.Equal(now, Assert.Single(await store.LoadAsync()).LastRunAt);     // проштамповано
+    }
+
+    [Fact]
+    public async Task Encrypted_With_Unavailable_Key_Is_Skipped_Without_Stamp_And_Sibling_Still_Stamped()
+    {
+        var history = new HistoryStore(Path.Combine(_root, "hist"));
+        var store = new ScheduleStore(new ThrowingKeyProtector(), Path.Combine(_root, "cfg", "schedules.json"));
+        await using var jobs = new JobManager(new NoOpRunner(), rid => new JobChannel(history, rid));
+        var worker = new ScheduleWorker(store, jobs, new FakeIdle(TimeSpan.Zero), NullLogger<ScheduleWorker>.Instance);
+
+        var encLast = new DateTime(2026, 6, 18, 3, 0, 0);
+        await store.SaveAllAsync(
+        [
+            Daily("plain", new DateTime(2026, 6, 18, 3, 0, 0)),       // обычное — сработает и проштампуется
+            Daily("enc", encLast, pass: "enc:whatever"),             // зашифр. — ключ бросит MachineKeyException
+        ]);
+
+        var now = new DateTime(2026, 6, 19, 3, 0, 20);
+        Assert.Equal(1, await worker.TickAsync(now, default)); // поставлено только обычное; тик не упал
+
+        var reloaded = (await store.LoadAsync()).ToDictionary(s => s.Id);
+        Assert.Equal(now, reloaded["plain"].LastRunAt);   // штамп успешного СОХРАНЁН (SaveAllAsync в finally)
+        Assert.Equal(encLast, reloaded["enc"].LastRunAt);  // зашифр. НЕ проштамповано (оживёт после восстановления ключа)
     }
 
     [Fact]

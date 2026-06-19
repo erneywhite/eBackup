@@ -389,32 +389,13 @@ public sealed partial class MainWindow : Window
 
     // ---------- запуск бэкапа (страница «Бэкап» или расписание) ----------
 
-    public async Task StartBackupAsync(BackupRequest request, string trigger = "вручную")
+    public Task StartBackupAsync(BackupRequest request, string trigger = "вручную")
     {
-        if (_operationRunning || request.TargetStorageIds.Count == 0)
-            return;
+        if (request.TargetStorageIds.Count == 0)
+            return Task.CompletedTask;
 
-        _operationRunning = true;
-        _backupCts = new CancellationTokenSource();
-        var ct = _backupCts.Token;
-        var cancelled = false;
-        BackupBtnText.Text = "Отменить"; // во время бэкапа кнопка отменяет операцию
-        StatusTitle.Text = "Делаю бэкап…";
-        StatusSub.Text = "подготовка…";
-        SetFill(0.04);
-
-        // Бэкап выполняет СЛУЖБА (под SYSTEM): окно ставит задачу и показывает живой прогресс из нот.
-        // Историю пишет служба; «Обзор» подтянет результат через неё. Шифрование: фразу отдаём службе
-        // разовым тикетом (StashPassphrase) — открытый текст по пайпу один раз, дальше служба шифрует.
-        string? jobId = null;
-        var ok = false;
-        string? error = null;
-        var summary = "";
-        try
+        return RunServiceBackupAsync(trigger, async (client, ct) =>
         {
-            var client = await ServiceConnection.GetClientAsync(ct)
-                ?? throw new InvalidOperationException(ServiceConnection.Shared.Error ?? "Служба eBackup недоступна.");
-
             // Регистрируем выбранные «свои папки» — служба бэкапит только зарегистрированные (не сырой путь с провода).
             foreach (var folder in request.FolderPaths)
                 await client.UpsertCustomFolderAsync(folder, ct);
@@ -438,7 +419,47 @@ public sealed partial class MainWindow : Window
                 Trigger = trigger,
                 ClientRequestId = Guid.NewGuid().ToString("N"),
             }, ct);
-            jobId = resp.JobId;
+            return resp.JobId;
+        });
+    }
+
+    /// <summary>
+    /// Запустить расписание сейчас ЧЕРЕЗ СЛУЖБУ (она сама расшифрует фразу машинным ключом) + живой прогресс.
+    /// Единый путь и для зашифрованных (GUI фразы не видит), и для обычных — совпадает с плановым запуском.
+    /// </summary>
+    public Task RunScheduleNowAsync(string scheduleId, string scheduleName)
+        => RunServiceBackupAsync($"вручную · расписание «{scheduleName}»",
+            async (client, ct) => (await client.RunScheduleNowAsync(scheduleId, ct)).JobId);
+
+    // ---------- общий привод сервис-бэкапа: старт задачи (enqueue) + живой прогресс из нот + итог ----------
+
+    private async Task RunServiceBackupAsync(string trigger, Func<IpcClient, CancellationToken, Task<string>> enqueue)
+    {
+        if (_operationRunning)
+            return;
+
+        _operationRunning = true;
+        _backupCts = new CancellationTokenSource();
+        var ct = _backupCts.Token;
+        var cancelled = false;
+        BackupBtnText.Text = "Отменить"; // во время бэкапа кнопка отменяет операцию
+        StatusTitle.Text = "Делаю бэкап…";
+        StatusSub.Text = "подготовка…";
+        SetFill(0.04);
+
+        // Бэкап выполняет СЛУЖБА (под SYSTEM): окно ставит задачу и показывает живой прогресс из нот.
+        // Историю пишет служба; «Обзор» подтянет результат. Шифрование: фраза уходит службе тикетом
+        // (интерактив) или расшифровывается машинным ключом (расписание) — открытый текст окно не хранит.
+        string? jobId = null;
+        var ok = false;
+        string? error = null;
+        var summary = "";
+        try
+        {
+            var client = await ServiceConnection.GetClientAsync(ct)
+                ?? throw new InvalidOperationException(ServiceConnection.Shared.Error ?? "Служба eBackup недоступна.");
+
+            jobId = await enqueue(client, ct);
 
             // Живой прогресс из нот службы (Phase двигает «воду», Log — подпись) до терминальной ноты.
             await foreach (var f in client.AttachToJobAsync(jobId, 0, ct))
@@ -478,6 +499,12 @@ public sealed partial class MainWindow : Window
                 try { await CancelJobViaServiceAsync(jobId); } catch { /* best-effort: соединение/токен уже закрыты */ }
             StatusTitle.Text = "Бэкап отменён";
             StatusSub.Text = "отменено пользователем";
+        }
+        catch (IpcRequestException ex)
+        {
+            error = ex.Error.Message; // типизированный отказ службы (напр. чужое зашифр. расписание, нет ключа)
+            StatusTitle.Text = "Ошибка бэкапа";
+            StatusSub.Text = "✕ " + ex.Error.Message;
         }
         catch (Exception ex)
         {

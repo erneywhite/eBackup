@@ -1,5 +1,7 @@
+using System.Text;
 using eBackup.Core.Scheduling;
 using eBackup.Ipc.Contracts;
+using eBackup.Service.Jobs;
 
 namespace eBackup.Service.Handlers;
 
@@ -58,12 +60,29 @@ public static class ScheduleInputMapper
         CustomFolderIds = s.CustomFolders.ToArray(),
         TargetStorageIds = s.TargetConnectionIds.ToArray(),
         CompressionMode = s.CompressionMode,
-        Passphrase = null,                       // S6: без шифрования (зашифрованные расписания отклоняются)
+        Passphrase = null,                       // фраза НЕ в DTO — служба кладёт её на Job.ResolvedPassphrase (EnqueueScheduled)
         IncludeMachineName = s.IncludeMachineName,
         RetentionCount = s.RetentionCount,
         Trigger = $"по расписанию «{s.Name}»",
         ClientRequestId = "",                    // служба не повторяет запрос — идемпотентность не нужна
     };
+
+    /// <summary>
+    /// Поставить расписание в очередь службы (origin=Scheduled, под профилем владельца). Зашифрованную
+    /// фразу служба расшифровывает САМА машинным ключом (без вошедшего пользователя) и кладёт на Job
+    /// (мимо DTO). Может бросить <see cref="eBackup.Security.MachineKeyException"/>, если ключ недоступен —
+    /// вызывающий решает: таймер пропускает без штампа, run-now отдаёт SecretUnavailable. Зовут оба
+    /// (таймер и run-now) — единый путь, без дрейфа поведения.
+    /// </summary>
+    public static Job EnqueueScheduled(JobManager jobs, ScheduleStore schedules, BackupSchedule s, string ownerSid)
+    {
+        var requires = s.ProtectedPassphrase is not null;
+        byte[]? passphrase = requires
+            ? Encoding.UTF8.GetBytes(schedules.UnprotectPassphrase(s.ProtectedPassphrase!))
+            : null;
+        return jobs.Enqueue(ToBackupRequest(s), ownerSid, origin: "Scheduled",
+            resolvedPassphrase: passphrase, requiresEncryption: requires);
+    }
 
     /// <summary>BackupSchedule → полное НЕсекретное описание для GUI (список + редактор; + расчёт NextRun).</summary>
     public static ScheduleDetail ToDetail(BackupSchedule s, DateTime now)
