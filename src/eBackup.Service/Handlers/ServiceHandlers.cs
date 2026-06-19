@@ -88,8 +88,20 @@ public sealed class ServiceHandlers : IIpcHandlers
         => Task.FromResult(_jobs.List(caller.OwnerSid, caller.IsAdmin, req.IncludeFinished)
             .Select(JobMapping.ToStatus).ToArray());
 
-    public Task<StartBackupResponse> RunScheduleNowAsync(RunScheduleNowRequest req, CallerContext caller, CancellationToken ct)
-        => throw new IpcFaultException(IpcErrorCodes.Unsupported, "Расписания исполняются службой начиная с S6.");
+    public async Task<StartBackupResponse> RunScheduleNowAsync(RunScheduleNowRequest req, CallerContext caller, CancellationToken ct)
+    {
+        var s = (await _schedules.LoadAsync(ct).ConfigureAwait(false)).FirstOrDefault(x => x.Id == req.ScheduleId)
+            ?? throw new IpcFaultException(IpcErrorCodes.NotFound, "Расписание не найдено.");
+        if (!CanManage(s, caller))
+            throw new IpcFaultException(IpcErrorCodes.NotOwner, "Это расписание создано другим пользователем.");
+        if (s.ProtectedPassphrase is not null)
+            throw new IpcFaultException(IpcErrorCodes.Unsupported,
+                "Зашифрованные бэкапы по расписанию пока выполняются только вручную (появится в следующем обновлении).");
+
+        // Запускаем под профилем ВЛАДЕЛЬЦА расписания (per-SID резолв источников), помечаем как Scheduled.
+        var job = _jobs.Enqueue(ScheduleInputMapper.ToBackupRequest(s), s.OwnerSid ?? caller.OwnerSid, origin: "Scheduled");
+        return new StartBackupResponse { JobId = job.JobId, RunId = job.RunId, Position = _jobs.Position(job) };
+    }
 
     public Task<StashPassphraseResponse> StashPassphraseAsync(StashPassphraseRequest req, CallerContext caller, CancellationToken ct)
         => throw new IpcFaultException(IpcErrorCodes.Unsupported, "Шифрование разовой фразой через службу подключим позже.");
@@ -277,14 +289,56 @@ public sealed class ServiceHandlers : IIpcHandlers
         catch { return false; }
     }
 
-    public Task<ScheduleSummary[]> ListSchedulesAsync(CallerContext caller, CancellationToken ct)
-        => Task.FromResult(Array.Empty<ScheduleSummary>());
+    // ---- расписания (машинный конфиг, фразы под машинным ключом; авторизация по OwnerSid) ----
 
-    public Task<Ack> UpsertScheduleAsync(ScheduleInput req, CallerContext caller, CancellationToken ct)
-        => throw new IpcFaultException(IpcErrorCodes.Unsupported, "Управление расписаниями через службу — на S6.");
+    /// <summary>Управлять/видеть расписание может админ, владелец или (легаси) бесхозное.</summary>
+    private static bool CanManage(BackupSchedule s, CallerContext caller)
+        => caller.IsAdmin || s.OwnerSid is null || s.OwnerSid == caller.OwnerSid;
 
-    public Task<Ack> DeleteScheduleAsync(DeleteByIdRequest req, CallerContext caller, CancellationToken ct)
-        => throw new IpcFaultException(IpcErrorCodes.Unsupported, "Управление расписаниями через службу — на S6.");
+    public async Task<ScheduleSummary[]> ListSchedulesAsync(CallerContext caller, CancellationToken ct)
+    {
+        var now = DateTime.Now;
+        var all = await _schedules.LoadAsync(ct).ConfigureAwait(false);
+        return all.Where(s => CanManage(s, caller))
+            .Select(s => ScheduleInputMapper.ToSummary(s, now))
+            .ToArray();
+    }
+
+    public async Task<Ack> UpsertScheduleAsync(ScheduleInput req, CallerContext caller, CancellationToken ct)
+    {
+        if (string.IsNullOrWhiteSpace(req.Id))
+            throw new IpcFaultException(IpcErrorCodes.BadRequest, "Пустой id расписания.");
+        if (string.IsNullOrWhiteSpace(req.Name))
+            throw new IpcFaultException(IpcErrorCodes.BadRequest, "Пустое имя расписания.");
+
+        var list = (await _schedules.LoadAsync(ct).ConfigureAwait(false)).ToList();
+        var existing = list.FirstOrDefault(s => s.Id == req.Id);
+        if (existing is not null && !CanManage(existing, caller))
+            throw new IpcFaultException(IpcErrorCodes.NotOwner, "Это расписание создано другим пользователем.");
+
+        var mapped = ScheduleInputMapper.ToSchedule(req, _schedules, existing, caller.OwnerSid);
+        if (existing is null)
+            mapped = mapped with { LastRunAt = DateTime.Now }; // новое не срабатывает задним числом
+
+        list.RemoveAll(s => s.Id == req.Id);
+        list.Add(mapped);
+        await _schedules.SaveAllAsync(list, ct).ConfigureAwait(false);
+        return new Ack();
+    }
+
+    public async Task<Ack> DeleteScheduleAsync(DeleteByIdRequest req, CallerContext caller, CancellationToken ct)
+    {
+        var list = (await _schedules.LoadAsync(ct).ConfigureAwait(false)).ToList();
+        var existing = list.FirstOrDefault(s => s.Id == req.Id);
+        if (existing is null)
+            return new Ack(); // нечего удалять — идемпотентно
+        if (!CanManage(existing, caller))
+            throw new IpcFaultException(IpcErrorCodes.NotOwner, "Это расписание создано другим пользователем.");
+
+        list.RemoveAll(s => s.Id == req.Id);
+        await _schedules.SaveAllAsync(list, ct).ConfigureAwait(false);
+        return new Ack();
+    }
 
     private const int HistoryStoreMax = 300;
 }

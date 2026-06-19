@@ -49,6 +49,23 @@ public static class ScheduleInputMapper
         };
     }
 
+    /// <summary>
+    /// BackupSchedule → запрос бэкапа для очереди службы (ручной «выполнить сейчас» и таймер S6-5).
+    /// Шифрование не передаётся: на S6 зашифрованные расписания в принципе не запускаются (ждут S7).
+    /// </summary>
+    public static StartBackupRequest ToBackupRequest(BackupSchedule s) => new()
+    {
+        ModuleIds = s.ModuleIds.ToArray(),
+        CustomFolderIds = s.CustomFolders.ToArray(),
+        TargetStorageIds = s.TargetConnectionIds.ToArray(),
+        CompressionMode = s.CompressionMode,
+        Passphrase = null,                       // S6: без шифрования (зашифрованные расписания отклоняются)
+        IncludeMachineName = s.IncludeMachineName,
+        RetentionCount = s.RetentionCount,
+        Trigger = $"по расписанию «{s.Name}»",
+        ClientRequestId = "",                    // служба не повторяет запрос — идемпотентность не нужна
+    };
+
     /// <summary>BackupSchedule → сводка для GUI (без секрета фразы; только факт её наличия + расчёт NextRun).</summary>
     public static ScheduleSummary ToSummary(BackupSchedule s, DateTime now)
     {
