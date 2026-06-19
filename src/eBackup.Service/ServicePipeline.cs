@@ -49,7 +49,10 @@ public sealed class ServicePipeline : IAsyncDisposable
         Folders = new CustomFolderStore();
 
         var backupRunner = new BackupRunner(
-            ids => Registry.LoadEnabled().Where(m => ids.Contains(m.Id)).ToList(),
+            // Список id в запросе авторитетен: интерактивный бэкап (GUI отдаёт только включённые) и
+            // бэкап по расписанию (своя выборка, глобальный выключатель её не трогает) резолвим из ВСЕХ
+            // рабочих модулей. Выключатель — это фильтр того, что ПРЕДЛАГАЕТСЯ, а не запрет на исполнение.
+            ids => Registry.LoadForRestore().Where(m => ids.Contains(m.Id)).ToList(),
             resolveFolders: ids => ids.Where(Folders.Contains).ToList(),
             storages: Storages);
         var restoreRunner = new RestoreRunner(
