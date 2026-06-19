@@ -23,6 +23,8 @@ public sealed class RestoreRunner : IJobRunner
     private readonly Func<IReadOnlyList<IBackupModule>> _resolveRestoreModules; // все рабочие модули (для хуков)
     private readonly string _buildDir;
 
+    public static string DefaultBuildDir => Path.Combine(Path.GetTempPath(), "eBackup", "restore");
+
     public RestoreRunner(
         StorageStore storages,
         Func<IReadOnlyList<IBackupModule>> resolveRestoreModules,
@@ -30,7 +32,20 @@ public sealed class RestoreRunner : IJobRunner
     {
         _storages = storages;
         _resolveRestoreModules = resolveRestoreModules;
-        _buildDir = buildDir ?? Path.Combine(Path.GetTempPath(), "eBackup", "restore");
+        _buildDir = buildDir ?? DefaultBuildDir;
+    }
+
+    /// <summary>Подмести осиротевшие per-run папки восстановления (хвосты от падения процесса). Зовётся на старте службы.</summary>
+    public static void SweepOrphanRuns(string? buildDir = null)
+    {
+        var dir = buildDir ?? DefaultBuildDir;
+        try
+        {
+            if (!Directory.Exists(dir)) return;
+            foreach (var run in Directory.EnumerateDirectories(dir, "run-*"))
+                try { Directory.Delete(run, recursive: true); } catch { /* temp */ }
+        }
+        catch { /* нет папки/нет доступа — не критично */ }
     }
 
     public async Task<JobOutcome> RunAsync(Job job, CancellationToken ct)
@@ -55,8 +70,10 @@ public sealed class RestoreRunner : IJobRunner
             ?? throw new InvalidOperationException("Хранилище-источник не найдено.");
         var storage = StorageFactory.Create(saved, _storages.Protector);
 
-        Directory.CreateDirectory(_buildDir);
-        var temp = Path.Combine(_buildDir, $"{Guid.NewGuid():N}-{r.RemoteName}");
+        // Своя папка на прогон: и скачанный архив, и расшифрованный plaintext лежат тут и зачищаются целиком.
+        var runDir = Path.Combine(_buildDir, "run-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(runDir);
+        var temp = Path.Combine(runDir, r.RemoteName);
         var passphrase = job.ResolvedPassphrase is { Length: > 0 } pwBytes ? Encoding.UTF8.GetString(pwBytes) : null;
         try
         {
@@ -100,6 +117,7 @@ public sealed class RestoreRunner : IJobRunner
                 progress: progress,
                 log: Log,
                 resolveDestination: resolveDest,
+                tempDirectory: runDir,            // расшифрованный plaintext — в нашу run-папку (зачистится целиком)
                 ct: ct).ConfigureAwait(false);
 
             var skipped = engine.LastRestoreSkippedCount; // занятые/недоступные файлы → «с ошибками», не провал
@@ -111,7 +129,8 @@ public sealed class RestoreRunner : IJobRunner
         finally
         {
             WipePassphrase(); // занулить фразу всегда
-            try { File.Delete(temp); } catch { /* temp */ }
+            // Вся run-папка (скачанный архив + расшифрованный plaintext) удаляется целиком.
+            try { Directory.Delete(runDir, recursive: true); } catch { /* temp run-папка */ }
         }
     }
 }

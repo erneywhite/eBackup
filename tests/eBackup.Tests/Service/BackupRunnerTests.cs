@@ -128,7 +128,7 @@ public class BackupRunnerTests : IDisposable
     }
 
     [Fact]
-    public async Task Sweeps_Stale_Build_Artifacts_Before_Building()
+    public async Task Backup_Leaves_No_Run_Dir_And_SweepOrphanRuns_Cleans_Crashed_Ones()
     {
         var src = Path.Combine(_root, "myfolder");
         Directory.CreateDirectory(src);
@@ -136,18 +136,22 @@ public class BackupRunnerTests : IDisposable
 
         var buildDir = Path.Combine(_root, "build");
         Directory.CreateDirectory(buildDir);
-        // Хвосты прошлой отменённой сборки.
-        await File.WriteAllTextAsync(Path.Combine(buildDir, "orphan.ebk"), "stale");
-        await File.WriteAllTextAsync(Path.Combine(buildDir, "orphan.ebk.plain"), "stale");
+        // Осиротевшая run-папка от «упавшего» прошлого процесса + её plaintext-хвост.
+        var orphan = Path.Combine(buildDir, "run-orphandeadbeef");
+        Directory.CreateDirectory(orphan);
+        await File.WriteAllTextAsync(Path.Combine(orphan, "x.ebk.plain"), "stale");
 
         var history = new HistoryStore(Path.Combine(_root, "hist"));
         var runner = new BackupRunner(_ => [], buildDir, resolveFolders: ids => ids.ToList());
         var outcome = await runner.RunAsync(MakeJob(new StartBackupRequest { CustomFolderIds = [src] }, history), CancellationToken.None);
 
         Assert.True(outcome.Success);
-        Assert.False(File.Exists(Path.Combine(buildDir, "orphan.ebk")));       // подмели до сборки
-        Assert.False(File.Exists(Path.Combine(buildDir, "orphan.ebk.plain")));
-        Assert.True(File.Exists(Path.Combine(buildDir, outcome.ArchiveName!))); // новый архив на месте
+        Assert.True(File.Exists(Path.Combine(buildDir, outcome.ArchiveName!)));  // локальный архив на месте
+        var runs = Directory.EnumerateDirectories(buildDir, "run-*").Select(Path.GetFileName).ToList();
+        Assert.Equal(new[] { "run-orphandeadbeef" }, runs);                      // свою run-папку прогон зачистил, осталась только осиротевшая
+
+        BackupRunner.SweepOrphanRuns(buildDir);                                  // старт службы подметает осиротевшие
+        Assert.False(Directory.Exists(orphan));
     }
 
     [Fact]

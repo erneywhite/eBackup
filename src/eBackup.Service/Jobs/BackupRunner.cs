@@ -24,6 +24,8 @@ public sealed class BackupRunner : IJobRunner
     private readonly StorageStore? _storages;   // машинный конфиг хранилищ (null в тестах сборки = локальный режим)
     private readonly string _buildDir;
 
+    public static string DefaultBuildDir => Path.Combine(Path.GetTempPath(), "eBackup", "build");
+
     public BackupRunner(
         Func<IReadOnlyList<string>, IReadOnlyList<IBackupModule>> resolveModules,
         string? buildDir = null,
@@ -31,9 +33,22 @@ public sealed class BackupRunner : IJobRunner
         StorageStore? storages = null)
     {
         _resolveModules = resolveModules;
-        _buildDir = buildDir ?? Path.Combine(Path.GetTempPath(), "eBackup", "build");
+        _buildDir = buildDir ?? DefaultBuildDir;
         _resolveFolders = resolveFolders;
         _storages = storages;
+    }
+
+    /// <summary>Подмести осиротевшие per-run папки сборки (хвосты от падения/убийства процесса). Зовётся на старте службы.</summary>
+    public static void SweepOrphanRuns(string? buildDir = null)
+    {
+        var dir = buildDir ?? DefaultBuildDir;
+        try
+        {
+            if (!Directory.Exists(dir)) return;
+            foreach (var run in Directory.EnumerateDirectories(dir, "run-*"))
+                try { Directory.Delete(run, recursive: true); } catch { /* temp */ }
+        }
+        catch { /* нет папки/нет доступа — не критично */ }
     }
 
     public async Task<JobOutcome> RunAsync(Job job, CancellationToken ct)
@@ -60,10 +75,9 @@ public sealed class BackupRunner : IJobRunner
             return new JobOutcome(false, 0, 0, null, "Не выбрано ни модулей, ни папок.");
         }
 
-        Directory.CreateDirectory(_buildDir);
-        // Хвосты прошлых ОТМЕНЁННЫХ/упавших сборок (очередь одна-активная — чужих файлов тут нет).
-        foreach (var stale in Directory.EnumerateFiles(_buildDir, "*.ebk*"))
-            try { File.Delete(stale); } catch { /* temp */ }
+        // Своя папка на каждый прогон → изоляция и гарантированная зачистка (вся run-папка удаляется в finally).
+        var runDir = Path.Combine(_buildDir, "run-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(runDir);
 
         var name = BackupNaming.DefaultName(allModules,
             machineTag: job.Request!.IncludeMachineName ? Environment.MachineName : null);
@@ -88,17 +102,10 @@ public sealed class BackupRunner : IJobRunner
             ? System.Text.Encoding.UTF8.GetString(pwBytes)
             : null;
 
-        // Временные артефакты сборки в build-папке убираем при отмене/ошибке (как раньше делало окно).
-        void CleanupBuild()
-        {
-            foreach (var p in new[] { Path.Combine(_buildDir, name + ".ebk"), Path.Combine(_buildDir, name + ".ebk.plain") })
-                try { if (File.Exists(p)) File.Delete(p); } catch { /* temp */ }
-        }
-
         try
         {
             var archive = await engine.CreateBackupAsync(
-                allModules, _buildDir, name, passphrase: passphrase,
+                allModules, runDir, name, passphrase: passphrase,
                 progress: progress, compression: compression, log: Log, resolveSource: resolveSource, ct: ct)
                 .ConfigureAwait(false);
 
@@ -109,7 +116,8 @@ public sealed class BackupRunner : IJobRunner
             var targetIds = job.Request!.TargetStorageIds;
             if (_storages is null || targetIds.Length == 0)
             {
-                // Локальный режим: хранилища не выбраны — оставляем архив в build-папке.
+                // Локальный режим: переносим архив из run-папки в стабильное место (run-папку зачистит finally).
+                try { File.Move(archive, Path.Combine(_buildDir, archiveName), overwrite: true); } catch { /* останется в run-папке */ }
                 Log("Хранилища не выбраны — архив сохранён локально.");
                 return new JobOutcome(true, engine.LastSkippedCount, size, archiveName, null);
             }
@@ -196,8 +204,6 @@ public sealed class BackupRunner : IJobRunner
                 sink.Phase("Заливка…", (double)(++step) / targets.Count);
             }
 
-            try { File.Delete(archive); } catch { /* temp build */ }
-
             var ok = failed.Count == 0;
             var error = ok ? null : string.Join("; ", failed);
             Log(ok ? $"Готово → {string.Join(", ", done)}" : $"Завершено с ошибками: {error}");
@@ -205,18 +211,14 @@ public sealed class BackupRunner : IJobRunner
         }
         catch (OperationCanceledException)
         {
-            CleanupBuild();
             Log("⏹ Отменено — временные файлы сборки убраны.");
             throw; // JobManager пометит задачу Cancelled
-        }
-        catch (Exception)
-        {
-            CleanupBuild();
-            throw; // JobManager пометит задачу Failed
         }
         finally
         {
             WipePassphrase(); // занулить фразу всегда (успех/отмена/ошибка)
+            // Вся run-папка (включая .ebk и любой .plain) удаляется ВСЕГДА — успех/отмена/ошибка.
+            try { Directory.Delete(runDir, recursive: true); } catch { /* temp run-папка */ }
         }
     }
 

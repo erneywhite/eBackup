@@ -67,6 +67,10 @@ public sealed class ServicePipeline : IAsyncDisposable
             onStateChanged: historyWriter.OnStateChanged,
             restoreRunner: restoreRunner);
 
+        // Подмести осиротевшие per-run папки (хвосты от падения/убийства процесса в прошлый раз).
+        BackupRunner.SweepOrphanRuns();
+        RestoreRunner.SweepOrphanRuns();
+
         Vault = new PassphraseVault(); // разовые тикеты фраз для интерактивного шифрования
 
         var build = Assembly.GetExecutingAssembly().GetName().Version?.ToString(3) ?? "0.0.0";

@@ -211,10 +211,17 @@ public sealed class BackupEngine
         {
             progress?.Report("Шифрую архив (AES-256-GCM)…");
             var encryptWatch = Stopwatch.StartNew();
-            await ArchiveCipher.EncryptAsync(buildPath, archivePath, passphrase, ct).ConfigureAwait(false);
-            File.Delete(buildPath);
-            log?.Invoke($"Зашифровано (Argon2id + AES-256-GCM) за {encryptWatch.ElapsedMilliseconds} мс → "
-                + FormatSize(new FileInfo(archivePath).Length));
+            try
+            {
+                await ArchiveCipher.EncryptAsync(buildPath, archivePath, passphrase, ct).ConfigureAwait(false);
+                log?.Invoke($"Зашифровано (Argon2id + AES-256-GCM) за {encryptWatch.ElapsedMilliseconds} мс → "
+                    + FormatSize(new FileInfo(archivePath).Length));
+            }
+            finally
+            {
+                // ОТКРЫТЫЙ .plain не должен пережить даже исключение в шифровании.
+                try { if (File.Exists(buildPath)) File.Delete(buildPath); } catch { /* temp */ }
+            }
         }
 
         return archivePath;
@@ -315,9 +322,11 @@ public sealed class BackupEngine
         Action<string>? log = null,
         Func<string, bool>? entryFilter = null,
         Func<string, string>? resolveDestination = null,
+        string? tempDirectory = null,
         CancellationToken ct = default)
     {
-        // Зашифрованный архив сначала расшифровываем во временный файл.
+        // Зашифрованный архив сначала расшифровываем во временный файл (по умолчанию в системный temp;
+        // служба передаёт СВОЮ per-run папку, чтобы открытый plaintext лежал в контролируемом и зачищаемом месте).
         var workingPath = archivePath;
         string? tempPlain = null;
         if (ArchiveCipher.IsEncrypted(archivePath))
@@ -326,7 +335,9 @@ public sealed class BackupEngine
                 throw new InvalidOperationException("Архив зашифрован — требуется парольная фраза.");
             progress?.Report("Расшифровываю архив…");
             var decryptWatch = Stopwatch.StartNew();
-            tempPlain = Path.Combine(Path.GetTempPath(), $"ebk-dec-{Guid.NewGuid():N}.ebk");
+            var tempRoot = tempDirectory ?? Path.GetTempPath();
+            Directory.CreateDirectory(tempRoot);
+            tempPlain = Path.Combine(tempRoot, $"ebk-dec-{Guid.NewGuid():N}.ebk");
             await ArchiveCipher.DecryptAsync(archivePath, tempPlain, passphrase, ct).ConfigureAwait(false);
             workingPath = tempPlain;
             log?.Invoke($"Расшифрован (Argon2id + AES-256-GCM) за {decryptWatch.ElapsedMilliseconds} мс");
