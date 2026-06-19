@@ -84,9 +84,9 @@
                         <CheckBox x:Name="EncryptCheck" Content="Зашифровать архив (AES-256)"
                                   Checked="EncryptCheck_Changed" Unchecked="EncryptCheck_Changed" />
                         <PasswordBox x:Name="Pass1" PlaceholderText="парольная фраза"
-                                     Visibility="Collapsed" MaxWidth="360" HorizontalAlignment="Left" />
+                                     Visibility="Collapsed" MaxWidth="360" HorizontalAlignment="Stretch" />
                         <PasswordBox x:Name="Pass2" PlaceholderText="повтори фразу"
-                                     Visibility="Collapsed" MaxWidth="360" HorizontalAlignment="Left" />
+                                     Visibility="Collapsed" MaxWidth="360" HorizontalAlignment="Stretch" />
 
                         <TextBlock Text="Когда" FontSize="12" Margin="0,6,0,0"
                                    Foreground="{StaticResource EbTextDimBrush}" />

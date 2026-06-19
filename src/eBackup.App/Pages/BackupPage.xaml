@@ -40,9 +40,9 @@
                               Content="Зашифровать архив (AES-256, ключ из парольной фразы)"
                               Checked="EncryptCheck_Changed" Unchecked="EncryptCheck_Changed" />
                     <PasswordBox x:Name="Pass1" PlaceholderText="парольная фраза"
-                                 Visibility="Collapsed" MaxWidth="380" HorizontalAlignment="Left" />
+                                 Visibility="Collapsed" MaxWidth="380" HorizontalAlignment="Stretch" />
                     <PasswordBox x:Name="Pass2" PlaceholderText="повтори фразу"
-                                 Visibility="Collapsed" MaxWidth="380" HorizontalAlignment="Left" />
+                                 Visibility="Collapsed" MaxWidth="380" HorizontalAlignment="Stretch" />
                 </StackPanel>
             </Border>
 
