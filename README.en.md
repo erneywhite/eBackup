@@ -4,14 +4,15 @@
 
 **eBackup** is a modular Windows backup app: it backs up application settings and
 any folders you pick, stores archives in several places at once — from a local
-folder or NAS to Google Drive — and restores everything back into place, even on
-another PC or after an OS reinstall. Branded dark UI plus a full CLI.
+folder or NAS to the cloud (Google Drive, Dropbox, MEGA) — and restores everything
+back into place, even on another PC or after an OS reinstall. Branded dark UI plus a full CLI.
 
 Free, open source, no subscriptions. If eBackup turns out useful, you can
 [buy the author a coffee ☕](https://dalink.to/toristarm).
 
-> 🎉 **Version 1.1.0** — a one-click module catalog, cancellable backups and more.
-> Everything below works; a background backup service is next (1.2).
+> 🎉 **Version 1.2.0** — a background Windows service (LocalSystem): backups, restores
+> and schedules run with the rights they need and **even when nobody is logged in**;
+> encryption runs through the service; and an 8th storage — **MEGA** — has been added.
 
 ## Install
 
@@ -22,6 +23,10 @@ with one click.
 
 Windows 10/11 (x64). Installing into Program Files needs administrator rights.
 
+A background **eBackup** service (LocalSystem, auto-start) is installed alongside the
+app — it's what lets backups and schedules run without an open window and even with
+nobody logged in. Uninstalling the app removes the service too.
+
 ## Screenshots
 
 The main dashboard — "Overview": your latest backup, storages with their status, and one-click backup.
@@ -30,7 +35,7 @@ The main dashboard — "Overview": your latest backup, storages with their statu
 
 <!-- More screens (Backup, Storage, History) to be added later under docs/screenshots/. -->
 
-## Storage — 7 kinds, as many as you like at once
+## Storage — 8 kinds, as many as you like at once
 
 | Kind | Details |
 |---|---|
@@ -41,6 +46,7 @@ The main dashboard — "Overview": your latest backup, storages with their statu
 | ☁️ WebDAV | Nextcloud, ownCloud, Yandex.Disk etc. (app passwords) |
 | 🟢 Google Drive | OAuth sign-in via the browser; `drive.file` scope — the app sees **only its own** files |
 | 🔵 Dropbox | OAuth sign-in; isolated app folder |
+| 🔴 MEGA | sign in once (login + password + 2FA code), then it rides the saved session with no password or 2FA, schedules included; isolated app folder |
 
 Every storage gets a Test button, automatic availability badges ✓/✕ and a
 used-space counter on the Overview.
@@ -59,8 +65,10 @@ used-space counter on the Overview.
 
 **Schedules:** daily / weekdays / every N hours / **once a day when the PC is
 idle** (no input and the system is calm). Each schedule owns its module set,
-folders, destinations and encryption; there is a "Run now" button. Schedules
-work while the app is running — the tray is enough.
+folders, destinations and encryption; there is a "Run now" button. They are run by
+the background service — they fire **even when nobody is logged in**, and you don't
+need to keep the app open. Encrypted schedules run automatically too (the service
+keeps the passphrase under a machine key).
 
 **Archives and the archive browser:**
 - listings across all storages: size, date, 🔒 for encrypted; confirmed deletion
@@ -111,9 +119,13 @@ configs/logs from Settings.
 
 - 🔐 Optional archive encryption: chunked **AES-256-GCM**, key derived from the
   passphrase via **Argon2id** — safe to put on servers you don't own
-- 🔑 Connection secrets (passwords, keys, OAuth tokens) go through **Windows
-  DPAPI**: never stored in plain text and intentionally **not portable** to
-  another PC
+- 🔑 Connection secrets (passwords, keys, OAuth tokens, the MEGA session) are stored
+  encrypted, never in plain text, and intentionally **not portable** to another PC:
+  the background service keeps them under a **machine key** in ProgramData (so
+  schedules can decrypt them with nobody logged in), the CLI uses **Windows DPAPI**
+- 🔒 When encrypting through the service the passphrase travels as a single-use
+  ticket and is **never written** to history or logs; it is fail-closed — no
+  passphrase, no archive
 - 🛡️ Declarative modules are restricted to app-data paths (no `.ssh`/keys/
   Program Files), archives are checked against path traversal, and every
   backup is verified before it ships
@@ -145,11 +157,13 @@ dotnet run --project src/eBackup.Cli -- restore --archive .\backups\<name>.ebk -
 |---|---|
 | `eBackup.Abstractions` | Plugin contract (interfaces, manifest model) — a stable boundary |
 | `eBackup.Core` | Backup/restore engine with verification, encryption, module registry, schedules, the History journal |
-| `eBackup.Security` | Secret protection via Windows DPAPI |
-| `eBackup.Storage` | Unified storage model: folders/SMB, FTP/FTPS, S3, WebDAV, Google Drive, Dropbox; OAuth (PKCE + loopback); ranged reads of remote archives |
+| `eBackup.Security` | Secret protection: Windows DPAPI (CLI/local) and the service's **machine key** (ProgramData) |
+| `eBackup.Storage` | Unified storage model: folders/SMB, FTP/FTPS, S3, WebDAV, Google Drive, Dropbox, **MEGA**; OAuth (PKCE + loopback); ranged reads of remote archives |
 | `eBackup.Storage.Sftp` | SFTP on SSH.NET (+ seekable streams), `eBackup.Storage.Local` — the basic local provider |
 | `eBackup.Modules.Obs` | The OBS Studio module (config + plugins + scene assets) |
-| `eBackup.App` | WinUI 3 GUI |
+| `eBackup.Ipc` | Named-pipe contract and transport between the GUI and the service |
+| `eBackup.Service` | The LocalSystem background service: backup/restore/history/archives/modules/schedules |
+| `eBackup.App` | WinUI 3 GUI (a thin named-pipe client of the service) |
 | `eBackup.Cli` | Command-line interface |
 | `eBackup.Tests` | Tests |
 
@@ -157,13 +171,11 @@ Details: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) (in Russian).
 
 ## Roadmap
 
-Done: ✅ [v1.1.0 release](https://github.com/erneywhite/eBackup/releases/latest),
-✅ module catalog (one-click install), ✅ cancellable backups, ✅ self-update.
-
-🛠️ **In development — v1.2: a background Windows Service (LocalSystem).** Backups and
-restores run with the rights they need without an open window, and schedules fire
-**even when nobody is logged in** (the GUI becomes a thin client of the service).
-Already built and under testing — shipping in the next release.
+Done: ✅ [v1.2.0 release](https://github.com/erneywhite/eBackup/releases/latest) —
+a **background Windows service (LocalSystem)**: backups, restores and schedules without
+an open window and **with nobody logged in**, encryption through the service, an 8th
+storage — **MEGA**. Earlier: ✅ v1.1.0 (one-click module catalog, cancellable backups),
+✅ 7 storage kinds, ✅ archive browser with ranged reads, ✅ self-update.
 
 Next:
 - Dynamic DLL plugins (with a trust model and signatures)
