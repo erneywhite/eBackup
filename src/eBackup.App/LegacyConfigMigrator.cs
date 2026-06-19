@@ -22,17 +22,22 @@ namespace eBackup.App;
 /// под пользователем: читаем старое → расшифровываем локально → пере-заливаем через IPC, где служба
 /// перешифрует машинным ключом. Записи, уже существующие в службе (по id), не трогаем — без дублей и
 /// затирания. Каждый элемент в своём try/catch: один битый секрет не должен сорвать весь перенос.
+///
+/// NB (хвост на потом): хранилища/папки/модули в службе машинные (без SID), id — slug по имени. На
+/// мультипользовательской машине, где ОБА юзера в 1.1 имели одноимённые хранилища, второй перенос
+/// пропустит коллизию по id — это известное ограничение машинной модели, не для одиночного апгрейда.
 /// </summary>
 public static class LegacyConfigMigrator
 {
-    public sealed record Result(int Storages, int Schedules, int Folders, int Modules, int DisabledModules)
+    public sealed record Result(int Storages, int Schedules, int Folders, int Modules, int DisabledModules,
+        int SchedulesNeedPassphrase)
     {
         public int Total => Storages + Schedules + Folders + Modules + DisabledModules;
     }
 
     public static async Task<Result> MigrateAsync(IpcClient client)
     {
-        int storages = 0, schedules = 0, folders = 0, modules = 0, disabled = 0;
+        int storages = 0, schedules = 0, folders = 0, modules = 0, disabled = 0, needPassphrase = 0;
         var dpapi = new DpapiSecretProtector();
 
         // --- Хранилища (%LOCALAPPDATA%\eBackup\storages.json, DPAPI) ---
@@ -63,7 +68,16 @@ public static class LegacyConfigMigrator
                 foreach (var sc in legacy)
                 {
                     if (present.Contains(sc.Id)) continue;
-                    try { await client.UpsertScheduleAsync(ToInput(sc, store)); schedules++; } catch { }
+
+                    string? passphrase = null;
+                    if (sc.ProtectedPassphrase is not null)
+                    {
+                        // fail-closed: зашифрованное расписание без расшифрованной фразы НЕ переносим — иначе
+                        // оно молча начало бы делать незашифрованные архивы. Пусть пользователь пересоздаст.
+                        try { passphrase = store.UnprotectPassphrase(sc.ProtectedPassphrase); }
+                        catch { needPassphrase++; continue; }
+                    }
+                    try { await client.UpsertScheduleAsync(ToInput(sc, passphrase)); schedules++; } catch { }
                 }
             }
         }
@@ -111,7 +125,7 @@ public static class LegacyConfigMigrator
         }
         catch { }
 
-        return new Result(storages, schedules, folders, modules, disabled);
+        return new Result(storages, schedules, folders, modules, disabled, needPassphrase);
     }
 
     private static async Task<IReadOnlyList<T>> SafeLoadAsync<T>(Func<Task<IReadOnlyList<T>>> load)
@@ -161,15 +175,11 @@ public static class LegacyConfigMigrator
         };
     }
 
-    /// <summary>BackupSchedule → ScheduleInput. Фраза расшифровывается локально (DPAPI) и едет открытой
-    /// один раз — служба перешифрует её машинным ключом (как при обычном сохранении расписания).</summary>
-    private static ScheduleInput ToInput(BackupSchedule s, ScheduleStore store)
+    /// <summary>BackupSchedule → ScheduleInput. Фраза уже расшифрована вызывающим (локально, DPAPI) и едет
+    /// открытой один раз — служба перешифрует её машинным ключом (как при обычном сохранении расписания).
+    /// Если у расписания была фраза, но расшифровать не удалось, вызывающий его НЕ переносит (fail-closed).</summary>
+    private static ScheduleInput ToInput(BackupSchedule s, string? passphrase)
     {
-        string? passphrase = null;
-        if (s.ProtectedPassphrase is not null)
-        {
-            try { passphrase = store.UnprotectPassphrase(s.ProtectedPassphrase); } catch { passphrase = null; }
-        }
         return new ScheduleInput
         {
             Id = s.Id,

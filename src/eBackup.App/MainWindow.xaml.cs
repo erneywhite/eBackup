@@ -280,6 +280,13 @@ public sealed partial class MainWindow : Window
                 TryNotify(true, "✅ Настройки перенесены",
                     "Из прошлой версии — " + string.Join(", ", parts) + ".");
             }
+
+            // Зашифрованные расписания, чью фразу не удалось расшифровать, мы НЕ перенесли (fail-closed) —
+            // честно просим пересоздать, чтобы они не делали незашифрованные архивы втихую.
+            if (result.SchedulesNeedPassphrase > 0)
+                TryNotify(false, "⚠ Пересоздайте зашифрованные расписания",
+                    $"Не удалось перенести парольную фразу у расписаний: {result.SchedulesNeedPassphrase}. " +
+                    "Создайте их заново с фразой шифрования.");
         }
         catch
         {
