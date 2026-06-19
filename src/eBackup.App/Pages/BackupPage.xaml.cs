@@ -114,6 +114,7 @@ public sealed partial class BackupPage : Page
         StorageKind.WebDav => $"{s.Name}  (webdav · {s.ServiceUrl})",
         StorageKind.GoogleDrive => $"{s.Name}  (Google Drive)",
         StorageKind.Dropbox => $"{s.Name}  (Dropbox)",
+        StorageKind.Mega => $"{s.Name}  (MEGA · {s.Username})",
         _ => s.Name
     };
 

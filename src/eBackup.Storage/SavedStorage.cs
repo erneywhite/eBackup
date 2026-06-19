@@ -15,7 +15,9 @@ public enum StorageKind
     /// <summary>Google Drive (OAuth, scope drive.file — видит только свои файлы).</summary>
     GoogleDrive,
     /// <summary>Dropbox (OAuth, изолированная папка приложения Apps/…).</summary>
-    Dropbox
+    Dropbox,
+    /// <summary>MEGA (mega.nz): e-mail + пароль аккаунта, папка приложения в корне.</summary>
+    Mega
 }
 
 /// <summary>

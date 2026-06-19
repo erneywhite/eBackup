@@ -16,6 +16,7 @@ public static class StorageFactory
         StorageKind.WebDav => new WebDavStorage(s, protector),
         StorageKind.GoogleDrive => new GoogleDriveStorage(s, protector),
         StorageKind.Dropbox => new DropboxStorage(s, protector),
+        StorageKind.Mega => new MegaStorage(s, protector),
         _ => throw new NotSupportedException($"Тип хранилища {s.Kind} пока не поддерживается.")
     };
 
