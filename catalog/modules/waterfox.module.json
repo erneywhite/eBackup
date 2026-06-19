@@ -1,0 +1,26 @@
+{
+  "id": "waterfox",
+  "displayName": "Waterfox",
+  "minApiVersion": "1.0",
+  "entries": [
+    {
+      "tokenPath": "{APPDATA}/Waterfox",
+      "type": "Directory",
+      "archivePath": "profile",
+      "excludeGlobs": [
+        "Crash Reports/**",
+        "Pending Pings/**",
+        "Background Tasks Profiles/**",
+        "**/datareporting/**",
+        "**/crashes/**",
+        "**/gmp-*/**",
+        "**/shader-cache/**",
+        "**/startupCache/**",
+        "**/security_state/**",
+        "**/*.log",
+        "**/lock",
+        "**/.parentlock"
+      ]
+    }
+  ]
+}

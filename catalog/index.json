@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "updated": "2026-06-14",
+  "updated": "2026-06-19",
   "modules": [
     {
       "id": "minecraft-java",
@@ -40,6 +40,26 @@
       "author": "eBackup",
       "version": "1.0",
       "file": "modules/vscode.module.json",
+      "tokens": ["{APPDATA}"]
+    },
+    {
+      "id": "firefox",
+      "name": "Mozilla Firefox",
+      "description": "Профиль Firefox из %APPDATA%/Mozilla/Firefox: закладки, история, настройки, расширения, сессии и сохранённые пароли. Кэш (он в LOCALAPPDATA), телеметрия, краш-репорты и DRM-плагины не бэкапятся. Внимание: включает сохранённые пароли — при бэкапе профиля включайте шифрование архива.",
+      "category": "app",
+      "author": "eBackup",
+      "version": "1.0",
+      "file": "modules/firefox.module.json",
+      "tokens": ["{APPDATA}"]
+    },
+    {
+      "id": "waterfox",
+      "name": "Waterfox",
+      "description": "Профиль Waterfox из %APPDATA%/Waterfox: закладки, история, настройки, расширения, сессии и сохранённые пароли. Кэш, телеметрия и краш-репорты не бэкапятся. Внимание: включает сохранённые пароли — при бэкапе профиля включайте шифрование архива.",
+      "category": "app",
+      "author": "eBackup",
+      "version": "1.0",
+      "file": "modules/waterfox.module.json",
       "tokens": ["{APPDATA}"]
     }
   ]
