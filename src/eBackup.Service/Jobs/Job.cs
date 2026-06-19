@@ -9,7 +9,7 @@ public enum JobKind { Backup, Restore }
 /// <summary>Итог выполнения задачи бэкапа.</summary>
 public sealed record JobOutcome(bool Success, int SkippedFiles, long SizeBytes, string? ArchiveName, string? Error);
 
-/// <summary>Исполнитель одной задачи. Настоящий (движок + аплоад) — S4c-3; в тестах — фейк.</summary>
+/// <summary>Исполнитель одной задачи: в проде — BackupRunner/RestoreRunner (движок + аплоад), в тестах — фейк.</summary>
 public interface IJobRunner
 {
     Task<JobOutcome> RunAsync(Job job, CancellationToken ct);

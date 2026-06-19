@@ -1,6 +1,6 @@
 namespace eBackup.Service.Jobs;
 
-/// <summary>Типы нотификаций задачи (на проводе станут note-фреймами на S4d-2).</summary>
+/// <summary>Типы нотификаций задачи (на проводе едут note-фреймами через AttachToJob).</summary>
 public static class JobNoteKind
 {
     public const string Phase = "phase";        // крупная фаза + доля прогресса

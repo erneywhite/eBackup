@@ -181,9 +181,9 @@ public sealed class MachineKeyStore
         return (keyId, key);
     }
 
-    // Строгий DACL: только SYSTEM и Администраторы, без наследования. Best-effort:
-    // на реальном %ProgramData% его ставит привилегированный провижининг (S7); в тестах
-    // (temp-папка, не-админ) строгий ACL/owner может не примениться — это ок для дормантной сборки.
+    // Строгий DACL: только SYSTEM и Администраторы, без наследования. Best-effort: в службе под SYSTEM
+    // на реальном %ProgramData% применяется при само-провижининге ключа; в тестах (temp-папка, не-админ)
+    // строгий ACL/owner может не примениться — это ожидаемо и не ошибка.
     private static void TryApplyStrictAcl(string path, bool isDirectory)
     {
         try
@@ -215,7 +215,7 @@ public sealed class MachineKeyStore
         }
         catch
         {
-            // см. комментарий выше — намеренно best-effort в дормантной сборке.
+            // см. комментарий выше — строгий ACL намеренно best-effort (вне службы может не примениться).
         }
     }
 }

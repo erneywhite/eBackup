@@ -3,8 +3,8 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 
 // eBackup-служба: под LocalSystem держит named-pipe и исполняет привилегированные бэкапы.
-// Запускается и как Windows-служба, и как консоль (для отладки). Настоящие обработчики
-// (JobManager + движок) подключатся на S4c-2/3 — пока accept-loop на заглушке.
+// Запускается и как Windows-служба, и как консоль (для отладки). Обработчики (JobManager + движок)
+// собираются в ServicePipeline, accept-loop в IpcWorker обслуживает их вживую.
 // Машинно-уникальный инстанс: защита от двойного запуска (например, перекрытие при апгрейде).
 // В консольной отладке под обычным юзером нет SeCreateGlobalPrivilege — тогда мягко пропускаем.
 Mutex? instanceLock = null;

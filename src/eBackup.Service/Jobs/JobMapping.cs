@@ -25,7 +25,7 @@ public static class JobMapping
         Targets = j.Kind == JobKind.Restore
             ? [j.Restore!.TargetDir ?? "исходные места"]
             : j.Request!.TargetStorageIds,
-        ProgressFraction = Fraction(j.State), // настоящая доля прогресса — на S4d (стриминг)
+        ProgressFraction = Fraction(j.State), // грубая доля по фазе; точный прогресс идёт note-фреймами (AttachToJob)
     };
 
     public static BackupRunRecord ToRecord(Job j) => new()
