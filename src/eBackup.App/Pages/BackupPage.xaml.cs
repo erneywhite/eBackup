@@ -61,7 +61,7 @@ public sealed partial class BackupPage : Page
             storages = [];
             StoragesPanel.Children.Add(new TextBlock
             {
-                Text = "служба eBackup недоступна: " + (ServiceConnection.Shared.Error ?? ""),
+                Text = Loc.Get("Backup_ServiceUnavailable", ServiceConnection.Shared.Error ?? ""),
                 FontSize = 12,
                 Foreground = dimBrush
             });
@@ -82,7 +82,7 @@ public sealed partial class BackupPage : Page
         {
             StoragesPanel.Children.Add(new TextBlock
             {
-                Text = "хранилищ нет — добавь на странице «Хранилища»",
+                Text = Loc.Get("Backup_NoStorages"),
                 FontSize = 12,
                 Foreground = dimBrush
             });
@@ -133,7 +133,7 @@ public sealed partial class BackupPage : Page
         {
             FoldersPanel.Children.Add(new TextBlock
             {
-                Text = "пока пусто — добавь любые папки, которые хочешь сохранять",
+                Text = Loc.Get("Backup_FoldersEmpty"),
                 FontSize = 12,
                 Foreground = dim
             });
@@ -221,15 +221,15 @@ public sealed partial class BackupPage : Page
 
         string? err = null;
         if (moduleIds.Count == 0 && folderPaths.Count == 0)
-            err = "Выбери хотя бы один модуль или добавь папку.";
+            err = Loc.Get("Backup_ErrNoSource");
         else if (targetIds.Count == 0)
-            err = "Выбери хотя бы одно хранилище.";
+            err = Loc.Get("Backup_ErrNoStorage");
         else if (EncryptCheck.IsChecked == true)
         {
             if (Pass1.Password.Length == 0)
-                err = "Введи парольную фразу.";
+                err = Loc.Get("Backup_ErrNoPassphrase");
             else if (Pass1.Password != Pass2.Password)
-                err = "Парольные фразы не совпадают.";
+                err = Loc.Get("Backup_ErrPassphraseMismatch");
         }
 
         if (err is not null)

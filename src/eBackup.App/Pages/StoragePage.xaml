@@ -23,8 +23,8 @@
                     <ColumnDefinition Width="*" />
                     <ColumnDefinition Width="Auto" />
                 </Grid.ColumnDefinitions>
-                <TextBlock Text="Хранилища" FontSize="26" FontWeight="SemiBold" />
-                <Button x:Name="RefreshBtn" Grid.Column="1" CornerRadius="10" Padding="9,7"
+                <TextBlock x:Uid="Storage_Title" Text="Хранилища" FontSize="26" FontWeight="SemiBold" />
+                <Button x:Name="RefreshBtn" x:Uid="Storage_RefreshBtn" Grid.Column="1" CornerRadius="10" Padding="9,7"
                         VerticalAlignment="Center" Click="RefreshBtn_Click"
                         ToolTipService.ToolTip="Проверить доступность всех хранилищ">
                     <FontIcon Glyph="&#xE72C;" FontSize="13" />
@@ -66,17 +66,17 @@
 
             <Button x:Name="AddBtn" Grid.Row="2" HorizontalAlignment="Stretch"
                     Margin="0,10,0,0" CornerRadius="12">
-                <TextBlock Text="+ Добавить хранилище" />
+                <TextBlock x:Uid="Storage_AddBtn" Text="+ Добавить хранилище" />
                 <Button.Flyout>
                     <MenuFlyout>
-                        <MenuFlyoutItem Text="Папка или сетевой диск" Click="AddFolder_Click" />
-                        <MenuFlyoutItem Text="SFTP-сервер" Click="AddSftp_Click" />
-                        <MenuFlyoutItem Text="FTP / FTPS-сервер" Click="AddFtp_Click" />
-                        <MenuFlyoutItem Text="S3-совместимое (AWS, MinIO, B2, R2…)" Click="AddS3_Click" />
-                        <MenuFlyoutItem Text="WebDAV (Nextcloud, Яндекс.Диск…)" Click="AddWebDav_Click" />
-                        <MenuFlyoutItem Text="Google Drive" Click="AddGDrive_Click" />
-                        <MenuFlyoutItem Text="Dropbox" Click="AddDropbox_Click" />
-                        <MenuFlyoutItem Text="MEGA (mega.nz)" Click="AddMega_Click" />
+                        <MenuFlyoutItem x:Uid="Storage_AddFolderItem" Text="Папка или сетевой диск" Click="AddFolder_Click" />
+                        <MenuFlyoutItem x:Uid="Storage_AddSftpItem" Text="SFTP-сервер" Click="AddSftp_Click" />
+                        <MenuFlyoutItem x:Uid="Storage_AddFtpItem" Text="FTP / FTPS-сервер" Click="AddFtp_Click" />
+                        <MenuFlyoutItem x:Uid="Storage_AddS3Item" Text="S3-совместимое (AWS, MinIO, B2, R2…)" Click="AddS3_Click" />
+                        <MenuFlyoutItem x:Uid="Storage_AddWebDavItem" Text="WebDAV (Nextcloud, Яндекс.Диск…)" Click="AddWebDav_Click" />
+                        <MenuFlyoutItem x:Uid="Storage_AddGDriveItem" Text="Google Drive" Click="AddGDrive_Click" />
+                        <MenuFlyoutItem x:Uid="Storage_AddDropboxItem" Text="Dropbox" Click="AddDropbox_Click" />
+                        <MenuFlyoutItem x:Uid="Storage_AddMegaItem" Text="MEGA (mega.nz)" Click="AddMega_Click" />
                     </MenuFlyout>
                 </Button.Flyout>
             </Button>
@@ -84,7 +84,7 @@
 
         <!-- ===== Правая панель: редактор ===== -->
         <Grid Grid.Column="1">
-            <TextBlock x:Name="EmptyHint"
+            <TextBlock x:Name="EmptyHint" x:Uid="Storage_EmptyHint"
                        Text="Выбери хранилище слева или добавь новое"
                        Foreground="{StaticResource EbTextDimBrush}"
                        HorizontalAlignment="Center" VerticalAlignment="Center" />
@@ -95,16 +95,16 @@
                     Padding="20" VerticalAlignment="Top">
                 <ScrollViewer MaxHeight="580" VerticalScrollBarVisibility="Auto">
                     <StackPanel Spacing="10">
-                        <TextBlock x:Name="EditorTitle" Text="Новое хранилище"
+                        <TextBlock x:Name="EditorTitle" x:Uid="Storage_EditorTitle" Text="Новое хранилище"
                                    FontSize="18" FontWeight="SemiBold" />
 
-                        <TextBlock Text="Название" FontSize="12"
+                        <TextBlock x:Uid="Storage_NameLabel" Text="Название" FontSize="12"
                                    Foreground="{StaticResource EbTextDimBrush}" />
-                        <TextBox x:Name="NameBox" PlaceholderText="имя хранилища — как будет показано в списке" />
+                        <TextBox x:Name="NameBox" x:Uid="Storage_NameBox" PlaceholderText="имя хранилища — как будет показано в списке" />
 
                         <!-- ===== Папка / сетевой диск ===== -->
                         <StackPanel x:Name="FolderPanel" Spacing="10" Visibility="Collapsed">
-                            <TextBlock Text="Путь к папке" FontSize="12"
+                            <TextBlock x:Uid="Storage_FolderPathLabel" Text="Путь к папке" FontSize="12"
                                        Foreground="{StaticResource EbTextDimBrush}" />
                             <Grid ColumnSpacing="8">
                                 <Grid.ColumnDefinitions>
@@ -112,108 +112,108 @@
                                     <ColumnDefinition Width="Auto" />
                                     <ColumnDefinition Width="Auto" />
                                 </Grid.ColumnDefinitions>
-                                <TextBox x:Name="PathBox"
+                                <TextBox x:Name="PathBox" x:Uid="Storage_PathBox"
                                          PlaceholderText="D:\Backups, Z:\… или \\nas\share\backups" />
-                                <Button x:Name="BrowsePathBtn" Grid.Column="1" Content="Обзор…"
+                                <Button x:Name="BrowsePathBtn" x:Uid="Storage_BrowsePathBtn" Grid.Column="1" Content="Обзор…"
                                         CornerRadius="10" Click="BrowsePathBtn_Click" />
-                                <Button x:Name="OpenPathBtn" Grid.Column="2" Content="Открыть"
+                                <Button x:Name="OpenPathBtn" x:Uid="Storage_OpenPathBtn" Grid.Column="2" Content="Открыть"
                                         CornerRadius="10" Click="OpenPathBtn_Click"
                                         ToolTipService.ToolTip="Открыть папку в проводнике" />
                             </Grid>
 
-                            <TextBlock Text="Авторизация для сетевой папки (если требуется; подключение временное — в системе не сохраняется)"
+                            <TextBlock x:Uid="Storage_ShareAuthHint" Text="Авторизация для сетевой папки (если требуется; подключение временное — в системе не сохраняется)"
                                        FontSize="12" TextWrapping="Wrap"
                                        Foreground="{StaticResource EbTextDimBrush}" Margin="0,4,0,0" />
-                            <TextBox x:Name="ShareUserBox"
+                            <TextBox x:Name="ShareUserBox" x:Uid="Storage_ShareUserBox"
                                      PlaceholderText="логин (например, nas\user или user)" />
-                            <PasswordBox x:Name="SharePassBox" PlaceholderText="пароль" />
+                            <PasswordBox x:Name="SharePassBox" x:Uid="Storage_SharePassBox" PlaceholderText="пароль" />
                         </StackPanel>
 
                         <!-- ===== Google Drive ===== -->
                         <StackPanel x:Name="GDrivePanel" Spacing="10" Visibility="Collapsed">
-                            <TextBlock Text="Аккаунт Google" FontSize="12"
+                            <TextBlock x:Uid="Storage_GDriveAccountLabel" Text="Аккаунт Google" FontSize="12"
                                        Foreground="{StaticResource EbTextDimBrush}" />
                             <StackPanel Orientation="Horizontal" Spacing="12">
-                                <Button x:Name="GDriveLoginBtn" Content="Войти через браузер…"
+                                <Button x:Name="GDriveLoginBtn" x:Uid="Storage_GDriveLoginBtn" Content="Войти через браузер…"
                                         CornerRadius="10" Click="GDriveLogin_Click" />
                                 <TextBlock x:Name="GDriveStatus" FontSize="12" VerticalAlignment="Center" />
                             </StackPanel>
-                            <TextBlock Text="Папка на Диске" FontSize="12"
+                            <TextBlock x:Uid="Storage_GDriveFolderLabel" Text="Папка на Диске" FontSize="12"
                                        Foreground="{StaticResource EbTextDimBrush}" />
                             <TextBox x:Name="GDriveFolderBox" PlaceholderText="eBackup" />
-                            <TextBlock Text="Приложение видит только собственные файлы (scope drive.file) — к остальному содержимому Диска доступа нет."
+                            <TextBlock x:Uid="Storage_GDriveScopeHint" Text="Приложение видит только собственные файлы (scope drive.file) — к остальному содержимому Диска доступа нет."
                                        FontSize="11" TextWrapping="Wrap"
                                        Foreground="{StaticResource EbTextDimBrush}" />
                         </StackPanel>
 
                         <!-- ===== Dropbox ===== -->
                         <StackPanel x:Name="DropboxPanel" Spacing="10" Visibility="Collapsed">
-                            <TextBlock Text="Аккаунт Dropbox" FontSize="12"
+                            <TextBlock x:Uid="Storage_DropboxAccountLabel" Text="Аккаунт Dropbox" FontSize="12"
                                        Foreground="{StaticResource EbTextDimBrush}" />
                             <StackPanel Orientation="Horizontal" Spacing="12">
-                                <Button x:Name="DropboxLoginBtn" Content="Войти через браузер…"
+                                <Button x:Name="DropboxLoginBtn" x:Uid="Storage_DropboxLoginBtn" Content="Войти через браузер…"
                                         CornerRadius="10" Click="DropboxLogin_Click" />
                                 <TextBlock x:Name="DropboxStatus" FontSize="12" VerticalAlignment="Center" />
                             </StackPanel>
-                            <TextBlock Text="Подпапка (внутри Apps/папки приложения)" FontSize="12"
+                            <TextBlock x:Uid="Storage_DropboxSubfolderLabel" Text="Подпапка (внутри Apps/папки приложения)" FontSize="12"
                                        Foreground="{StaticResource EbTextDimBrush}" />
-                            <TextBox x:Name="DropboxFolderBox" PlaceholderText="пусто — корень папки приложения" />
-                            <TextBlock Text="Доступ ограничен изолированной папкой Apps — остальной Dropbox приложению не виден."
+                            <TextBox x:Name="DropboxFolderBox" x:Uid="Storage_DropboxFolderBox" PlaceholderText="пусто — корень папки приложения" />
+                            <TextBlock x:Uid="Storage_DropboxScopeHint" Text="Доступ ограничен изолированной папкой Apps — остальной Dropbox приложению не виден."
                                        FontSize="11" TextWrapping="Wrap"
                                        Foreground="{StaticResource EbTextDimBrush}" />
                         </StackPanel>
 
                         <!-- ===== WebDAV ===== -->
                         <StackPanel x:Name="WebDavPanel" Spacing="10" Visibility="Collapsed">
-                            <TextBlock Text="Базовый URL" FontSize="12"
+                            <TextBlock x:Uid="Storage_WebDavUrlLabel" Text="Базовый URL" FontSize="12"
                                        Foreground="{StaticResource EbTextDimBrush}" />
-                            <TextBox x:Name="WebDavUrlBox"
+                            <TextBox x:Name="WebDavUrlBox" x:Uid="Storage_WebDavUrlBox"
                                      PlaceholderText="https://webdav.yandex.ru или https://сервер/remote.php/dav/files/логин" />
 
-                            <TextBlock Text="Папка для архивов" FontSize="12"
+                            <TextBlock x:Uid="Storage_WebDavDirLabel" Text="Папка для архивов" FontSize="12"
                                        Foreground="{StaticResource EbTextDimBrush}" />
-                            <TextBox x:Name="WebDavDirBox" PlaceholderText="например: backups/eBackup (пусто — корень)" />
+                            <TextBox x:Name="WebDavDirBox" x:Uid="Storage_WebDavDirBox" PlaceholderText="например: backups/eBackup (пусто — корень)" />
 
-                            <TextBlock Text="Логин" FontSize="12"
+                            <TextBlock x:Uid="Storage_WebDavUserLabel" Text="Логин" FontSize="12"
                                        Foreground="{StaticResource EbTextDimBrush}" />
-                            <TextBox x:Name="WebDavUserBox" PlaceholderText="имя пользователя" />
+                            <TextBox x:Name="WebDavUserBox" x:Uid="Storage_WebDavUserBox" PlaceholderText="имя пользователя" />
 
-                            <PasswordBox x:Name="WebDavPassBox" PlaceholderText="пароль" />
-                            <TextBlock Text="Для Яндекс.Диска используй «пароль приложения» (создаётся в настройках Яндекс ID), для Nextcloud — пароль приложения из настроек безопасности."
+                            <PasswordBox x:Name="WebDavPassBox" x:Uid="Storage_WebDavPassBox" PlaceholderText="пароль" />
+                            <TextBlock x:Uid="Storage_WebDavPassHint" Text="Для Яндекс.Диска используй «пароль приложения» (создаётся в настройках Яндекс ID), для Nextcloud — пароль приложения из настроек безопасности."
                                        FontSize="11" TextWrapping="Wrap"
                                        Foreground="{StaticResource EbTextDimBrush}" />
                         </StackPanel>
 
                         <!-- ===== MEGA ===== -->
                         <StackPanel x:Name="MegaPanel" Spacing="10" Visibility="Collapsed">
-                            <TextBlock Text="E-mail аккаунта MEGA" FontSize="12"
+                            <TextBlock x:Uid="Storage_MegaEmailLabel" Text="E-mail аккаунта MEGA" FontSize="12"
                                        Foreground="{StaticResource EbTextDimBrush}" />
                             <TextBox x:Name="MegaEmailBox" PlaceholderText="you@example.com" />
 
-                            <PasswordBox x:Name="MegaPassBox" PlaceholderText="пароль аккаунта" />
+                            <PasswordBox x:Name="MegaPassBox" x:Uid="Storage_MegaPassBox" PlaceholderText="пароль аккаунта" />
 
-                            <TextBlock Text="Код 2FA (если включена двухфакторная аутентификация)" FontSize="12"
+                            <TextBlock x:Uid="Storage_MegaMfaLabel" Text="Код 2FA (если включена двухфакторная аутентификация)" FontSize="12"
                                        Foreground="{StaticResource EbTextDimBrush}" />
-                            <TextBox x:Name="MegaMfaBox" PlaceholderText="6 цифр из приложения-аутентификатора" MaxWidth="280" HorizontalAlignment="Left" />
+                            <TextBox x:Name="MegaMfaBox" x:Uid="Storage_MegaMfaBox" PlaceholderText="6 цифр из приложения-аутентификатора" MaxWidth="280" HorizontalAlignment="Left" />
 
                             <StackPanel Orientation="Horizontal" Spacing="12">
-                                <Button x:Name="MegaLoginBtn" Content="Войти" CornerRadius="10" Click="MegaLogin_Click" />
+                                <Button x:Name="MegaLoginBtn" x:Uid="Storage_MegaLoginBtn" Content="Войти" CornerRadius="10" Click="MegaLogin_Click" />
                                 <TextBlock x:Name="MegaStatus" FontSize="12" VerticalAlignment="Center" />
                             </StackPanel>
 
-                            <TextBlock Text="Папка для архивов" FontSize="12"
+                            <TextBlock x:Uid="Storage_MegaDirLabel" Text="Папка для архивов" FontSize="12"
                                        Foreground="{StaticResource EbTextDimBrush}" />
-                            <TextBox x:Name="MegaDirBox" PlaceholderText="например: eBackup (пусто — eBackup)" />
-                            <TextBlock Text="Входишь один раз — дальше служба ходит в MEGA по сохранённой сессии (без пароля и 2FA, в т.ч. по расписанию). Пароль не хранится."
+                            <TextBox x:Name="MegaDirBox" x:Uid="Storage_MegaDirBox" PlaceholderText="например: eBackup (пусто — eBackup)" />
+                            <TextBlock x:Uid="Storage_MegaSessionHint" Text="Входишь один раз — дальше служба ходит в MEGA по сохранённой сессии (без пароля и 2FA, в т.ч. по расписанию). Пароль не хранится."
                                        FontSize="11" TextWrapping="Wrap"
                                        Foreground="{StaticResource EbTextDimBrush}" />
                         </StackPanel>
 
                         <!-- ===== S3-совместимое ===== -->
                         <StackPanel x:Name="S3Panel" Spacing="10" Visibility="Collapsed">
-                            <TextBlock Text="Endpoint" FontSize="12"
+                            <TextBlock x:Uid="Storage_S3EndpointLabel" Text="Endpoint" FontSize="12"
                                        Foreground="{StaticResource EbTextDimBrush}" />
-                            <TextBox x:Name="S3UrlBox"
+                            <TextBox x:Name="S3UrlBox" x:Uid="Storage_S3UrlBox"
                                      PlaceholderText="https://s3.eu-central-1.amazonaws.com или адрес MinIO/B2/R2" />
 
                             <Grid ColumnSpacing="10">
@@ -222,24 +222,24 @@
                                     <ColumnDefinition Width="*" />
                                 </Grid.ColumnDefinitions>
                                 <StackPanel Grid.Column="0" Spacing="10">
-                                    <TextBlock Text="Бакет" FontSize="12"
+                                    <TextBlock x:Uid="Storage_S3BucketLabel" Text="Бакет" FontSize="12"
                                                Foreground="{StaticResource EbTextDimBrush}" />
                                     <TextBox x:Name="S3BucketBox" PlaceholderText="my-backups" />
                                 </StackPanel>
                                 <StackPanel Grid.Column="1" Spacing="10">
-                                    <TextBlock Text="Папка в бакете (префикс)" FontSize="12"
+                                    <TextBlock x:Uid="Storage_S3PrefixLabel" Text="Папка в бакете (префикс)" FontSize="12"
                                                Foreground="{StaticResource EbTextDimBrush}" />
-                                    <TextBox x:Name="S3PrefixBox" PlaceholderText="пусто — корень бакета" />
+                                    <TextBox x:Name="S3PrefixBox" x:Uid="Storage_S3PrefixBox" PlaceholderText="пусто — корень бакета" />
                                 </StackPanel>
                             </Grid>
 
-                            <TextBlock Text="Access Key ID" FontSize="12"
+                            <TextBlock x:Uid="Storage_S3AccessLabel" Text="Access Key ID" FontSize="12"
                                        Foreground="{StaticResource EbTextDimBrush}" />
-                            <TextBox x:Name="S3AccessBox" PlaceholderText="ключ доступа" />
+                            <TextBox x:Name="S3AccessBox" x:Uid="Storage_S3AccessBox" PlaceholderText="ключ доступа" />
 
-                            <PasswordBox x:Name="S3SecretBox" PlaceholderText="Secret Access Key" />
+                            <PasswordBox x:Name="S3SecretBox" x:Uid="Storage_S3SecretBox" PlaceholderText="Secret Access Key" />
 
-                            <CheckBox x:Name="S3PathStyleCheck" IsChecked="True"
+                            <CheckBox x:Name="S3PathStyleCheck" x:Uid="Storage_S3PathStyleCheck" IsChecked="True"
                                       Content="Path-style адресация (нужна MinIO/B2/R2; для AWS можно снять)" />
                         </StackPanel>
 
@@ -251,31 +251,31 @@
                                     <ColumnDefinition Width="110" />
                                 </Grid.ColumnDefinitions>
                                 <StackPanel Grid.Column="0" Spacing="10">
-                                    <TextBlock Text="Хост / IP" FontSize="12"
+                                    <TextBlock x:Uid="Storage_FtpHostLabel" Text="Хост / IP" FontSize="12"
                                                Foreground="{StaticResource EbTextDimBrush}" />
-                                    <TextBox x:Name="FtpHostBox" PlaceholderText="адрес сервера (домен или IP)" />
+                                    <TextBox x:Name="FtpHostBox" x:Uid="Storage_FtpHostBox" PlaceholderText="адрес сервера (домен или IP)" />
                                 </StackPanel>
                                 <StackPanel Grid.Column="1" Spacing="10">
-                                    <TextBlock Text="Порт" FontSize="12"
+                                    <TextBlock x:Uid="Storage_FtpPortLabel" Text="Порт" FontSize="12"
                                                Foreground="{StaticResource EbTextDimBrush}" />
                                     <TextBox x:Name="FtpPortBox" Text="21" />
                                 </StackPanel>
                             </Grid>
 
-                            <TextBlock Text="Логин" FontSize="12"
+                            <TextBlock x:Uid="Storage_FtpUserLabel" Text="Логин" FontSize="12"
                                        Foreground="{StaticResource EbTextDimBrush}" />
-                            <TextBox x:Name="FtpUserBox" PlaceholderText="имя пользователя на сервере" />
+                            <TextBox x:Name="FtpUserBox" x:Uid="Storage_FtpUserBox" PlaceholderText="имя пользователя на сервере" />
 
-                            <PasswordBox x:Name="FtpPassBox" PlaceholderText="пароль" />
+                            <PasswordBox x:Name="FtpPassBox" x:Uid="Storage_FtpPassBox" PlaceholderText="пароль" />
 
-                            <TextBlock Text="Удалённая папка для архивов" FontSize="12"
+                            <TextBlock x:Uid="Storage_FtpDirLabel" Text="Удалённая папка для архивов" FontSize="12"
                                        Foreground="{StaticResource EbTextDimBrush}" />
                             <TextBox x:Name="FtpDirBox" Text="." />
 
-                            <CheckBox x:Name="FtpsCheck" Content="FTPS — шифровать соединение (TLS)" />
-                            <CheckBox x:Name="FtpAllowUntrustedCheck"
+                            <CheckBox x:Name="FtpsCheck" x:Uid="Storage_FtpsCheck" Content="FTPS — шифровать соединение (TLS)" />
+                            <CheckBox x:Name="FtpAllowUntrustedCheck" x:Uid="Storage_FtpAllowUntrustedCheck"
                                       Content="Принимать самоподписанный/непроверенный сертификат" />
-                            <TextBlock Text="Без этой галочки сертификат FTPS проверяется по системным корням. Включай её только для NAS с самоподписанным сертификатом — это ослабляет защиту от подмены (MITM); для важных архивов дополнительно шифруй сам архив."
+                            <TextBlock x:Uid="Storage_FtpUntrustedHint" Text="Без этой галочки сертификат FTPS проверяется по системным корням. Включай её только для NAS с самоподписанным сертификатом — это ослабляет защиту от подмены (MITM); для важных архивов дополнительно шифруй сам архив."
                                        FontSize="11" TextWrapping="Wrap"
                                        Foreground="{StaticResource EbTextDimBrush}" />
                         </StackPanel>
@@ -288,44 +288,44 @@
                                     <ColumnDefinition Width="110" />
                                 </Grid.ColumnDefinitions>
                                 <StackPanel Grid.Column="0" Spacing="10">
-                                    <TextBlock Text="Хост / IP" FontSize="12"
+                                    <TextBlock x:Uid="Storage_SftpHostLabel" Text="Хост / IP" FontSize="12"
                                                Foreground="{StaticResource EbTextDimBrush}" />
-                                    <TextBox x:Name="HostBox" PlaceholderText="адрес сервера (домен или IP)" />
+                                    <TextBox x:Name="HostBox" x:Uid="Storage_HostBox" PlaceholderText="адрес сервера (домен или IP)" />
                                 </StackPanel>
                                 <StackPanel Grid.Column="1" Spacing="10">
-                                    <TextBlock Text="Порт" FontSize="12"
+                                    <TextBlock x:Uid="Storage_SftpPortLabel" Text="Порт" FontSize="12"
                                                Foreground="{StaticResource EbTextDimBrush}" />
                                     <TextBox x:Name="PortBox" Text="22" />
                                 </StackPanel>
                             </Grid>
 
-                            <TextBlock Text="Логин" FontSize="12"
+                            <TextBlock x:Uid="Storage_SftpUserLabel" Text="Логин" FontSize="12"
                                        Foreground="{StaticResource EbTextDimBrush}" />
-                            <TextBox x:Name="UserBox" PlaceholderText="имя пользователя на сервере" />
+                            <TextBox x:Name="UserBox" x:Uid="Storage_UserBox" PlaceholderText="имя пользователя на сервере" />
 
-                            <TextBlock Text="Аутентификация" FontSize="12"
+                            <TextBlock x:Uid="Storage_AuthLabel" Text="Аутентификация" FontSize="12"
                                        Foreground="{StaticResource EbTextDimBrush}" Margin="0,4,0,0" />
                             <StackPanel Orientation="Horizontal" Spacing="18">
-                                <RadioButton x:Name="AuthPassword" Content="Пароль" GroupName="auth"
+                                <RadioButton x:Name="AuthPassword" x:Uid="Storage_AuthPassword" Content="Пароль" GroupName="auth"
                                              IsChecked="True" Checked="AuthMode_Changed" />
-                                <RadioButton x:Name="AuthKey" Content="SSH-ключ" GroupName="auth"
+                                <RadioButton x:Name="AuthKey" x:Uid="Storage_AuthKey" Content="SSH-ключ" GroupName="auth"
                                              Checked="AuthMode_Changed" />
                             </StackPanel>
 
                             <StackPanel x:Name="PasswordPanel" Spacing="10">
-                                <PasswordBox x:Name="PassBox" PlaceholderText="пароль" />
+                                <PasswordBox x:Name="PassBox" x:Uid="Storage_PassBox" PlaceholderText="пароль" />
                             </StackPanel>
 
                             <StackPanel x:Name="KeyPanel" Spacing="10" Visibility="Collapsed">
-                                <TextBox x:Name="KeyPemBox" AcceptsReturn="True" Height="110"
+                                <TextBox x:Name="KeyPemBox" x:Uid="Storage_KeyPemBox" AcceptsReturn="True" Height="110"
                                          TextWrapping="Wrap" FontFamily="Consolas" FontSize="12"
                                          ScrollViewer.VerticalScrollBarVisibility="Auto"
                                          PlaceholderText="-----BEGIN OPENSSH PRIVATE KEY-----  (вставь содержимое приватного ключа)" />
-                                <PasswordBox x:Name="KeyPassBox"
+                                <PasswordBox x:Name="KeyPassBox" x:Uid="Storage_KeyPassBox"
                                              PlaceholderText="парольная фраза ключа (если есть)" />
                             </StackPanel>
 
-                            <TextBlock Text="Удалённая папка для архивов" FontSize="12"
+                            <TextBlock x:Uid="Storage_SftpDirLabel" Text="Удалённая папка для архивов" FontSize="12"
                                        Foreground="{StaticResource EbTextDimBrush}" Margin="0,4,0,0" />
                             <Grid ColumnSpacing="10">
                                 <Grid.ColumnDefinitions>
@@ -333,7 +333,7 @@
                                     <ColumnDefinition Width="Auto" />
                                 </Grid.ColumnDefinitions>
                                 <TextBox x:Name="RemoteDirBox" Grid.Column="0" Text="." />
-                                <Button x:Name="BrowseBtn" Grid.Column="1" Content="Обзор…"
+                                <Button x:Name="BrowseBtn" x:Uid="Storage_BrowseBtn" Grid.Column="1" Content="Обзор…"
                                         CornerRadius="10" Click="BrowseBtn_Click" />
                             </Grid>
 
@@ -349,17 +349,17 @@
                         </StackPanel>
 
                         <StackPanel Orientation="Horizontal" Spacing="10" Margin="0,8,0,0">
-                            <Button x:Name="TestBtn" Content="Тест" CornerRadius="12"
+                            <Button x:Name="TestBtn" x:Uid="Storage_TestBtn" Content="Тест" CornerRadius="12"
                                     Padding="22,8" Click="TestBtn_Click" />
                             <Button x:Name="SaveBtn" CornerRadius="12" Padding="22,8"
                                     Style="{StaticResource EbAccentButtonStyle}"
                                     Click="SaveBtn_Click">
-                                <TextBlock Text="Сохранить" FontWeight="SemiBold" Foreground="#1A0F22" />
+                                <TextBlock x:Uid="Storage_SaveBtn" Text="Сохранить" FontWeight="SemiBold" Foreground="#1A0F22" />
                             </Button>
-                            <Button x:Name="DeleteBtn" Content="Удалить" CornerRadius="12"
+                            <Button x:Name="DeleteBtn" x:Uid="Storage_DeleteBtn" Content="Удалить" CornerRadius="12"
                                     Padding="22,8" Foreground="{StaticResource EbErrBrush}"
                                     Visibility="Collapsed" Click="DeleteBtn_Click" />
-                            <Button x:Name="CloseEditorBtn" Content="Закрыть" CornerRadius="12"
+                            <Button x:Name="CloseEditorBtn" x:Uid="Storage_CloseEditorBtn" Content="Закрыть" CornerRadius="12"
                                     Padding="22,8" Click="CloseEditorBtn_Click"
                                     Foreground="{StaticResource EbTextDimBrush}"
                                     ToolTipService.ToolTip="Закрыть без сохранения" />

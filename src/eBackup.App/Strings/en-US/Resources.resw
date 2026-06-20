@@ -34,4 +34,532 @@
   <data name="LangRussian.Content" xml:space="preserve"><value>Русский</value></data>
   <data name="LangEnglish.Content" xml:space="preserve"><value>English</value></data>
   <data name="SettingsLanguageHint.Text" xml:space="preserve"><value>Changing the language restarts the app.</value></data>
+  <data name="Overview_Title.Text" xml:space="preserve"><value>Overview</value></data>
+  <data name="Overview_LastBackupLabel.Text" xml:space="preserve"><value>Last backup</value></data>
+  <data name="Overview_ArchivesTitle.Text" xml:space="preserve"><value>Archives</value></data>
+  <data name="Overview_ModulesTitle.Text" xml:space="preserve"><value>Modules</value></data>
+  <data name="Overview_ScheduleTitle.Text" xml:space="preserve"><value>Schedule</value></data>
+  <data name="Overview_StorageTitle.Text" xml:space="preserve"><value>Storage</value></data>
+  <data name="Overview_ServiceUnavailable" xml:space="preserve"><value>service unavailable</value></data>
+  <data name="Overview_ServiceConnectFailed" xml:space="preserve"><value>couldn't connect to the eBackup service</value></data>
+  <data name="Overview_ServiceUnavailableRow" xml:space="preserve"><value>eBackup service unavailable</value></data>
+  <data name="Overview_ModulesEnabled" xml:space="preserve"><value>✓ enabled: {0}</value></data>
+  <data name="Overview_ModulesPaused" xml:space="preserve"><value>⏸ paused: {0}</value></data>
+  <data name="Overview_ModulesBlocked" xml:space="preserve"><value>✕ blocked: {0}</value></data>
+  <data name="Overview_ModulesReadFailed" xml:space="preserve"><value>couldn't read modules</value></data>
+  <data name="Overview_ScheduleNone" xml:space="preserve"><value>none active — create one in Schedule</value></data>
+  <data name="Overview_ScheduleActive" xml:space="preserve"><value>active: {0}</value></data>
+  <data name="Overview_ScheduleNext" xml:space="preserve"><value>next: {0:dd.MM HH:mm}</value></data>
+  <data name="Overview_ScheduleWaitingIdle" xml:space="preserve"><value>waiting for the PC to be idle</value></data>
+  <data name="Overview_ScheduleReadFailed" xml:space="preserve"><value>couldn't read schedules</value></data>
+  <data name="Overview_NeverRun" xml:space="preserve"><value>not run yet</value></data>
+  <data name="Overview_NoStorageHint" xml:space="preserve"><value>add a storage in Storage and press Back up now</value></data>
+  <data name="Overview_NoStorage" xml:space="preserve"><value>no storage</value></data>
+  <data name="Overview_NoStorageRow" xml:space="preserve"><value>no storage — add one in Storage</value></data>
+  <data name="Overview_GatheringStorage" xml:space="preserve"><value>gathering storage data…</value></data>
+  <data name="Overview_RetentionPrefix" xml:space="preserve"><value>keeping latest: {0}</value></data>
+  <data name="Overview_Counting" xml:space="preserve"><value>counting…</value></data>
+  <data name="Overview_Empty" xml:space="preserve"><value>empty</value></data>
+  <data name="Overview_ArchiveStats" xml:space="preserve"><value>{0} items · {1}</value></data>
+  <data name="Overview_SizeGb" xml:space="preserve"><value>{0:0.##} GB</value></data>
+  <data name="Overview_SizeMb" xml:space="preserve"><value>{0:0.#} MB</value></data>
+  <data name="Overview_StorageUnavailableLine" xml:space="preserve"><value>{0}: unavailable</value></data>
+  <data name="Overview_StorageStatsLine" xml:space="preserve"><value>{0}: {1} items · {2:0.#} MB</value></data>
+  <data name="Overview_FirstBackupHint" xml:space="preserve"><value>press Back up now below to create your first archive</value></data>
+  <data name="Overview_LastBackupSub" xml:space="preserve"><value>{0:dd.MM.yyyy HH:mm} · {1:0.#} MB · {2}</value></data>
+  <data name="ArchiveBrowse_Title.Text" xml:space="preserve"><value>Archive contents</value></data>
+  <data name="ArchiveBrowse_PassBox.PlaceholderText" xml:space="preserve"><value>archive passphrase</value></data>
+  <data name="ArchiveBrowse_Decrypt.Content" xml:space="preserve"><value>Decrypt</value></data>
+  <data name="ArchiveBrowse_RestoreSelected.Text" xml:space="preserve"><value>Restore selected</value></data>
+  <data name="ArchiveBrowse_DownloadToFolder.Content" xml:space="preserve"><value>Download to folder…</value></data>
+  <data name="ArchiveBrowse_Hint.Text" xml:space="preserve"><value>“Restore selected” puts files back at their original paths; existing ones are kept alongside with a .bak extension. Module-specific handling (for example, rewriting paths in OBS scenes) is not applied during selective restore — use a full restore for that.</value></data>
+  <data name="ArchiveBrowse_SizeGb" xml:space="preserve"><value>{0:0.##} GB</value></data>
+  <data name="ArchiveBrowse_SizeMb" xml:space="preserve"><value>{0:0.#} MB</value></data>
+  <data name="ArchiveBrowse_SizeKb" xml:space="preserve"><value>{0} KB</value></data>
+  <data name="ArchiveBrowse_ServiceUnavailable" xml:space="preserve"><value>The eBackup service is unavailable.</value></data>
+  <data name="ArchiveBrowse_ReadingToc" xml:space="preserve"><value>Reading the archive's contents through the service (without downloading the whole thing)…</value></data>
+  <data name="ArchiveBrowse_EncryptedPrompt" xml:space="preserve"><value>This archive is encrypted — enter the passphrase.</value></data>
+  <data name="ArchiveBrowse_EnterPassphrase" xml:space="preserve"><value>Enter the passphrase.</value></data>
+  <data name="ArchiveBrowse_CheckingPassphrase" xml:space="preserve"><value>Checking the passphrase and opening the contents…</value></data>
+  <data name="ArchiveBrowse_WrongPassphrase" xml:space="preserve"><value>Wrong passphrase or a corrupted archive.</value></data>
+  <data name="ArchiveBrowse_OpenFailed" xml:space="preserve"><value>Couldn't open: </value></data>
+  <data name="ArchiveBrowse_Empty" xml:space="preserve"><value>The archive is empty.</value></data>
+  <data name="ArchiveBrowse_TreeSummary" xml:space="preserve"><value>{0} files · {1} — tick what you need (ticking a folder selects everything inside)</value></data>
+  <data name="ArchiveBrowse_SelectFirst" xml:space="preserve"><value>Tick the files first.</value></data>
+  <data name="ArchiveBrowse_Busy" xml:space="preserve"><value>A backup or restore is running — wait for it to finish.</value></data>
+  <data name="ArchiveBrowse_OpRestoreSelective" xml:space="preserve"><value>restore (selective)</value></data>
+  <data name="ArchiveBrowse_OpExtract" xml:space="preserve"><value>extract</value></data>
+  <data name="ArchiveBrowse_TriggerManual" xml:space="preserve"><value>manual · archive browser</value></data>
+  <data name="ArchiveBrowse_OriginalPaths" xml:space="preserve"><value>original paths</value></data>
+  <data name="ArchiveBrowse_RestoringN" xml:space="preserve"><value>Restoring {0} files to their original paths…</value></data>
+  <data name="ArchiveBrowse_DownloadingN" xml:space="preserve"><value>Downloading {0} files to {1}…</value></data>
+  <data name="ArchiveBrowse_RestoredN" xml:space="preserve"><value>✓ Restored files: {0} (existing ones saved as .bak)</value></data>
+  <data name="ArchiveBrowse_DownloadedN" xml:space="preserve"><value>✓ Downloaded files: {0} → {1}</value></data>
+  <data name="Archives_Title.Text" xml:space="preserve"><value>Archives</value></data>
+  <data name="Archives_ServiceUnavailable" xml:space="preserve"><value>eBackup service unavailable: {0}</value></data>
+  <data name="Archives_StoragesReadFailed" xml:space="preserve"><value>couldn’t read the service storages: {0}</value></data>
+  <data name="Archives_NoStorages" xml:space="preserve"><value>no storages yet — add one on the Storages page, and archives will show up here</value></data>
+  <data name="Archives_HeaderSftp" xml:space="preserve"><value>{0} — sftp · {1}@{2}:{3}, folder {4}</value></data>
+  <data name="Archives_HeaderFtp" xml:space="preserve"><value>{0} — {1} · {2}@{3}:{4}, folder {5}</value></data>
+  <data name="Archives_HeaderGoogleDrive" xml:space="preserve"><value>{0} — Google Drive, folder {1}</value></data>
+  <data name="Archives_HeaderDropbox" xml:space="preserve"><value>{0} — Dropbox, app folder</value></data>
+  <data name="Archives_NoArchives" xml:space="preserve"><value>no archives</value></data>
+  <data name="Archives_RowSubtitle" xml:space="preserve"><value>{0:0.#} MB · {1:dd.MM.yyyy HH:mm}</value></data>
+  <data name="Archives_DeleteFrom" xml:space="preserve"><value>from “{0}”</value></data>
+  <data name="Archives_DeleteFailed" xml:space="preserve"><value>Couldn’t delete: {0}</value></data>
+  <data name="Archives_Unavailable" xml:space="preserve"><value>✕ unavailable: {0}</value></data>
+  <data name="Archives_DeleteDialogTitle" xml:space="preserve"><value>Delete archive?</value></data>
+  <data name="Archives_DeleteDialogContent" xml:space="preserve"><value>“{0}” will be deleted {1}. This can’t be undone.</value></data>
+  <data name="Archives_DeleteDialogPrimary" xml:space="preserve"><value>Delete</value></data>
+  <data name="Archives_DeleteDialogCancel" xml:space="preserve"><value>Cancel</value></data>
+  <data name="Archives_ErrorDialogTitle" xml:space="preserve"><value>Error</value></data>
+  <data name="Archives_ErrorDialogClose" xml:space="preserve"><value>Got it</value></data>
+  <data name="Archives_OpenButton" xml:space="preserve"><value>Open</value></data>
+  <data name="Archives_RestoreButton" xml:space="preserve"><value>Restore</value></data>
+  <data name="Backup_Title.Text" xml:space="preserve"><value>Backup</value></data>
+  <data name="Backup_WhatHeader.Text" xml:space="preserve"><value>What to back up</value></data>
+  <data name="Backup_FoldersHeader.Text" xml:space="preserve"><value>Your folders</value></data>
+  <data name="Backup_AddFolderBtn.Content" xml:space="preserve"><value>+ Add folder</value></data>
+  <data name="Backup_WhereHeader.Text" xml:space="preserve"><value>Where to</value></data>
+  <data name="Backup_EncryptionHeader.Text" xml:space="preserve"><value>Encryption</value></data>
+  <data name="Backup_EncryptCheck.Content" xml:space="preserve"><value>Encrypt the archive (AES-256, key from a passphrase)</value></data>
+  <data name="Backup_Pass1.PlaceholderText" xml:space="preserve"><value>passphrase</value></data>
+  <data name="Backup_Pass2.PlaceholderText" xml:space="preserve"><value>repeat the passphrase</value></data>
+  <data name="Backup_LaunchBtn.Text" xml:space="preserve"><value>Back up now</value></data>
+  <data name="Backup_ServiceUnavailable" xml:space="preserve"><value>eBackup service unavailable: {0}</value></data>
+  <data name="Backup_NoStorages" xml:space="preserve"><value>no storages yet — add one on the Storages page</value></data>
+  <data name="Backup_FoldersEmpty" xml:space="preserve"><value>empty for now — add any folders you want to save</value></data>
+  <data name="Backup_ErrNoSource" xml:space="preserve"><value>Pick at least one module or add a folder.</value></data>
+  <data name="Backup_ErrNoStorage" xml:space="preserve"><value>Pick at least one storage.</value></data>
+  <data name="Backup_ErrNoPassphrase" xml:space="preserve"><value>Enter a passphrase.</value></data>
+  <data name="Backup_ErrPassphraseMismatch" xml:space="preserve"><value>The passphrases don’t match.</value></data>
+  <data name="History_Title.Text" xml:space="preserve"><value>History</value></data>
+  <data name="History_EmptyHint.Text" xml:space="preserve"><value>Pick a run on the left — its full log will show up here</value></data>
+  <data name="History_CopyLog.Content" xml:space="preserve"><value>Copy log</value></data>
+  <data name="History_OpRestore" xml:space="preserve"><value>Restore</value></data>
+  <data name="History_OpRestoreSelective" xml:space="preserve"><value>Restore (selective)</value></data>
+  <data name="History_OpExtract" xml:space="preserve"><value>Extract</value></data>
+  <data name="History_OpBackup" xml:space="preserve"><value>Backup</value></data>
+  <data name="History_FallbackNotRestored" xml:space="preserve"><value>not restored</value></data>
+  <data name="History_FallbackNotExtracted" xml:space="preserve"><value>not extracted</value></data>
+  <data name="History_FallbackNoArchive" xml:space="preserve"><value>archive not built</value></data>
+  <data name="History_ServiceUnavailable" xml:space="preserve"><value>eBackup service unavailable: {0}</value></data>
+  <data name="History_ReadHistoryFailed" xml:space="preserve"><value>Couldn't read the service history:
+{0}</value></data>
+  <data name="History_NoRuns" xml:space="preserve"><value>No runs yet — make your first backup and its log will appear here</value></data>
+  <data name="History_DurationUnfinished" xml:space="preserve"><value>unfinished</value></data>
+  <data name="History_MetaOperation" xml:space="preserve"><value>Operation: {0}</value></data>
+  <data name="History_MetaTrigger" xml:space="preserve"><value>Trigger: {0}</value></data>
+  <data name="History_MetaStarted" xml:space="preserve"><value>Started: {0} · duration: {1}</value></data>
+  <data name="History_MetaModules" xml:space="preserve"><value>Modules: {0}</value></data>
+  <data name="History_MetaTargets" xml:space="preserve"><value>Targets: {0}</value></data>
+  <data name="History_MetaDestination" xml:space="preserve"><value>Destination: {0}</value></data>
+  <data name="History_MetaArchiveSize" xml:space="preserve"><value>Archive size: {0:0.#} MB</value></data>
+  <data name="History_StatusSkipped" xml:space="preserve"><value>⚠ done, but {0} files were skipped (no access / in use)</value></data>
+  <data name="History_StatusSuccess" xml:space="preserve"><value>✓ completed successfully</value></data>
+  <data name="History_StatusFailed" xml:space="preserve"><value>finished with errors</value></data>
+  <data name="History_StatusUnfinished" xml:space="preserve"><value>⏸ unfinished (interrupted, or the service/app was restarted)</value></data>
+  <data name="History_LogLoading" xml:space="preserve"><value>loading log…</value></data>
+  <data name="History_LogServiceUnavailable" xml:space="preserve"><value>service unavailable — can't fetch the log</value></data>
+  <data name="History_LogNotSaved" xml:space="preserve"><value>the log for this run wasn't saved</value></data>
+  <data name="History_LogFetchFailed" xml:space="preserve"><value>couldn't fetch the log: {0}</value></data>
+  <data name="Main_StatusTitle.Text" xml:space="preserve"><value>Ready</value></data>
+  <data name="Main_StatusSub.Text" xml:space="preserve"><value>last backup: not run yet</value></data>
+  <data name="Main_BackupBtnText.Text" xml:space="preserve"><value>Back up now</value></data>
+  <data name="Main_Cancelling" xml:space="preserve"><value>Cancelling…</value></data>
+  <data name="Main_Cancelling2" xml:space="preserve"><value>cancelling…</value></data>
+  <data name="Main_CancelBtn" xml:space="preserve"><value>Cancel</value></data>
+  <data name="Main_BackingUp" xml:space="preserve"><value>Backing up…</value></data>
+  <data name="Main_Preparing" xml:space="preserve"><value>preparing…</value></data>
+  <data name="Main_ServiceUnavailable" xml:space="preserve"><value>eBackup service is unavailable.</value></data>
+  <data name="Main_BackupSummary" xml:space="preserve"><value>{0} · {1:0.#} MB</value></data>
+  <data name="Main_BackupFinishedErrors" xml:space="preserve"><value>backup finished with errors</value></data>
+  <data name="Main_StatusReady" xml:space="preserve"><value>Ready</value></data>
+  <data name="Main_StatusBackupErrors" xml:space="preserve"><value>Backup finished with errors</value></data>
+  <data name="Main_LastBackupAt" xml:space="preserve"><value>last backup: {0:HH:mm}</value></data>
+  <data name="Main_SkippedFiles" xml:space="preserve"><value>  ⚠ files skipped: {0}</value></data>
+  <data name="Main_BackupCancelled" xml:space="preserve"><value>Backup cancelled</value></data>
+  <data name="Main_CancelledByUser" xml:space="preserve"><value>cancelled by you</value></data>
+  <data name="Main_BackupError" xml:space="preserve"><value>Backup error</value></data>
+  <data name="Main_NotifyBackupDone" xml:space="preserve"><value>✅ Backup done</value></data>
+  <data name="Main_NotifyBackupErrors" xml:space="preserve"><value>❌ Backup finished with errors</value></data>
+  <data name="Main_SeeHistory" xml:space="preserve"><value>details on the History page</value></data>
+  <data name="Main_UpdateBanner" xml:space="preserve"><value>🆕 Version {0} is available — open Settings</value></data>
+  <data name="Main_Restoring" xml:space="preserve"><value>Restoring…</value></data>
+  <data name="Main_RestoreError" xml:space="preserve"><value>Restore error</value></data>
+  <data name="Main_RestoredAt" xml:space="preserve"><value>restored {0:HH:mm}: {1} → {2}</value></data>
+  <data name="Main_OriginalLocations" xml:space="preserve"><value>original locations</value></data>
+  <data name="Main_RestoreErrorsTitle" xml:space="preserve"><value>Restore finished with errors</value></data>
+  <data name="Main_RestoreFailed" xml:space="preserve"><value>restore failed</value></data>
+  <data name="Main_ArchiveEncryptedNeedPassphrase" xml:space="preserve"><value>The archive is encrypted — enter a passphrase.</value></data>
+  <data name="Modules_Title.Text" xml:space="preserve"><value>Modules</value></data>
+  <data name="Modules_Import.Text" xml:space="preserve"><value>+ Import module</value></data>
+  <data name="Modules_InstalledTab.Content" xml:space="preserve"><value>Installed</value></data>
+  <data name="Modules_CatalogTab.Content" xml:space="preserve"><value>Catalog</value></data>
+  <data name="Modules_CategoryAll.Content" xml:space="preserve"><value>All</value></data>
+  <data name="Modules_CategoryGames.Content" xml:space="preserve"><value>Games</value></data>
+  <data name="Modules_CategoryApps.Content" xml:space="preserve"><value>Apps</value></data>
+  <data name="Modules_CategoryOther.Content" xml:space="preserve"><value>Other</value></data>
+  <data name="Modules_EmptyHint.Text" xml:space="preserve"><value>Pick a module on the left</value></data>
+  <data name="Modules_EnableToggle.OnContent" xml:space="preserve"><value>included in backups</value></data>
+  <data name="Modules_EnableToggle.OffContent" xml:space="preserve"><value>excluded from backups</value></data>
+  <data name="Modules_WhatItBacksUp.Text" xml:space="preserve"><value>What it backs up</value></data>
+  <data name="Modules_HintText" xml:space="preserve"><value>Declarative modules are added via a *.module.json file — through the Import button or from the catalog.</value></data>
+  <data name="Modules_ServiceUnavailable" xml:space="preserve"><value>the eBackup service is unavailable: {0}</value></data>
+  <data name="Modules_ListFailed" xml:space="preserve"><value>couldn't read the service's modules: {0}</value></data>
+  <data name="Modules_SourceBuiltIn" xml:space="preserve"><value>built-in module</value></data>
+  <data name="Modules_SourceDeclarative" xml:space="preserve"><value>declarative module</value></data>
+  <data name="Modules_SourceExternal" xml:space="preserve"><value>external module</value></data>
+  <data name="Modules_CardBlocked" xml:space="preserve"><value>✕ blocked</value></data>
+  <data name="Modules_CardEnabled" xml:space="preserve"><value>✓ enabled</value></data>
+  <data name="Modules_CardPaused" xml:space="preserve"><value>⏸ paused</value></data>
+  <data name="Modules_DetailMeta" xml:space="preserve"><value>id: {0} · {1}</value></data>
+  <data name="Modules_DetailKindBuiltIn" xml:space="preserve"><value>built-in</value></data>
+  <data name="Modules_DetailKindDeclarative" xml:space="preserve"><value>declarative</value></data>
+  <data name="Modules_DetailReady" xml:space="preserve"><value>✓ ready to go</value></data>
+  <data name="Modules_DetailBlocked" xml:space="preserve"><value>✕ blocked: {0}</value></data>
+  <data name="Modules_EntriesInactive" xml:space="preserve"><value>— (module inactive)</value></data>
+  <data name="Modules_EntriesCollecting" xml:space="preserve"><value>collecting the list…</value></data>
+  <data name="Modules_EntriesServiceUnavailable" xml:space="preserve"><value>— service unavailable</value></data>
+  <data name="Modules_EntriesNothingFound" xml:space="preserve"><value>— nothing found on this machine</value></data>
+  <data name="Modules_EntriesMore" xml:space="preserve"><value>… and {0} more</value></data>
+  <data name="Modules_EntriesFailed" xml:space="preserve"><value>✕ couldn't get the list: {0}</value></data>
+  <data name="Modules_ServiceDown" xml:space="preserve"><value>service unavailable</value></data>
+  <data name="Modules_SaveStateFailed" xml:space="preserve"><value>Couldn't save the state: {0}</value></data>
+  <data name="Modules_ImportFailed" xml:space="preserve"><value>Couldn't import: {0}</value></data>
+  <data name="Modules_DeleteTitle" xml:space="preserve"><value>Remove module?</value></data>
+  <data name="Modules_DeleteBody" xml:space="preserve"><value>The descriptor “{0}” will be removed from the service registry. Archives made with it will stay.</value></data>
+  <data name="Modules_DeleteConfirm" xml:space="preserve"><value>Remove</value></data>
+  <data name="Modules_DeleteCancel" xml:space="preserve"><value>Cancel</value></data>
+  <data name="Modules_DeleteFailed" xml:space="preserve"><value>Couldn't remove: {0}</value></data>
+  <data name="Modules_CatalogLoading" xml:space="preserve"><value>Loading the catalog…</value></data>
+  <data name="Modules_CatalogLoadFailed" xml:space="preserve"><value>⚠ couldn't load the catalog: {0}</value></data>
+  <data name="Modules_CatalogUnavailable" xml:space="preserve"><value>⚠ {0}</value></data>
+  <data name="Modules_CatalogUnavailableFallback" xml:space="preserve"><value>catalog unavailable</value></data>
+  <data name="Modules_CatalogOffline" xml:space="preserve"><value>⚠ no network — saved list ({0})</value></data>
+  <data name="Modules_CatalogAvailable" xml:space="preserve"><value>Available: {0}</value></data>
+  <data name="Modules_CatalogTouches" xml:space="preserve"><value>{0} · touches: {1}</value></data>
+  <data name="Modules_CatalogInstalled" xml:space="preserve"><value>✓ installed</value></data>
+  <data name="Modules_CatalogUpdate" xml:space="preserve"><value>Update</value></data>
+  <data name="Modules_CatalogDownload" xml:space="preserve"><value>Download</value></data>
+  <data name="Modules_CatalogDownloading" xml:space="preserve"><value>Downloading…</value></data>
+  <data name="Modules_CatalogValidationFailed" xml:space="preserve"><value>the module file failed validation (id mismatch or invalid format)</value></data>
+  <data name="Modules_CatalogInstallFailed" xml:space="preserve"><value>Couldn't install the module: {0}</value></data>
+  <data name="Modules_CatLabelGame" xml:space="preserve"><value>game</value></data>
+  <data name="Modules_CatLabelApp" xml:space="preserve"><value>app</value></data>
+  <data name="Modules_CatLabelServer" xml:space="preserve"><value>server</value></data>
+  <data name="Modules_CatLabelModule" xml:space="preserve"><value>module</value></data>
+  <data name="Modules_ErrorTitle" xml:space="preserve"><value>Error</value></data>
+  <data name="Modules_ErrorClose" xml:space="preserve"><value>Got it</value></data>
+  <data name="Restore_Title.Text" xml:space="preserve"><value>Restore</value></data>
+  <data name="Restore_ArchiveLabel.Text" xml:space="preserve"><value>Archive</value></data>
+  <data name="Restore_DestLabel.Text" xml:space="preserve"><value>Where to restore</value></data>
+  <data name="Restore_OriginalRadio.Content" xml:space="preserve"><value>To the original locations (where it was backed up from)</value></data>
+  <data name="Restore_FolderRadio.Content" xml:space="preserve"><value>To a separate folder</value></data>
+  <data name="Restore_TargetDirBox.PlaceholderText" xml:space="preserve"><value>path to the folder to unpack into</value></data>
+  <data name="Restore_PickTargetBtn.Content" xml:space="preserve"><value>Browse…</value></data>
+  <data name="Restore_ConflictLabel.Text" xml:space="preserve"><value>If a file already exists</value></data>
+  <data name="Restore_BakRadio.Content" xml:space="preserve"><value>Replace, renaming the old one to .bak (safe)</value></data>
+  <data name="Restore_OverwriteRadio.Content" xml:space="preserve"><value>Overwrite</value></data>
+  <data name="Restore_SkipRadio.Content" xml:space="preserve"><value>Fill in — write only the missing files</value></data>
+  <data name="Restore_EncryptionLabel.Text" xml:space="preserve"><value>Encryption</value></data>
+  <data name="Restore_PassBox.PlaceholderText" xml:space="preserve"><value>passphrase</value></data>
+  <data name="Restore_AssetsHint.Text" xml:space="preserve"><value>Folder for modules' external assets — files that modules pulled out of their apps will land here; paths in the settings will be rewritten</value></data>
+  <data name="Restore_PickAssetsBtn.Content" xml:space="preserve"><value>Browse…</value></data>
+  <data name="Restore_LaunchBtnText.Text" xml:space="preserve"><value>Restore</value></data>
+  <data name="Restore_NoArchive" xml:space="preserve"><value>no archive selected</value></data>
+  <data name="Restore_NoArchiveHint" xml:space="preserve"><value>open the Archives page and click Restore on the archive you want</value></data>
+  <data name="Restore_LocalFileSource" xml:space="preserve"><value>local file: {0}</value></data>
+  <data name="Restore_PassHintEncrypted" xml:space="preserve"><value>The archive is encrypted — you need the passphrase to restore it.</value></data>
+  <data name="Restore_PassHintNotEncrypted" xml:space="preserve"><value>The archive is not encrypted — no passphrase needed.</value></data>
+  <data name="Restore_StorageSource" xml:space="preserve"><value>from storage (it will download to a temp folder before unpacking)</value></data>
+  <data name="Restore_PassHintMaybe" xml:space="preserve"><value>If the archive is encrypted, enter the passphrase; otherwise leave this empty.</value></data>
+  <data name="Restore_ErrNoTargetDir" xml:space="preserve"><value>Choose a folder to unpack into.</value></data>
+  <data name="Restore_ErrNeedPassphrase" xml:space="preserve"><value>The archive is encrypted — enter the passphrase.</value></data>
+  <data name="Schedule_PageTitle.Text" xml:space="preserve"><value>Schedule</value></data>
+  <data name="Schedule_AddNew.Text" xml:space="preserve"><value>+ New schedule</value></data>
+  <data name="Schedule_EmptyHint.Text" xml:space="preserve"><value>Pick a schedule on the left or create a new one</value></data>
+  <data name="Schedule_EmptyHintSub.Text" xml:space="preserve"><value>Schedules run while the app is open</value></data>
+  <data name="Schedule_EditorTitleNew.Text" xml:space="preserve"><value>New schedule</value></data>
+  <data name="Schedule_NameLabel.Text" xml:space="preserve"><value>Name</value></data>
+  <data name="Schedule_NameBox.PlaceholderText" xml:space="preserve"><value>e.g. nightly OBS backup</value></data>
+  <data name="Schedule_WhatLabel.Text" xml:space="preserve"><value>What to back up</value></data>
+  <data name="Schedule_OwnFoldersLabel.Text" xml:space="preserve"><value>This schedule’s own folders</value></data>
+  <data name="Schedule_AddFolderBtn.Content" xml:space="preserve"><value>+ Add folder</value></data>
+  <data name="Schedule_WhereLabel.Text" xml:space="preserve"><value>Where to</value></data>
+  <data name="Schedule_EncryptionLabel.Text" xml:space="preserve"><value>Encryption</value></data>
+  <data name="Schedule_EncryptCheck.Content" xml:space="preserve"><value>Encrypt the archive (AES-256)</value></data>
+  <data name="Schedule_Pass1.PlaceholderText" xml:space="preserve"><value>passphrase</value></data>
+  <data name="Schedule_Pass2.PlaceholderText" xml:space="preserve"><value>repeat the passphrase</value></data>
+  <data name="Schedule_WhenLabel.Text" xml:space="preserve"><value>When</value></data>
+  <data name="Schedule_IdleRadio.Content" xml:space="preserve"><value>Once a day, when the PC is idle (recommended)</value></data>
+  <data name="Schedule_DailyRadio.Content" xml:space="preserve"><value>Daily at an exact time</value></data>
+  <data name="Schedule_WeeklyRadio.Content" xml:space="preserve"><value>Weekly</value></data>
+  <data name="Schedule_EveryRadio.Content" xml:space="preserve"><value>Every N hours</value></data>
+  <data name="Schedule_StrictTimeHint.Text" xml:space="preserve"><value>An exact time suits machines that run around the clock (servers, say). Missed runs aren’t made up — on an ordinary PC, choose “when idle”.</value></data>
+  <data name="Schedule_IdleConsider.Text" xml:space="preserve"><value>Treat as idle after</value></data>
+  <data name="Schedule_IdleMinutesSuffix.Text" xml:space="preserve"><value>minutes of inactivity</value></data>
+  <data name="Schedule_IdleLoadHint.Text" xml:space="preserve"><value>System load matters too: the backup won’t start while CPU/disk/network are above 50% or RAM is above 85% (for example, during a compile or render).</value></data>
+  <data name="Schedule_DaysLabel.Text" xml:space="preserve"><value>Days of the week (pick several)</value></data>
+  <data name="Schedule_TimeLabel.Text" xml:space="preserve"><value>Time</value></data>
+  <data name="Schedule_EveryPrefix.Text" xml:space="preserve"><value>Every</value></data>
+  <data name="Schedule_EveryHoursSuffix.Text" xml:space="preserve"><value>hours</value></data>
+  <data name="Schedule_EnabledToggle.OnContent" xml:space="preserve"><value>schedule enabled</value></data>
+  <data name="Schedule_EnabledToggle.OffContent" xml:space="preserve"><value>paused</value></data>
+  <data name="Schedule_SaveBtn.Text" xml:space="preserve"><value>Save</value></data>
+  <data name="Schedule_RunNowBtn.Content" xml:space="preserve"><value>Run now</value></data>
+  <data name="Schedule_DeleteBtn.Content" xml:space="preserve"><value>Delete</value></data>
+  <data name="Schedule_SubPaused" xml:space="preserve"><value>paused</value></data>
+  <data name="Schedule_SubRanToday" xml:space="preserve"><value>already ran today</value></data>
+  <data name="Schedule_SubWaitingIdle" xml:space="preserve"><value>waiting for idle</value></data>
+  <data name="Schedule_SubNext" xml:space="preserve"><value>next: {0}</value></data>
+  <data name="Schedule_DayMon" xml:space="preserve"><value>Mon</value></data>
+  <data name="Schedule_DayTue" xml:space="preserve"><value>Tue</value></data>
+  <data name="Schedule_DayWed" xml:space="preserve"><value>Wed</value></data>
+  <data name="Schedule_DayThu" xml:space="preserve"><value>Thu</value></data>
+  <data name="Schedule_DayFri" xml:space="preserve"><value>Fri</value></data>
+  <data name="Schedule_DaySat" xml:space="preserve"><value>Sat</value></data>
+  <data name="Schedule_DaySun" xml:space="preserve"><value>Sun</value></data>
+  <data name="Schedule_DescDaily" xml:space="preserve"><value>daily at {0}</value></data>
+  <data name="Schedule_DescWeekly" xml:space="preserve"><value>weekly: {0} at {1}</value></data>
+  <data name="Schedule_DescEveryHours" xml:space="preserve"><value>every {0}h</value></data>
+  <data name="Schedule_DescIdle" xml:space="preserve"><value>once a day, when the PC is idle</value></data>
+  <data name="Schedule_ServiceUnavailable" xml:space="preserve"><value>✕ eBackup service unavailable: {0}</value></data>
+  <data name="Schedule_LoadFailed" xml:space="preserve"><value>✕ Couldn’t read the schedules: {0}</value></data>
+  <data name="Schedule_StoragesServiceDown" xml:space="preserve"><value>eBackup service unavailable</value></data>
+  <data name="Schedule_StoragesNone" xml:space="preserve"><value>no storages yet — add one on the Storages page</value></data>
+  <data name="Schedule_PassKeepExisting" xml:space="preserve"><value>empty — keep the current one</value></data>
+  <data name="Schedule_BusyWait" xml:space="preserve"><value>A backup or restore is already running — wait for it to finish.</value></data>
+  <data name="Schedule_RunStarted" xml:space="preserve"><value>✓ Started — progress is in the bottom panel.</value></data>
+  <data name="Schedule_FoldersEmpty" xml:space="preserve"><value>empty for now — each schedule keeps its own list of folders</value></data>
+  <data name="Schedule_ValName" xml:space="preserve"><value>Give the schedule a name.</value></data>
+  <data name="Schedule_ValModuleOrFolder" xml:space="preserve"><value>Pick at least one module or add a folder.</value></data>
+  <data name="Schedule_ValStorage" xml:space="preserve"><value>Pick at least one storage.</value></data>
+  <data name="Schedule_ValPassMismatch" xml:space="preserve"><value>The passphrases don’t match.</value></data>
+  <data name="Schedule_ValPassRequired" xml:space="preserve"><value>Enter a passphrase for encryption.</value></data>
+  <data name="Schedule_ValEveryHours" xml:space="preserve"><value>“Every N hours” — a number from 1 to 168.</value></data>
+  <data name="Schedule_ValIdleMinutes" xml:space="preserve"><value>Idle minutes — a number from 1 to 240.</value></data>
+  <data name="Schedule_ValDay" xml:space="preserve"><value>Pick at least one day of the week.</value></data>
+  <data name="Schedule_SavedEncNote" xml:space="preserve"><value> · 🔒 encryption on</value></data>
+  <data name="Schedule_SavedPaused" xml:space="preserve"><value>✓ Saved (paused)</value></data>
+  <data name="Schedule_SavedIdle" xml:space="preserve"><value>✓ Saved · will run at the next PC idle</value></data>
+  <data name="Schedule_Saved" xml:space="preserve"><value>✓ Saved</value></data>
+  <data name="Schedule_SaveFailed" xml:space="preserve"><value>✕ Couldn’t save: {0}</value></data>
+  <data name="Schedule_DeleteDialogTitle" xml:space="preserve"><value>Delete this schedule?</value></data>
+  <data name="Schedule_DeleteDialogContent" xml:space="preserve"><value>“{0}” will stop running. Existing archives are left alone.</value></data>
+  <data name="Schedule_DeleteDialogPrimary" xml:space="preserve"><value>Delete</value></data>
+  <data name="Schedule_DeleteDialogClose" xml:space="preserve"><value>Cancel</value></data>
+  <data name="Schedule_DeleteFailed" xml:space="preserve"><value>✕ Couldn’t delete: {0}</value></data>
+  <data name="Svc_UpdateCheckFailed" xml:space="preserve"><value>couldn't check for updates (no connection?)</value></data>
+  <data name="Svc_DownloadIncomplete" xml:space="preserve"><value>the downloaded installer is incomplete (size mismatch)</value></data>
+  <data name="Svc_DownloadFailed" xml:space="preserve"><value>couldn't download the update: {0}</value></data>
+  <data name="Svc_CatalogLoadFailed" xml:space="preserve"><value>couldn't load the catalog (no connection and no cache)</value></data>
+  <data name="Svc_CatalogBadFilePath" xml:space="preserve"><value>invalid module file path in the catalog</value></data>
+  <data name="Settings_StorageHint.Text" xml:space="preserve"><value>Folders for archives (including network drives) are set up on the Storage page.</value></data>
+  <data name="Settings_RetentionHeader.Text" xml:space="preserve"><value>Version retention</value></data>
+  <data name="Settings_RetentionKeep.Text" xml:space="preserve"><value>Keep latest</value></data>
+  <data name="Settings_RetentionArchives.Text" xml:space="preserve"><value>archives</value></data>
+  <data name="Settings_RetentionHint.Text" xml:space="preserve"><value>0 — keep all. The rule runs after every backup: both in the local folder and on the servers the archive was uploaded to (older ones are deleted automatically).</value></data>
+  <data name="Settings_ArchiveHeader.Text" xml:space="preserve"><value>Archive</value></data>
+  <data name="Settings_MachineNameToggle.OnContent" xml:space="preserve"><value>Add the computer name to the archive name</value></data>
+  <data name="Settings_MachineNameToggle.OffContent" xml:space="preserve"><value>Add the computer name to the archive name</value></data>
+  <data name="Settings_Compression.Text" xml:space="preserve"><value>Compression</value></data>
+  <data name="Settings_CompressionFast.Content" xml:space="preserve"><value>Faster (lighter compression)</value></data>
+  <data name="Settings_CompressionNormal.Content" xml:space="preserve"><value>Normal</value></data>
+  <data name="Settings_CompressionMax.Content" xml:space="preserve"><value>Maximum (slower)</value></data>
+  <data name="Settings_ArchiveHint.Text" xml:space="preserve"><value>The computer name helps when several PCs back up to one storage: ebackup_DESKTOP-ABC_obs_2026-… Compression affects backup time and archive size.</value></data>
+  <data name="Settings_RestoreHeader.Text" xml:space="preserve"><value>Restore</value></data>
+  <data name="Settings_AssetsLabel.Text" xml:space="preserve"><value>Default assets folder (external scene files, etc.)</value></data>
+  <data name="Settings_AssetsBox.PlaceholderText" xml:space="preserve"><value>empty — Documents\eBackup\Assets</value></data>
+  <data name="Settings_BrowseBtn.Content" xml:space="preserve"><value>Browse…</value></data>
+  <data name="Settings_BehaviorHeader.Text" xml:space="preserve"><value>Behavior</value></data>
+  <data name="Settings_TrayToggle.OnContent" xml:space="preserve"><value>Minimize to tray when the window is closed</value></data>
+  <data name="Settings_TrayToggle.OffContent" xml:space="preserve"><value>Minimize to tray when the window is closed</value></data>
+  <data name="Settings_AutostartToggle.OnContent" xml:space="preserve"><value>Start with Windows (minimized, in the tray)</value></data>
+  <data name="Settings_AutostartToggle.OffContent" xml:space="preserve"><value>Start with Windows (minimized, in the tray)</value></data>
+  <data name="Settings_NotifyToggle.OnContent" xml:space="preserve"><value>Notify me about backup results</value></data>
+  <data name="Settings_NotifyToggle.OffContent" xml:space="preserve"><value>Notify me about backup results</value></data>
+  <data name="Settings_SelfTestEvery.Text" xml:space="preserve"><value>Test storages every</value></data>
+  <data name="Settings_SelfTestMinutes.Text" xml:space="preserve"><value>minutes</value></data>
+  <data name="Settings_BehaviorHint.Text" xml:space="preserve"><value>0 — no timed test (the ✓/✕ icons refresh when you open the page or hit ⟳). Schedules keep running in the tray; to quit fully, use the tray icon menu.</value></data>
+  <data name="Settings_SaveBtn.Text" xml:space="preserve"><value>Save</value></data>
+  <data name="Settings_UpdatesHeader.Text" xml:space="preserve"><value>Updates</value></data>
+  <data name="Settings_UpdCheckBtn.Content" xml:space="preserve"><value>Check for updates</value></data>
+  <data name="Settings_AppDataHeader.Text" xml:space="preserve"><value>App data</value></data>
+  <data name="Settings_OpenConfigBtn.Content" xml:space="preserve"><value>Settings folder</value></data>
+  <data name="Settings_OpenModulesBtn.Content" xml:space="preserve"><value>Modules folder</value></data>
+  <data name="Settings_OpenLogBtn.Content" xml:space="preserve"><value>Error log</value></data>
+  <data name="Settings_CleanTempBtn.Content" xml:space="preserve"><value>Clear temporary files</value></data>
+  <data name="Settings_AppDataHint.Text" xml:space="preserve"><value>The settings folder holds configs and schedules; drop-in modules (*.module.json) go in the modules folder; the log helps if something goes wrong. Temporary files are left behind by interrupted backups and downloads.</value></data>
+  <data name="Settings_AboutHeader.Text" xml:space="preserve"><value>About</value></data>
+  <data name="Settings_Tagline.Text" xml:space="preserve"><value>Backups that move with you.</value></data>
+  <data name="Settings_CoffeeBtn.Text" xml:space="preserve"><value>☕ Buy me a coffee</value></data>
+  <data name="Settings_CoffeeHint.Text" xml:space="preserve"><value>Coffee is just a thank-you: everything works for free anyway.</value></data>
+  <data name="Settings_UpdCurrentVersion" xml:space="preserve"><value>Current version: {0}</value></data>
+  <data name="Settings_UpdChecking" xml:space="preserve"><value>Checking for updates…</value></data>
+  <data name="Settings_UpdCheckingBtn" xml:space="preserve"><value>Checking…</value></data>
+  <data name="Settings_UpdAvailable" xml:space="preserve"><value>A new version {0} is available.</value></data>
+  <data name="Settings_UpdDownloadBtn" xml:space="preserve"><value>Download and install</value></data>
+  <data name="Settings_UpdDownloading" xml:space="preserve"><value>Downloading the update… {0:0}%</value></data>
+  <data name="Settings_UpdDownloadingBtn" xml:space="preserve"><value>Downloading…</value></data>
+  <data name="Settings_UpdInstalling" xml:space="preserve"><value>Installing and restarting…</value></data>
+  <data name="Settings_UpdCheckError" xml:space="preserve"><value>check failed</value></data>
+  <data name="Settings_UpdUpToDate" xml:space="preserve"><value>You have the latest version.</value></data>
+  <data name="Settings_CleanBusy" xml:space="preserve"><value>A backup or restore is running — the temporary files are needed right now.</value></data>
+  <data name="Settings_CleanNothing" xml:space="preserve"><value>✓ No temporary files — already clean.</value></data>
+  <data name="Settings_CleanDone" xml:space="preserve"><value>✓ Cleared: freed {0:0.#} MB.</value></data>
+  <data name="Settings_CleanFailed" xml:space="preserve"><value>✕ Couldn't clear: {0}</value></data>
+  <data name="Settings_OpenFolderFailed" xml:space="preserve"><value>✕ Couldn't open the folder: {0}</value></data>
+  <data name="Settings_ValidateRetention" xml:space="preserve"><value>"Keep latest" must be a whole number from 0.</value></data>
+  <data name="Settings_ValidateSelfTest" xml:space="preserve"><value>Storage test must be a number of minutes from 0 to 1440.</value></data>
+  <data name="Settings_Saved" xml:space="preserve"><value>✓ Saved</value></data>
+  <data name="Storage_Title.Text" xml:space="preserve"><value>Storage</value></data>
+  <data name="Storage_AddBtn.Text" xml:space="preserve"><value>+ Add storage</value></data>
+  <data name="Storage_AddFolderItem.Text" xml:space="preserve"><value>Folder or network drive</value></data>
+  <data name="Storage_AddSftpItem.Text" xml:space="preserve"><value>SFTP server</value></data>
+  <data name="Storage_AddFtpItem.Text" xml:space="preserve"><value>FTP / FTPS server</value></data>
+  <data name="Storage_AddS3Item.Text" xml:space="preserve"><value>S3-compatible (AWS, MinIO, B2, R2…)</value></data>
+  <data name="Storage_AddWebDavItem.Text" xml:space="preserve"><value>WebDAV (Nextcloud, Yandex.Disk…)</value></data>
+  <data name="Storage_AddGDriveItem.Text" xml:space="preserve"><value>Google Drive</value></data>
+  <data name="Storage_AddDropboxItem.Text" xml:space="preserve"><value>Dropbox</value></data>
+  <data name="Storage_AddMegaItem.Text" xml:space="preserve"><value>MEGA (mega.nz)</value></data>
+  <data name="Storage_EmptyHint.Text" xml:space="preserve"><value>Pick a storage on the left or add a new one</value></data>
+  <data name="Storage_EditorTitle.Text" xml:space="preserve"><value>New storage</value></data>
+  <data name="Storage_NameLabel.Text" xml:space="preserve"><value>Name</value></data>
+  <data name="Storage_NameBox.PlaceholderText" xml:space="preserve"><value>storage name — as it shows in the list</value></data>
+  <data name="Storage_FolderPathLabel.Text" xml:space="preserve"><value>Folder path</value></data>
+  <data name="Storage_PathBox.PlaceholderText" xml:space="preserve"><value>D:\Backups, Z:\… or \\nas\share\backups</value></data>
+  <data name="Storage_BrowsePathBtn.Content" xml:space="preserve"><value>Browse…</value></data>
+  <data name="Storage_OpenPathBtn.Content" xml:space="preserve"><value>Open</value></data>
+  <data name="Storage_ShareAuthHint.Text" xml:space="preserve"><value>Sign-in for a network folder (if needed; the connection is temporary and isn't saved in the system)</value></data>
+  <data name="Storage_ShareUserBox.PlaceholderText" xml:space="preserve"><value>login (e.g. nas\user or user)</value></data>
+  <data name="Storage_SharePassBox.PlaceholderText" xml:space="preserve"><value>password</value></data>
+  <data name="Storage_GDriveAccountLabel.Text" xml:space="preserve"><value>Google account</value></data>
+  <data name="Storage_GDriveLoginBtn.Content" xml:space="preserve"><value>Sign in via browser…</value></data>
+  <data name="Storage_GDriveFolderLabel.Text" xml:space="preserve"><value>Folder on Drive</value></data>
+  <data name="Storage_GDriveScopeHint.Text" xml:space="preserve"><value>The app only sees its own files (scope drive.file) — it has no access to the rest of your Drive.</value></data>
+  <data name="Storage_DropboxAccountLabel.Text" xml:space="preserve"><value>Dropbox account</value></data>
+  <data name="Storage_DropboxLoginBtn.Content" xml:space="preserve"><value>Sign in via browser…</value></data>
+  <data name="Storage_DropboxSubfolderLabel.Text" xml:space="preserve"><value>Subfolder (inside the Apps/app folder)</value></data>
+  <data name="Storage_DropboxFolderBox.PlaceholderText" xml:space="preserve"><value>empty — root of the app folder</value></data>
+  <data name="Storage_DropboxScopeHint.Text" xml:space="preserve"><value>Access is limited to the isolated Apps folder — the rest of your Dropbox stays invisible to the app.</value></data>
+  <data name="Storage_WebDavUrlLabel.Text" xml:space="preserve"><value>Base URL</value></data>
+  <data name="Storage_WebDavUrlBox.PlaceholderText" xml:space="preserve"><value>https://webdav.yandex.ru or https://server/remote.php/dav/files/login</value></data>
+  <data name="Storage_WebDavDirLabel.Text" xml:space="preserve"><value>Folder for archives</value></data>
+  <data name="Storage_WebDavDirBox.PlaceholderText" xml:space="preserve"><value>e.g. backups/eBackup (empty — root)</value></data>
+  <data name="Storage_WebDavUserLabel.Text" xml:space="preserve"><value>Login</value></data>
+  <data name="Storage_WebDavUserBox.PlaceholderText" xml:space="preserve"><value>username</value></data>
+  <data name="Storage_WebDavPassBox.PlaceholderText" xml:space="preserve"><value>password</value></data>
+  <data name="Storage_WebDavPassHint.Text" xml:space="preserve"><value>For Yandex.Disk use an app password (created in your Yandex ID settings); for Nextcloud use an app password from the security settings.</value></data>
+  <data name="Storage_MegaEmailLabel.Text" xml:space="preserve"><value>MEGA account email</value></data>
+  <data name="Storage_MegaPassBox.PlaceholderText" xml:space="preserve"><value>account password</value></data>
+  <data name="Storage_MegaMfaLabel.Text" xml:space="preserve"><value>2FA code (if two-factor authentication is enabled)</value></data>
+  <data name="Storage_MegaMfaBox.PlaceholderText" xml:space="preserve"><value>6 digits from your authenticator app</value></data>
+  <data name="Storage_MegaLoginBtn.Content" xml:space="preserve"><value>Sign in</value></data>
+  <data name="Storage_MegaDirLabel.Text" xml:space="preserve"><value>Folder for archives</value></data>
+  <data name="Storage_MegaDirBox.PlaceholderText" xml:space="preserve"><value>e.g. eBackup (empty — eBackup)</value></data>
+  <data name="Storage_MegaSessionHint.Text" xml:space="preserve"><value>You sign in once — after that the service reaches MEGA through the saved session (no password or 2FA, including on a schedule). The password isn't stored.</value></data>
+  <data name="Storage_S3EndpointLabel.Text" xml:space="preserve"><value>Endpoint</value></data>
+  <data name="Storage_S3UrlBox.PlaceholderText" xml:space="preserve"><value>https://s3.eu-central-1.amazonaws.com or a MinIO/B2/R2 address</value></data>
+  <data name="Storage_S3BucketLabel.Text" xml:space="preserve"><value>Bucket</value></data>
+  <data name="Storage_S3PrefixLabel.Text" xml:space="preserve"><value>Folder in the bucket (prefix)</value></data>
+  <data name="Storage_S3PrefixBox.PlaceholderText" xml:space="preserve"><value>empty — bucket root</value></data>
+  <data name="Storage_S3AccessLabel.Text" xml:space="preserve"><value>Access Key ID</value></data>
+  <data name="Storage_S3AccessBox.PlaceholderText" xml:space="preserve"><value>access key</value></data>
+  <data name="Storage_S3SecretBox.PlaceholderText" xml:space="preserve"><value>Secret Access Key</value></data>
+  <data name="Storage_S3PathStyleCheck.Content" xml:space="preserve"><value>Path-style addressing (needed for MinIO/B2/R2; can be off for AWS)</value></data>
+  <data name="Storage_FtpHostLabel.Text" xml:space="preserve"><value>Host / IP</value></data>
+  <data name="Storage_FtpHostBox.PlaceholderText" xml:space="preserve"><value>server address (domain or IP)</value></data>
+  <data name="Storage_FtpPortLabel.Text" xml:space="preserve"><value>Port</value></data>
+  <data name="Storage_FtpUserLabel.Text" xml:space="preserve"><value>Login</value></data>
+  <data name="Storage_FtpUserBox.PlaceholderText" xml:space="preserve"><value>username on the server</value></data>
+  <data name="Storage_FtpPassBox.PlaceholderText" xml:space="preserve"><value>password</value></data>
+  <data name="Storage_FtpDirLabel.Text" xml:space="preserve"><value>Remote folder for archives</value></data>
+  <data name="Storage_FtpsCheck.Content" xml:space="preserve"><value>FTPS — encrypt the connection (TLS)</value></data>
+  <data name="Storage_FtpAllowUntrustedCheck.Content" xml:space="preserve"><value>Accept a self-signed / untrusted certificate</value></data>
+  <data name="Storage_FtpUntrustedHint.Text" xml:space="preserve"><value>Without this checkbox the FTPS certificate is verified against the system roots. Turn it on only for a NAS with a self-signed certificate — it weakens protection against tampering (MITM); for important archives also encrypt the archive itself.</value></data>
+  <data name="Storage_SftpHostLabel.Text" xml:space="preserve"><value>Host / IP</value></data>
+  <data name="Storage_HostBox.PlaceholderText" xml:space="preserve"><value>server address (domain or IP)</value></data>
+  <data name="Storage_SftpPortLabel.Text" xml:space="preserve"><value>Port</value></data>
+  <data name="Storage_SftpUserLabel.Text" xml:space="preserve"><value>Login</value></data>
+  <data name="Storage_UserBox.PlaceholderText" xml:space="preserve"><value>username on the server</value></data>
+  <data name="Storage_AuthLabel.Text" xml:space="preserve"><value>Authentication</value></data>
+  <data name="Storage_AuthPassword.Content" xml:space="preserve"><value>Password</value></data>
+  <data name="Storage_AuthKey.Content" xml:space="preserve"><value>SSH key</value></data>
+  <data name="Storage_PassBox.PlaceholderText" xml:space="preserve"><value>password</value></data>
+  <data name="Storage_KeyPemBox.PlaceholderText" xml:space="preserve"><value>-----BEGIN OPENSSH PRIVATE KEY-----  (paste the private key contents)</value></data>
+  <data name="Storage_KeyPassBox.PlaceholderText" xml:space="preserve"><value>key passphrase (if any)</value></data>
+  <data name="Storage_SftpDirLabel.Text" xml:space="preserve"><value>Remote folder for archives</value></data>
+  <data name="Storage_BrowseBtn.Content" xml:space="preserve"><value>Browse…</value></data>
+  <data name="Storage_TestBtn.Content" xml:space="preserve"><value>Test</value></data>
+  <data name="Storage_SaveBtn.Text" xml:space="preserve"><value>Save</value></data>
+  <data name="Storage_DeleteBtn.Content" xml:space="preserve"><value>Delete</value></data>
+  <data name="Storage_CloseEditorBtn.Content" xml:space="preserve"><value>Close</value></data>
+  <data name="Storage_SubtitleGDrive" xml:space="preserve"><value>gdrive · folder {0}</value></data>
+  <data name="Storage_SubtitleDropbox" xml:space="preserve"><value>dropbox · app folder</value></data>
+  <data name="Storage_SubtitleMega" xml:space="preserve"><value>mega · {0} · folder {1}</value></data>
+  <data name="Storage_ServiceUnavailable" xml:space="preserve"><value>The eBackup service is unavailable.</value></data>
+  <data name="Storage_ServiceUnavailableTitle" xml:space="preserve"><value>The eBackup service is unavailable:</value></data>
+  <data name="Storage_ReadFailed" xml:space="preserve"><value>Couldn't read the service's storages:</value></data>
+  <data name="Storage_EmptyHintText" xml:space="preserve"><value>Pick a storage on the left or add a new one</value></data>
+  <data name="Storage_NewFolderTitle" xml:space="preserve"><value>New folder / network drive</value></data>
+  <data name="Storage_NewFtpTitle" xml:space="preserve"><value>New FTP connection</value></data>
+  <data name="Storage_NewS3Title" xml:space="preserve"><value>New S3 storage</value></data>
+  <data name="Storage_NewWebDavTitle" xml:space="preserve"><value>New WebDAV storage</value></data>
+  <data name="Storage_NewSftpTitle" xml:space="preserve"><value>New SFTP connection</value></data>
+  <data name="Storage_KeepExisting" xml:space="preserve"><value>empty — keep the existing one</value></data>
+  <data name="Storage_PasswordPlaceholder" xml:space="preserve"><value>password</value></data>
+  <data name="Storage_KeyPemPlaceholder" xml:space="preserve"><value>-----BEGIN OPENSSH PRIVATE KEY-----  (paste the private key contents)</value></data>
+  <data name="Storage_KeepExistingKey" xml:space="preserve"><value>empty — keep the existing key</value></data>
+  <data name="Storage_KeyPassPlaceholder" xml:space="preserve"><value>key passphrase (if any)</value></data>
+  <data name="Storage_KeepExistingKeyPass" xml:space="preserve"><value>empty — keep the existing one</value></data>
+  <data name="Storage_AccountConnected" xml:space="preserve"><value>✓ account connected</value></data>
+  <data name="Storage_AccountNotConnected" xml:space="preserve"><value>account not connected</value></data>
+  <data name="Storage_OpeningBrowserGoogle" xml:space="preserve"><value>Opening the browser — confirm the Google sign-in…</value></data>
+  <data name="Storage_OpeningBrowserDropbox" xml:space="preserve"><value>Opening the browser — confirm the Dropbox sign-in…</value></data>
+  <data name="Storage_LoginCancelled" xml:space="preserve"><value>Sign-in cancelled.</value></data>
+  <data name="Storage_LoginDone" xml:space="preserve"><value>✓ Signed in — press Save.</value></data>
+  <data name="Storage_MegaNeedCreds" xml:space="preserve"><value>Enter your MEGA account email and password.</value></data>
+  <data name="Storage_MegaLoggingIn" xml:space="preserve"><value>Signing in to MEGA…</value></data>
+  <data name="Storage_MegaNeed2Fa" xml:space="preserve"><value>A 2FA code from your authenticator app is needed — enter it and press Sign in.</value></data>
+  <data name="Storage_NeedPathFirst" xml:space="preserve"><value>Enter the folder path first.</value></data>
+  <data name="Storage_OpenFailed" xml:space="preserve"><value>✕ Couldn't open: {0}</value></data>
+  <data name="Storage_ErrNeedPath" xml:space="preserve"><value>Enter the folder path.</value></data>
+  <data name="Storage_ErrLoginGoogle" xml:space="preserve"><value>Sign in to your Google account first.</value></data>
+  <data name="Storage_ErrLoginDropbox" xml:space="preserve"><value>Sign in to your Dropbox account first.</value></data>
+  <data name="Storage_ErrNeedUrlUser" xml:space="preserve"><value>Enter the URL and login.</value></data>
+  <data name="Storage_ErrNeedPassword" xml:space="preserve"><value>Enter the password.</value></data>
+  <data name="Storage_ErrNeedS3Fields" xml:space="preserve"><value>Enter the endpoint, bucket and Access Key ID.</value></data>
+  <data name="Storage_ErrNeedSecretKey" xml:space="preserve"><value>Enter the Secret Access Key.</value></data>
+  <data name="Storage_ErrNeedHostUser" xml:space="preserve"><value>Enter the host and login.</value></data>
+  <data name="Storage_ErrPortRange" xml:space="preserve"><value>The port must be a number from 1 to 65535.</value></data>
+  <data name="Storage_ErrLoginMega" xml:space="preserve"><value>Sign in to your MEGA account first (the Sign in button).</value></data>
+  <data name="Storage_ErrNeedPrivateKey" xml:space="preserve"><value>Paste the private key contents.</value></data>
+  <data name="Storage_Testing" xml:space="preserve"><value>Testing…</value></data>
+  <data name="Storage_Saved" xml:space="preserve"><value>✓ Saved (secrets sealed under the service's machine key)</value></data>
+  <data name="Storage_SaveFailed" xml:space="preserve"><value>✕ Couldn't save: {0}</value></data>
+  <data name="Storage_DeleteDialogTitle" xml:space="preserve"><value>Delete this storage?</value></data>
+  <data name="Storage_DeleteDialogBody" xml:space="preserve"><value>“{0}” will be removed from the list. The archives in it stay untouched.</value></data>
+  <data name="Storage_DeleteDialogConfirm" xml:space="preserve"><value>Delete</value></data>
+  <data name="Storage_DeleteDialogCancel" xml:space="preserve"><value>Cancel</value></data>
+  <data name="Storage_DeleteFailed" xml:space="preserve"><value>✕ Couldn't delete: {0}</value></data>
+  <data name="Storage_BrowseUnavailable" xml:space="preserve"><value>Browsing remote folders will arrive once it moves into the service — for now, enter the path manually.</value></data>
+  <data name="Storage_FolderOpenFailed" xml:space="preserve"><value>✕ Couldn't open the folder: {0}</value></data>
+  <data name="Archives_RefreshBtn.[using:Microsoft.UI.Xaml.Controls]ToolTipService.ToolTip" xml:space="preserve"><value>Refresh the archive lists</value></data>
+  <data name="History_RefreshBtn.[using:Microsoft.UI.Xaml.Controls]ToolTipService.ToolTip" xml:space="preserve"><value>Refresh the run list</value></data>
+  <data name="Overview_RefreshBtn.[using:Microsoft.UI.Xaml.Controls]ToolTipService.ToolTip" xml:space="preserve"><value>Refresh the dashboard and check all storages</value></data>
+  <data name="Storage_RefreshBtn.[using:Microsoft.UI.Xaml.Controls]ToolTipService.ToolTip" xml:space="preserve"><value>Check that all storages are reachable</value></data>
+  <data name="Schedule_RunNowBtn.[using:Microsoft.UI.Xaml.Controls]ToolTipService.ToolTip" xml:space="preserve"><value>Run the task right now, using the saved schedule settings</value></data>
+  <data name="Storage_OpenPathBtn.[using:Microsoft.UI.Xaml.Controls]ToolTipService.ToolTip" xml:space="preserve"><value>Open the folder in Explorer</value></data>
+  <data name="Storage_CloseEditorBtn.[using:Microsoft.UI.Xaml.Controls]ToolTipService.ToolTip" xml:space="preserve"><value>Close without saving</value></data>
+  <data name="Archives_TipEncrypted" xml:space="preserve"><value>Encrypted archive (AES-256)</value></data>
+  <data name="Archives_TipBrowse" xml:space="preserve"><value>Browse contents and extract individual files</value></data>
+  <data name="Archives_TipDelete" xml:space="preserve"><value>Delete archive</value></data>
+  <data name="Modules_TipDelete" xml:space="preserve"><value>Delete module</value></data>
+  <data name="Svc_ServiceNotInstalled" xml:space="preserve"><value>The eBackup service is not installed. Please reinstall eBackup.</value></data>
+  <data name="Svc_ServiceStartFailed" xml:space="preserve"><value>Couldn't start the eBackup service.</value></data>
+  <data name="Svc_ExePathFailed" xml:space="preserve"><value>Couldn't determine the executable path.</value></data>
+  <data name="Main_DefaultStorageName" xml:space="preserve"><value>Local folder</value></data>
+  <data name="Main_TriggerManual" xml:space="preserve"><value>manual</value></data>
+  <data name="Main_TriggerSchedule" xml:space="preserve"><value>manual · schedule “{0}”</value></data>
 </root>

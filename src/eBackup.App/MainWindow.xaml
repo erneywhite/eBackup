@@ -207,8 +207,8 @@
                         <ColumnDefinition Width="Auto" />
                     </Grid.ColumnDefinitions>
                     <StackPanel Grid.Column="0" VerticalAlignment="Center" Spacing="2">
-                        <TextBlock x:Name="StatusTitle" Text="Готов к работе" FontWeight="SemiBold" />
-                        <TextBlock x:Name="StatusSub" Text="последний бэкап: ещё не выполнялся" FontSize="12"
+                        <TextBlock x:Name="StatusTitle" x:Uid="Main_StatusTitle" Text="Готов к работе" FontWeight="SemiBold" />
+                        <TextBlock x:Name="StatusSub" x:Uid="Main_StatusSub" Text="последний бэкап: ещё не выполнялся" FontSize="12"
                                    Foreground="{StaticResource EbTextDimBrush}" />
                         <!-- Уведомление о новой версии (центр уведомлений) → ведёт в «Настройки». -->
                         <HyperlinkButton x:Name="UpdateHintBtn" Visibility="Collapsed" Padding="0"
@@ -217,7 +217,7 @@
                     <Button x:Name="BackupBtn" Grid.Column="1" Height="44" Padding="28,0" CornerRadius="22"
                             Style="{StaticResource EbAccentButtonStyle}"
                             Click="BackupBtn_Click">
-                        <TextBlock x:Name="BackupBtnText" Text="Сделать бэкап" FontWeight="SemiBold" Foreground="#1A0F22" />
+                        <TextBlock x:Name="BackupBtnText" x:Uid="Main_BackupBtnText" Text="Сделать бэкап" FontWeight="SemiBold" Foreground="#1A0F22" />
                     </Button>
                 </Grid>
             </Grid>

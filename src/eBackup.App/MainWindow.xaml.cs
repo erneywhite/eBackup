@@ -267,7 +267,7 @@ public sealed partial class MainWindow : Window
                 await client.UpsertStorageAsync(new StorageInput
                 {
                     Id = "local",
-                    Name = "Локальная папка",
+                    Name = Loc.Get("Main_DefaultStorageName"),
                     Kind = nameof(StorageKind.LocalFolder),
                     Settings = new() { ["path"] = dir },
                 });
@@ -359,9 +359,9 @@ public sealed partial class MainWindow : Window
         if (_backupCts is { IsCancellationRequested: false })
         {
             _backupCts.Cancel();
-            BackupBtnText.Text = "Отменяю…";
+            BackupBtnText.Text = Loc.Get("Main_Cancelling");
             BackupBtn.IsEnabled = false;
-            StatusSub.Text = "отмена…";
+            StatusSub.Text = Loc.Get("Main_Cancelling2");
             return;
         }
 
@@ -393,11 +393,12 @@ public sealed partial class MainWindow : Window
 
     // ---------- запуск бэкапа (страница «Бэкап» или расписание) ----------
 
-    public Task StartBackupAsync(BackupRequest request, string trigger = "вручную")
+    public Task StartBackupAsync(BackupRequest request, string? trigger = null)
     {
         if (request.TargetStorageIds.Count == 0)
             return Task.CompletedTask;
 
+        trigger ??= Loc.Get("Main_TriggerManual");
         return RunServiceBackupAsync(trigger, async (client, ct) =>
         {
             // Регистрируем выбранные «свои папки» — служба бэкапит только зарегистрированные (не сырой путь с провода).
@@ -432,7 +433,7 @@ public sealed partial class MainWindow : Window
     /// Единый путь и для зашифрованных (GUI фразы не видит), и для обычных — совпадает с плановым запуском.
     /// </summary>
     public Task RunScheduleNowAsync(string scheduleId, string scheduleName)
-        => RunServiceBackupAsync($"вручную · расписание «{scheduleName}»",
+        => RunServiceBackupAsync(Loc.Get("Main_TriggerSchedule", scheduleName),
             async (client, ct) => (await client.RunScheduleNowAsync(scheduleId, ct)).JobId);
 
     // ---------- общий привод сервис-бэкапа: старт задачи (enqueue) + живой прогресс из нот + итог ----------
@@ -446,9 +447,9 @@ public sealed partial class MainWindow : Window
         _backupCts = new CancellationTokenSource();
         var ct = _backupCts.Token;
         var cancelled = false;
-        BackupBtnText.Text = "Отменить"; // во время бэкапа кнопка отменяет операцию
-        StatusTitle.Text = "Делаю бэкап…";
-        StatusSub.Text = "подготовка…";
+        BackupBtnText.Text = Loc.Get("Main_CancelBtn"); // во время бэкапа кнопка отменяет операцию
+        StatusTitle.Text = Loc.Get("Main_BackingUp");
+        StatusSub.Text = Loc.Get("Main_Preparing");
         SetFill(0.04);
 
         // Бэкап выполняет СЛУЖБА (под SYSTEM): окно ставит задачу и показывает живой прогресс из нот.
@@ -461,7 +462,7 @@ public sealed partial class MainWindow : Window
         try
         {
             var client = await ServiceConnection.GetClientAsync(ct)
-                ?? throw new InvalidOperationException(ServiceConnection.Shared.Error ?? "Служба eBackup недоступна.");
+                ?? throw new InvalidOperationException(ServiceConnection.Shared.Error ?? Loc.Get("Main_ServiceUnavailable"));
 
             jobId = await enqueue(client, ct);
 
@@ -487,13 +488,13 @@ public sealed partial class MainWindow : Window
             ok = job.State == "Completed";
             error = job.Error;
             summary = job.ArchiveName is { } an
-                ? $"{an} · {job.SizeBytes / 1024.0 / 1024.0:0.#} МБ"
-                : (error ?? "бэкап завершён с ошибками");
+                ? Loc.Get("Main_BackupSummary", an, job.SizeBytes / 1024.0 / 1024.0)
+                : (error ?? Loc.Get("Main_BackupFinishedErrors"));
             SetFill(1.0);
-            StatusTitle.Text = ok ? "Готов к работе" : "Бэкап завершён с ошибками";
+            StatusTitle.Text = ok ? Loc.Get("Main_StatusReady") : Loc.Get("Main_StatusBackupErrors");
             StatusSub.Text = ok
-                ? $"последний бэкап: {DateTime.Now:HH:mm}"
-                    + (job.SkippedFiles > 0 ? $"  ⚠ пропущено файлов: {job.SkippedFiles}" : "")
+                ? Loc.Get("Main_LastBackupAt", DateTime.Now)
+                    + (job.SkippedFiles > 0 ? Loc.Get("Main_SkippedFiles", job.SkippedFiles) : "")
                 : $"✕ {summary}";
         }
         catch (OperationCanceledException)
@@ -501,19 +502,19 @@ public sealed partial class MainWindow : Window
             cancelled = true;
             if (jobId is not null)
                 try { await CancelJobViaServiceAsync(jobId); } catch { /* best-effort: соединение/токен уже закрыты */ }
-            StatusTitle.Text = "Бэкап отменён";
-            StatusSub.Text = "отменено пользователем";
+            StatusTitle.Text = Loc.Get("Main_BackupCancelled");
+            StatusSub.Text = Loc.Get("Main_CancelledByUser");
         }
         catch (IpcRequestException ex)
         {
             error = ex.Error.Message; // типизированный отказ службы (напр. чужое зашифр. расписание, нет ключа)
-            StatusTitle.Text = "Ошибка бэкапа";
+            StatusTitle.Text = Loc.Get("Main_BackupError");
             StatusSub.Text = "✕ " + ex.Error.Message;
         }
         catch (Exception ex)
         {
             error = ex.Message;
-            StatusTitle.Text = "Ошибка бэкапа";
+            StatusTitle.Text = Loc.Get("Main_BackupError");
             StatusSub.Text = ex.Message;
         }
         finally
@@ -521,13 +522,13 @@ public sealed partial class MainWindow : Window
             // Итог — системным уведомлением (при отмене пользователем не уведомляем).
             if (AppSettings.Load().NotifyOnBackgroundBackup && !cancelled)
                 TryNotify(ok,
-                    ok ? "✅ Бэкап выполнен" : "❌ Бэкап завершён с ошибками",
-                    ok ? summary : (error ?? "подробности — на странице «История»"));
+                    ok ? Loc.Get("Main_NotifyBackupDone") : Loc.Get("Main_NotifyBackupErrors"),
+                    ok ? summary : (error ?? Loc.Get("Main_SeeHistory")));
 
             _operationRunning = false;
             _backupCts?.Dispose();
             _backupCts = null;
-            BackupBtnText.Text = "Сделать бэкап";
+            BackupBtnText.Text = Loc.Get("Main_BackupBtnText");
             BackupBtn.IsEnabled = true;
             BackupCompleted?.Invoke();
             await FadeOutFillAsync();
@@ -570,7 +571,7 @@ public sealed partial class MainWindow : Window
             var available = s.Stage == UpdateStage.Available
                 && s.Version != AppSettings.Load().DismissedUpdateVersion;
             UpdateHintBtn.Content = available
-                ? $"🆕 Доступна версия {s.Version} — открыть «Настройки»"
+                ? Loc.Get("Main_UpdateBanner", s.Version!)
                 : string.Empty;
             UpdateHintBtn.Visibility = available ? Visibility.Visible : Visibility.Collapsed;
         });
@@ -635,8 +636,8 @@ public sealed partial class MainWindow : Window
 
         _operationRunning = true;
         BackupBtn.IsEnabled = false;
-        StatusTitle.Text = "Восстанавливаю…";
-        StatusSub.Text = "подготовка…";
+        StatusTitle.Text = Loc.Get("Main_Restoring");
+        StatusSub.Text = Loc.Get("Main_Preparing");
         SetFill(0.04);
 
         try
@@ -651,12 +652,12 @@ public sealed partial class MainWindow : Window
         catch (IpcRequestException ex)
         {
             // Типизированный отказ службы (напр. тикет фразы истёк) — показываем чистый текст без кода-префикса.
-            StatusTitle.Text = "Ошибка восстановления";
+            StatusTitle.Text = Loc.Get("Main_RestoreError");
             StatusSub.Text = "✕ " + ex.Error.Message;
         }
         catch (Exception ex)
         {
-            StatusTitle.Text = "Ошибка восстановления";
+            StatusTitle.Text = Loc.Get("Main_RestoreError");
             StatusSub.Text = ex.Message;
         }
         finally
@@ -672,7 +673,7 @@ public sealed partial class MainWindow : Window
     private async Task RestoreViaServiceAsync(RestoreRequest request)
     {
         var client = await ServiceConnection.GetClientAsync()
-            ?? throw new InvalidOperationException(ServiceConnection.Shared.Error ?? "Служба eBackup недоступна.");
+            ?? throw new InvalidOperationException(ServiceConnection.Shared.Error ?? Loc.Get("Main_ServiceUnavailable"));
 
         // Шифрование: фразу отдаём службе разовым тикетом — служба проверит её (проба по 1-му чанку) и расшифрует.
         // Неверная фраза вернётся как Failed «Неверная парольная фраза.»; повтор ввода минтит свежий тикет.
@@ -688,7 +689,7 @@ public sealed partial class MainWindow : Window
             Policy = request.Policy.ToString(),
             AssetsDir = request.AssetsDir,
             Passphrase = passphraseRef,
-            Trigger = "вручную",
+            Trigger = Loc.Get("Main_TriggerManual"),
             ClientRequestId = Guid.NewGuid().ToString("N"),
         });
 
@@ -712,14 +713,14 @@ public sealed partial class MainWindow : Window
         SetFill(1.0);
         if (job.State == "Completed")
         {
-            StatusTitle.Text = "Готов к работе";
-            StatusSub.Text = $"восстановлено {DateTime.Now:HH:mm}: {request.Source.RemoteName} → "
-                + (request.TargetDir ?? "исходные места");
+            StatusTitle.Text = Loc.Get("Main_StatusReady");
+            StatusSub.Text = Loc.Get("Main_RestoredAt", DateTime.Now, request.Source.RemoteName!,
+                request.TargetDir ?? Loc.Get("Main_OriginalLocations"));
         }
         else
         {
-            StatusTitle.Text = "Восстановление с ошибками";
-            StatusSub.Text = "✕ " + (job.Error ?? "не удалось восстановить");
+            StatusTitle.Text = Loc.Get("Main_RestoreErrorsTitle");
+            StatusSub.Text = "✕ " + (job.Error ?? Loc.Get("Main_RestoreFailed"));
         }
     }
 
@@ -728,7 +729,7 @@ public sealed partial class MainWindow : Window
     {
         var archive = request.Source.LocalPath!;
         if (Core.Crypto.ArchiveCipher.IsEncrypted(archive) && string.IsNullOrEmpty(request.Passphrase))
-            throw new InvalidOperationException("Архив зашифрован — укажи парольную фразу.");
+            throw new InvalidOperationException(Loc.Get("Main_ArchiveEncryptedNeedPassphrase"));
 
         var progress = new Progress<string>(s =>
         {
@@ -747,9 +748,9 @@ public sealed partial class MainWindow : Window
             log: null));
 
         SetFill(1.0);
-        StatusTitle.Text = "Готов к работе";
-        StatusSub.Text = $"восстановлено {DateTime.Now:HH:mm}: {Path.GetFileName(archive)} → "
-            + (request.TargetDir ?? "исходные места");
+        StatusTitle.Text = Loc.Get("Main_StatusReady");
+        StatusSub.Text = Loc.Get("Main_RestoredAt", DateTime.Now, Path.GetFileName(archive),
+            request.TargetDir ?? Loc.Get("Main_OriginalLocations"));
     }
 
     // ---------- «жидкая» заливка-прогресс нижней панели (вода с физикой) ----------

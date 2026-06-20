@@ -42,7 +42,7 @@ public sealed partial class ModulesPage : Page
     private async Task RefreshCardsAsync()
     {
         CardsPanel.Children.Clear();
-        HintText.Text = "Декларативные модули подключаются файлом *.module.json — кнопкой «Импорт» или из каталога.";
+        HintText.Text = Loc.Get("Modules_HintText");
 
         var client = await ClientAsync();
         if (client is null)
@@ -50,7 +50,7 @@ public sealed partial class ModulesPage : Page
             _installedIds = new(StringComparer.OrdinalIgnoreCase);
             CardsPanel.Children.Add(new TextBlock
             {
-                Text = "служба eBackup недоступна: " + (ServiceConnection.Shared.Error ?? ""),
+                Text = Loc.Get("Modules_ServiceUnavailable", ServiceConnection.Shared.Error ?? ""),
                 FontSize = 12,
                 Foreground = (Brush)Application.Current.Resources["EbTextDimBrush"]
             });
@@ -63,7 +63,7 @@ public sealed partial class ModulesPage : Page
         {
             CardsPanel.Children.Add(new TextBlock
             {
-                Text = "не удалось прочитать модули службы: " + ex.Message,
+                Text = Loc.Get("Modules_ListFailed", ex.Message),
                 FontSize = 12,
                 Foreground = (Brush)Application.Current.Resources["EbTextDimBrush"]
             });
@@ -92,18 +92,18 @@ public sealed partial class ModulesPage : Page
         {
             Text = m.Source switch
             {
-                "BuiltIn" => "встроенный модуль",
-                "Declarative" => "декларативный модуль",
-                _ => "внешний модуль"
+                "BuiltIn" => Loc.Get("Modules_SourceBuiltIn"),
+                "Declarative" => Loc.Get("Modules_SourceDeclarative"),
+                _ => Loc.Get("Modules_SourceExternal")
             },
             FontSize = 12,
             Foreground = (Brush)appRes["EbTextDimBrush"]
         });
         var (statusText, statusBrush) = m.Problem is not null
-            ? ("✕ заблокирован", (Brush)appRes["EbErrBrush"])
+            ? (Loc.Get("Modules_CardBlocked"), (Brush)appRes["EbErrBrush"])
             : m.Enabled
-                ? ("✓ включён", (Brush)appRes["EbOkBrush"])
-                : ("⏸ выключен", (Brush)appRes["EbTextDimBrush"]);
+                ? (Loc.Get("Modules_CardEnabled"), (Brush)appRes["EbOkBrush"])
+                : (Loc.Get("Modules_CardPaused"), (Brush)appRes["EbTextDimBrush"]);
         panel.Children.Add(new TextBlock { Text = statusText, FontSize = 12, Foreground = statusBrush });
 
         var card = new Button
@@ -137,7 +137,7 @@ public sealed partial class ModulesPage : Page
                 Margin = new Thickness(0, 6, 6, 0),
                 Foreground = new SolidColorBrush(Microsoft.UI.ColorHelper.FromArgb(0xFF, 0xFF, 0x8A, 0x9C))
             };
-            ToolTipService.SetToolTip(del, "Удалить модуль");
+            ToolTipService.SetToolTip(del, Loc.Get("Modules_TipDelete"));
             del.Click += async (_, _) => await DeleteModuleAsync(m);
 
             var host = new Grid { Margin = new Thickness(0, 0, 12, 12) };
@@ -159,9 +159,10 @@ public sealed partial class ModulesPage : Page
         Detail.Visibility = Visibility.Visible;
 
         DetailTitle.Text = m.DisplayName;
-        DetailMeta.Text = $"id: {m.Id} · {(m.Source == "BuiltIn" ? "встроенный" : "декларативный")}";
+        DetailMeta.Text = Loc.Get("Modules_DetailMeta", m.Id,
+            m.Source == "BuiltIn" ? Loc.Get("Modules_DetailKindBuiltIn") : Loc.Get("Modules_DetailKindDeclarative"));
 
-        DetailStatus.Text = m.Problem is null ? "✓ готов к работе" : "✕ заблокирован: " + m.Problem;
+        DetailStatus.Text = m.Problem is null ? Loc.Get("Modules_DetailReady") : Loc.Get("Modules_DetailBlocked", m.Problem);
         DetailStatus.Foreground = (Brush)Application.Current.Resources[m.Problem is null ? "EbOkBrush" : "EbErrBrush"];
 
         // Выключатель — только для рабочих модулей (заблокированные включать нечем).
@@ -174,15 +175,15 @@ public sealed partial class ModulesPage : Page
         DetailEntries.Children.Clear();
         if (m.Problem is not null)
         {
-            AddEntryLine("— (модуль неактивен)", dim: true);
+            AddEntryLine(Loc.Get("Modules_EntriesInactive"), dim: true);
             return;
         }
 
-        AddEntryLine("собираю список…", dim: true);
+        AddEntryLine(Loc.Get("Modules_EntriesCollecting"), dim: true);
         try
         {
             var client = await ClientAsync();
-            if (client is null) { DetailEntries.Children.Clear(); AddEntryLine("— служба недоступна", dim: true); return; }
+            if (client is null) { DetailEntries.Children.Clear(); AddEntryLine(Loc.Get("Modules_EntriesServiceUnavailable"), dim: true); return; }
             var entries = await client.DiscoverModuleAsync(m.Id);
             if (!ReferenceEquals(_selected, m))
                 return; // пока ждали — выбрали другой модуль
@@ -190,7 +191,7 @@ public sealed partial class ModulesPage : Page
             DetailEntries.Children.Clear();
             if (entries.Length == 0)
             {
-                AddEntryLine("— ничего не найдено на этой машине", dim: true);
+                AddEntryLine(Loc.Get("Modules_EntriesNothingFound"), dim: true);
                 return;
             }
 
@@ -206,12 +207,12 @@ public sealed partial class ModulesPage : Page
                 AddEntryLine($"{kind} {entry.TokenPath}", dim: false);
             }
             if (entries.Length > maxShown)
-                AddEntryLine($"… и ещё {entries.Length - maxShown}", dim: true);
+                AddEntryLine(Loc.Get("Modules_EntriesMore", entries.Length - maxShown), dim: true);
         }
         catch (Exception ex)
         {
             DetailEntries.Children.Clear();
-            AddEntryLine("✕ не удалось получить список: " + ex.Message, dim: true);
+            AddEntryLine(Loc.Get("Modules_EntriesFailed", ex.Message), dim: true);
         }
     }
 
@@ -232,12 +233,12 @@ public sealed partial class ModulesPage : Page
         try
         {
             var client = await ClientAsync();
-            if (client is null) throw new InvalidOperationException(ServiceConnection.Shared.Error ?? "служба недоступна");
+            if (client is null) throw new InvalidOperationException(ServiceConnection.Shared.Error ?? Loc.Get("Modules_ServiceDown"));
             await client.SetModuleEnabledAsync(sel.Id, on);
         }
         catch (Exception ex)
         {
-            await ShowErrorAsync("Не удалось сохранить состояние: " + ex.Message);
+            await ShowErrorAsync(Loc.Get("Modules_SaveStateFailed", ex.Message));
             return;
         }
 
@@ -266,13 +267,13 @@ public sealed partial class ModulesPage : Page
         {
             var json = await File.ReadAllTextAsync(file.Path);
             var client = await ClientAsync();
-            if (client is null) throw new InvalidOperationException(ServiceConnection.Shared.Error ?? "служба недоступна");
+            if (client is null) throw new InvalidOperationException(ServiceConnection.Shared.Error ?? Loc.Get("Modules_ServiceDown"));
             await client.InstallModuleAsync(json); // служба валидирует и кладёт в свой реестр
             await RefreshAsync();
         }
         catch (Exception ex)
         {
-            await ShowErrorAsync("Не удалось импортировать: " + ex.Message);
+            await ShowErrorAsync(Loc.Get("Modules_ImportFailed", ex.Message));
         }
     }
 
@@ -284,10 +285,10 @@ public sealed partial class ModulesPage : Page
         var appRes = Application.Current.Resources;
         var dialog = new ContentDialog
         {
-            Title = "Удалить модуль?",
-            Content = $"Дескриптор «{m.DisplayName}» будет удалён из реестра службы. Архивы, созданные с ним, останутся.",
-            PrimaryButtonText = "Удалить",
-            CloseButtonText = "Отмена",
+            Title = Loc.Get("Modules_DeleteTitle"),
+            Content = Loc.Get("Modules_DeleteBody", m.DisplayName),
+            PrimaryButtonText = Loc.Get("Modules_DeleteConfirm"),
+            CloseButtonText = Loc.Get("Modules_DeleteCancel"),
             DefaultButton = ContentDialogButton.Close,
             XamlRoot = XamlRoot,
             Background = (Brush)appRes["EbDialogBrush"],
@@ -303,13 +304,13 @@ public sealed partial class ModulesPage : Page
         try
         {
             var client = await ClientAsync();
-            if (client is null) throw new InvalidOperationException(ServiceConnection.Shared.Error ?? "служба недоступна");
+            if (client is null) throw new InvalidOperationException(ServiceConnection.Shared.Error ?? Loc.Get("Modules_ServiceDown"));
             await client.DeleteModuleAsync(m.Id);
             await RefreshAsync();
         }
         catch (Exception ex)
         {
-            await ShowErrorAsync("Не удалось удалить: " + ex.Message);
+            await ShowErrorAsync(Loc.Get("Modules_DeleteFailed", ex.Message));
         }
     }
 
@@ -341,7 +342,7 @@ public sealed partial class ModulesPage : Page
     private async Task LoadCatalogAsync()
     {
         CatalogPanel.Children.Clear();
-        CatalogStatus.Text = "Загружаю каталог…";
+        CatalogStatus.Text = Loc.Get("Modules_CatalogLoading");
 
         CatalogResult result;
         try
@@ -350,20 +351,20 @@ public sealed partial class ModulesPage : Page
         }
         catch (Exception ex)
         {
-            CatalogStatus.Text = "⚠ не удалось загрузить каталог: " + ex.Message;
+            CatalogStatus.Text = Loc.Get("Modules_CatalogLoadFailed", ex.Message);
             return;
         }
 
         if (result.Index is null)
         {
-            CatalogStatus.Text = "⚠ " + (result.Error ?? "каталог недоступен");
+            CatalogStatus.Text = Loc.Get("Modules_CatalogUnavailable", result.Error ?? Loc.Get("Modules_CatalogUnavailableFallback"));
             return;
         }
 
         _catalog = result.Index;
         CatalogStatus.Text = result.Source == CatalogSource.Cache
-            ? $"⚠ нет сети — сохранённый список ({_catalog.Modules.Count})"
-            : $"Доступно: {_catalog.Modules.Count}";
+            ? Loc.Get("Modules_CatalogOffline", _catalog.Modules.Count)
+            : Loc.Get("Modules_CatalogAvailable", _catalog.Modules.Count);
         RenderCatalog();
     }
 
@@ -411,7 +412,7 @@ public sealed partial class ModulesPage : Page
             });
         panel.Children.Add(new TextBlock
         {
-            Text = $"{CategoryLabel(m.Category)} · трогает: {PrettyTokens(m.Tokens)}",
+            Text = Loc.Get("Modules_CatalogTouches", CategoryLabel(m.Category), PrettyTokens(m.Tokens)),
             FontSize = 11,
             TextWrapping = TextWrapping.Wrap,
             Foreground = dim
@@ -420,7 +421,7 @@ public sealed partial class ModulesPage : Page
         if (installed)
             panel.Children.Add(new TextBlock
             {
-                Text = "✓ установлен",
+                Text = Loc.Get("Modules_CatalogInstalled"),
                 FontSize = 12,
                 Margin = new Thickness(0, 2, 0, 0),
                 Foreground = (Brush)appRes["EbOkBrush"]
@@ -428,7 +429,7 @@ public sealed partial class ModulesPage : Page
 
         var btn = new Button
         {
-            Content = installed ? "Обновить" : "Загрузить",
+            Content = installed ? Loc.Get("Modules_CatalogUpdate") : Loc.Get("Modules_CatalogDownload"),
             CornerRadius = new CornerRadius(10),
             Padding = new Thickness(16, 6, 16, 6),
             Margin = new Thickness(0, 6, 0, 0)
@@ -452,7 +453,7 @@ public sealed partial class ModulesPage : Page
     private async Task InstallFromCatalogAsync(CatalogModule m, Button btn)
     {
         btn.IsEnabled = false;
-        btn.Content = "Загружаю…";
+        btn.Content = Loc.Get("Modules_CatalogDownloading");
         try
         {
             var json = await CatalogService.DownloadModuleJsonAsync(m);
@@ -462,10 +463,10 @@ public sealed partial class ModulesPage : Page
             if (parsed is null || !ModuleValidation.IsValidId(parsed.Id)
                 || !string.Equals(parsed.Id, m.Id, StringComparison.OrdinalIgnoreCase))
                 throw new InvalidOperationException(
-                    "файл модуля не прошёл проверку (id не совпадает или формат неверен)");
+                    Loc.Get("Modules_CatalogValidationFailed"));
 
             var client = await ClientAsync();
-            if (client is null) throw new InvalidOperationException(ServiceConnection.Shared.Error ?? "служба недоступна");
+            if (client is null) throw new InvalidOperationException(ServiceConnection.Shared.Error ?? Loc.Get("Modules_ServiceDown"));
             await client.InstallModuleAsync(json); // служба перепроверит и положит в свой реестр
 
             await RefreshCardsAsync(); // обновить «Установленные» + _installedIds
@@ -474,17 +475,17 @@ public sealed partial class ModulesPage : Page
         catch (Exception ex)
         {
             btn.IsEnabled = true;
-            btn.Content = "Загрузить";
-            await ShowErrorAsync("Не удалось установить модуль: " + ex.Message);
+            btn.Content = Loc.Get("Modules_CatalogDownload");
+            await ShowErrorAsync(Loc.Get("Modules_CatalogInstallFailed", ex.Message));
         }
     }
 
     private static string CategoryLabel(string? category) => category switch
     {
-        "game" => "игра",
-        "app" => "софт",
-        "server" => "сервер",
-        _ => "модуль"
+        "game" => Loc.Get("Modules_CatLabelGame"),
+        "app" => Loc.Get("Modules_CatLabelApp"),
+        "server" => Loc.Get("Modules_CatLabelServer"),
+        _ => Loc.Get("Modules_CatLabelModule")
     };
 
     private static string PrettyTokens(List<string> tokens)
@@ -497,9 +498,9 @@ public sealed partial class ModulesPage : Page
         var appRes = Application.Current.Resources;
         var dialog = new ContentDialog
         {
-            Title = "Ошибка",
+            Title = Loc.Get("Modules_ErrorTitle"),
             Content = message,
-            CloseButtonText = "Понятно",
+            CloseButtonText = Loc.Get("Modules_ErrorClose"),
             XamlRoot = XamlRoot,
             Background = (Brush)appRes["EbDialogBrush"],
             BorderBrush = (Brush)appRes["EbCardBorderBrush"],

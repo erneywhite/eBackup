@@ -14,8 +14,8 @@
                 <ColumnDefinition Width="*" />
                 <ColumnDefinition Width="Auto" />
             </Grid.ColumnDefinitions>
-            <TextBlock Text="Архивы" FontSize="26" FontWeight="SemiBold" />
-            <Button x:Name="RefreshBtn" Grid.Column="1" CornerRadius="10" Padding="9,7"
+            <TextBlock x:Uid="Archives_Title" Text="Архивы" FontSize="26" FontWeight="SemiBold" />
+            <Button x:Name="RefreshBtn" x:Uid="Archives_RefreshBtn" Grid.Column="1" CornerRadius="10" Padding="9,7"
                     VerticalAlignment="Center" Click="RefreshBtn_Click"
                     ToolTipService.ToolTip="Обновить списки архивов">
                 <FontIcon Glyph="&#xE72C;" FontSize="13" />

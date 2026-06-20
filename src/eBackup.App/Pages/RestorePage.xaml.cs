@@ -46,8 +46,8 @@ public sealed partial class RestorePage : Page
         _source = e.Parameter as RestoreSource;
         if (_source is null)
         {
-            ArchiveName.Text = "архив не выбран";
-            ArchiveSourceText.Text = "открой страницу «Архивы» и нажми «Восстановить» на нужном архиве";
+            ArchiveName.Text = Loc.Get("Restore_NoArchive");
+            ArchiveSourceText.Text = Loc.Get("Restore_NoArchiveHint");
             LaunchBtn.IsEnabled = false;
             return;
         }
@@ -55,7 +55,7 @@ public sealed partial class RestorePage : Page
         if (_source.LocalPath is not null)
         {
             ArchiveName.Text = Path.GetFileName(_source.LocalPath);
-            ArchiveSourceText.Text = "локальный файл: " + _source.LocalPath;
+            ArchiveSourceText.Text = Loc.Get("Restore_LocalFileSource", _source.LocalPath);
             try
             {
                 _knownEncrypted = ArchiveCipher.IsEncrypted(_source.LocalPath);
@@ -65,8 +65,8 @@ public sealed partial class RestorePage : Page
                 _knownEncrypted = false;
             }
             PassHint.Text = _knownEncrypted
-                ? "Архив зашифрован — для восстановления нужна парольная фраза."
-                : "Архив не зашифрован — фраза не нужна.";
+                ? Loc.Get("Restore_PassHintEncrypted")
+                : Loc.Get("Restore_PassHintNotEncrypted");
             PassBox.Visibility = _knownEncrypted ? Visibility.Visible : Visibility.Collapsed;
 
             UpdateAssetsCardVisibility();
@@ -74,8 +74,8 @@ public sealed partial class RestorePage : Page
         else
         {
             ArchiveName.Text = _source.RemoteName ?? "?";
-            ArchiveSourceText.Text = "из хранилища (скачается во временную папку перед распаковкой)";
-            PassHint.Text = "Если архив зашифрован — введи парольную фразу; иначе оставь поле пустым.";
+            ArchiveSourceText.Text = Loc.Get("Restore_StorageSource");
+            PassHint.Text = Loc.Get("Restore_PassHintMaybe");
             PassBox.Visibility = Visibility.Visible;
         }
     }
@@ -153,9 +153,9 @@ public sealed partial class RestorePage : Page
         string? err = null;
         var customDir = FolderRadio.IsChecked == true;
         if (customDir && TargetDirBox.Text.Trim().Length == 0)
-            err = "Укажи папку для распаковки.";
+            err = Loc.Get("Restore_ErrNoTargetDir");
         else if (_knownEncrypted && PassBox.Password.Length == 0)
-            err = "Архив зашифрован — введи парольную фразу.";
+            err = Loc.Get("Restore_ErrNeedPassphrase");
 
         if (err is not null)
         {

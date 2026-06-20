@@ -123,7 +123,7 @@ public static class UpdateService
         {
             Set(quiet
                 ? new UpdateState { Stage = UpdateStage.Idle }
-                : new UpdateState { Stage = UpdateStage.Failed, Error = "не удалось проверить обновления (нет сети?)" });
+                : new UpdateState { Stage = UpdateStage.Failed, Error = Loc.Get("Svc_UpdateCheckFailed") });
         }
     }
 
@@ -173,7 +173,7 @@ public static class UpdateService
 
             // Базовая проверка целостности: размер должен совпасть с заявленным.
             if (total > 0 && new FileInfo(path).Length != total)
-                throw new IOException("скачанный установщик неполный (размер не совпал)");
+                throw new IOException(Loc.Get("Svc_DownloadIncomplete"));
 
             Set(new UpdateState
             {
@@ -191,7 +191,7 @@ public static class UpdateService
                 Version = available.Version,
                 AssetUrl = available.AssetUrl,
                 AssetSize = available.AssetSize,
-                Error = "не удалось скачать обновление: " + ex.Message
+                Error = Loc.Get("Svc_DownloadFailed", ex.Message)
             });
             return null;
         }

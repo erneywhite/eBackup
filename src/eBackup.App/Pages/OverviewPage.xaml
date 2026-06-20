@@ -24,8 +24,8 @@
                     <ColumnDefinition Width="*" />
                     <ColumnDefinition Width="Auto" />
                 </Grid.ColumnDefinitions>
-                <TextBlock Text="Обзор" FontSize="26" FontWeight="SemiBold" />
-                <Button x:Name="RefreshBtn" Grid.Column="1" CornerRadius="10" Padding="9,7"
+                <TextBlock x:Uid="Overview_Title" Text="Обзор" FontSize="26" FontWeight="SemiBold" />
+                <Button x:Name="RefreshBtn" x:Uid="Overview_RefreshBtn" Grid.Column="1" CornerRadius="10" Padding="9,7"
                         VerticalAlignment="Center" Click="RefreshBtn_Click"
                         ToolTipService.ToolTip="Обновить дашборд и проверить все хранилища">
                     <FontIcon Glyph="&#xE72C;" FontSize="13" />
@@ -36,7 +36,7 @@
             <Button x:Name="LastBackupCard" Style="{StaticResource EbTileStyle}"
                     HorizontalAlignment="Stretch" Click="GoArchives_Click">
                 <StackPanel Spacing="4">
-                    <TextBlock Text="Последний бэкап" FontSize="12"
+                    <TextBlock x:Uid="Overview_LastBackupLabel" Text="Последний бэкап" FontSize="12"
                                Foreground="{StaticResource EbTextDimBrush}" />
                     <TextBlock x:Name="LastBackupTitle" FontSize="16" FontWeight="SemiBold"
                                TextWrapping="Wrap" Text="…" />
@@ -58,7 +58,7 @@
                         Grid.Column="0" MinHeight="96" HorizontalAlignment="Stretch"
                         VerticalAlignment="Stretch" Click="GoArchives_Click">
                     <StackPanel Spacing="4">
-                        <TextBlock Text="Архивы" FontWeight="SemiBold" />
+                        <TextBlock x:Uid="Overview_ArchivesTitle" Text="Архивы" FontWeight="SemiBold" />
                         <TextBlock x:Name="ArchivesTileText" FontSize="12" TextWrapping="Wrap"
                                    Foreground="{StaticResource EbTextDimBrush}" Text="…" />
                     </StackPanel>
@@ -68,7 +68,7 @@
                         Grid.Column="1" MinHeight="96" HorizontalAlignment="Stretch"
                         VerticalAlignment="Stretch" Click="GoModules_Click">
                     <StackPanel Spacing="4">
-                        <TextBlock Text="Модули" FontWeight="SemiBold" />
+                        <TextBlock x:Uid="Overview_ModulesTitle" Text="Модули" FontWeight="SemiBold" />
                         <TextBlock x:Name="ModulesTileText" FontSize="12" TextWrapping="Wrap"
                                    Foreground="{StaticResource EbTextDimBrush}" Text="…" />
                     </StackPanel>
@@ -78,7 +78,7 @@
                         Grid.Column="2" MinHeight="96" HorizontalAlignment="Stretch"
                         VerticalAlignment="Stretch" Click="GoSchedule_Click">
                     <StackPanel Spacing="4">
-                        <TextBlock Text="Расписание" FontWeight="SemiBold" />
+                        <TextBlock x:Uid="Overview_ScheduleTitle" Text="Расписание" FontWeight="SemiBold" />
                         <TextBlock x:Name="ScheduleTileText" FontSize="12" TextWrapping="Wrap"
                                    Foreground="{StaticResource EbTextDimBrush}" Text="…" />
                     </StackPanel>
@@ -89,7 +89,7 @@
             <Button x:Name="StorageTile" Style="{StaticResource EbTileStyle}"
                     HorizontalAlignment="Stretch" Click="GoStorage_Click">
                 <StackPanel Spacing="6">
-                    <TextBlock Text="Хранилища" FontWeight="SemiBold" />
+                    <TextBlock x:Uid="Overview_StorageTitle" Text="Хранилища" FontWeight="SemiBold" />
                     <StackPanel x:Name="StorageRows" Spacing="4" />
                 </StackPanel>
             </Button>

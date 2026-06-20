@@ -32,7 +32,7 @@ public sealed partial class SettingsPage : Page
         VersionText.Text = version is null ? "" : $"v{version.ToString(3)}";
 
         // Карточка обновлений: текущая версия + текущее состояние UpdateService.
-        UpdCurrentText.Text = $"Текущая версия: {UpdateService.AppVersion()}";
+        UpdCurrentText.Text = Loc.Get("Settings_UpdCurrentVersion", UpdateService.AppVersion());
         UpdateService.Changed += OnUpdateState;
         OnUpdateState(UpdateService.Current);
         Unloaded += (_, _) => UpdateService.Changed -= OnUpdateState;
@@ -46,39 +46,39 @@ public sealed partial class SettingsPage : Page
             switch (s.Stage)
             {
                 case UpdateStage.Checking:
-                    UpdStatusText.Text = "Проверяю наличие обновлений…";
-                    UpdActionBtn.Content = "Проверяю…";
+                    UpdStatusText.Text = Loc.Get("Settings_UpdChecking");
+                    UpdActionBtn.Content = Loc.Get("Settings_UpdCheckingBtn");
                     UpdActionBtn.IsEnabled = false;
                     break;
                 case UpdateStage.Available:
-                    UpdStatusText.Text = $"Доступна новая версия {s.Version}.";
-                    UpdActionBtn.Content = "Скачать и установить";
+                    UpdStatusText.Text = Loc.Get("Settings_UpdAvailable", s.Version ?? string.Empty);
+                    UpdActionBtn.Content = Loc.Get("Settings_UpdDownloadBtn");
                     UpdActionBtn.IsEnabled = true;
                     break;
                 case UpdateStage.Downloading:
-                    UpdStatusText.Text = $"Скачиваю обновление… {s.Progress * 100:0}%";
+                    UpdStatusText.Text = Loc.Get("Settings_UpdDownloading", s.Progress * 100);
                     UpdProgress.Value = s.Progress * 100;
                     UpdProgress.Visibility = Visibility.Visible;
-                    UpdActionBtn.Content = "Скачиваю…";
+                    UpdActionBtn.Content = Loc.Get("Settings_UpdDownloadingBtn");
                     UpdActionBtn.IsEnabled = false;
                     break;
                 case UpdateStage.ReadyToInstall:
-                    UpdStatusText.Text = "Устанавливаю и перезапускаю…";
+                    UpdStatusText.Text = Loc.Get("Settings_UpdInstalling");
                     UpdActionBtn.IsEnabled = false;
                     break;
                 case UpdateStage.Failed:
-                    UpdStatusText.Text = "✕ " + (s.Error ?? "ошибка проверки");
-                    UpdActionBtn.Content = "Проверить обновления";
+                    UpdStatusText.Text = "✕ " + (s.Error ?? Loc.Get("Settings_UpdCheckError"));
+                    UpdActionBtn.Content = Loc.Get("Settings_UpdCheckBtn");
                     UpdActionBtn.IsEnabled = true;
                     break;
                 case UpdateStage.UpToDate:
-                    UpdStatusText.Text = "Установлена последняя версия.";
-                    UpdActionBtn.Content = "Проверить обновления";
+                    UpdStatusText.Text = Loc.Get("Settings_UpdUpToDate");
+                    UpdActionBtn.Content = Loc.Get("Settings_UpdCheckBtn");
                     UpdActionBtn.IsEnabled = true;
                     break;
                 default:
                     UpdStatusText.Text = string.Empty;
-                    UpdActionBtn.Content = "Проверить обновления";
+                    UpdActionBtn.Content = Loc.Get("Settings_UpdCheckBtn");
                     UpdActionBtn.IsEnabled = true;
                     break;
             }
@@ -115,7 +115,7 @@ public sealed partial class SettingsPage : Page
     {
         if (MainWindow.Instance?.IsBusy == true)
         {
-            SetStatus("Идёт бэкап или восстановление — временные файлы сейчас нужны.", ok: false);
+            SetStatus(Loc.Get("Settings_CleanBusy"), ok: false);
             return;
         }
 
@@ -130,12 +130,12 @@ public sealed partial class SettingsPage : Page
                 Directory.Delete(tempDir, recursive: true);
             }
             SetStatus(freed == 0
-                ? "✓ Временных файлов нет — и так чисто."
-                : $"✓ Очищено: освобождено {freed / 1024.0 / 1024.0:0.#} МБ.", ok: true);
+                ? Loc.Get("Settings_CleanNothing")
+                : Loc.Get("Settings_CleanDone", freed / 1024.0 / 1024.0), ok: true);
         }
         catch (Exception ex)
         {
-            SetStatus("✕ Не удалось очистить: " + ex.Message, ok: false);
+            SetStatus(Loc.Get("Settings_CleanFailed", ex.Message), ok: false);
         }
     }
 
@@ -169,7 +169,7 @@ public sealed partial class SettingsPage : Page
         }
         catch (Exception ex)
         {
-            SetStatus("✕ Не удалось открыть папку: " + ex.Message, ok: false);
+            SetStatus(Loc.Get("Settings_OpenFolderFailed", ex.Message), ok: false);
         }
     }
 
@@ -177,13 +177,13 @@ public sealed partial class SettingsPage : Page
     {
         if (!int.TryParse(RetentionBox.Text.Trim(), out var retention) || retention < 0)
         {
-            SetStatus("«Хранить последних» — целое число от 0.", ok: false);
+            SetStatus(Loc.Get("Settings_ValidateRetention"), ok: false);
             return;
         }
 
         if (!int.TryParse(SelfTestBox.Text.Trim(), out var selfTest) || selfTest is < 0 or > 1440)
         {
-            SetStatus("Проверка хранилищ — число минут от 0 до 1440.", ok: false);
+            SetStatus(Loc.Get("Settings_ValidateSelfTest"), ok: false);
             return;
         }
 
@@ -202,7 +202,7 @@ public sealed partial class SettingsPage : Page
             settings.Save();
 
             Autostart.Set(AutostartToggle.IsOn);
-            SetStatus("✓ Сохранено", ok: true);
+            SetStatus(Loc.Get("Settings_Saved"), ok: true);
         }
         catch (Exception ex)
         {

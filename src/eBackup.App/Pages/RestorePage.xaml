@@ -5,12 +5,12 @@
 
     <ScrollViewer>
         <StackPanel Spacing="14" MaxWidth="660" HorizontalAlignment="Left">
-            <TextBlock Text="Восстановление" FontSize="26" FontWeight="SemiBold" />
+            <TextBlock x:Uid="Restore_Title" Text="Восстановление" FontSize="26" FontWeight="SemiBold" />
 
             <!-- Архив -->
             <Border Style="{StaticResource EbSectionCard}">
                 <StackPanel Spacing="4">
-                    <TextBlock Text="Архив" FontSize="12" Foreground="{StaticResource EbTextDimBrush}" />
+                    <TextBlock x:Uid="Restore_ArchiveLabel" Text="Архив" FontSize="12" Foreground="{StaticResource EbTextDimBrush}" />
                     <TextBlock x:Name="ArchiveName" FontWeight="SemiBold" TextWrapping="Wrap" />
                     <TextBlock x:Name="ArchiveSourceText" FontSize="12"
                                Foreground="{StaticResource EbTextDimBrush}" TextWrapping="Wrap" />
@@ -20,21 +20,21 @@
             <!-- Куда восстановить -->
             <Border Style="{StaticResource EbSectionCard}">
                 <StackPanel Spacing="8">
-                    <TextBlock Text="Куда восстановить" FontSize="12"
+                    <TextBlock x:Uid="Restore_DestLabel" Text="Куда восстановить" FontSize="12"
                                Foreground="{StaticResource EbTextDimBrush}" />
-                    <RadioButton x:Name="OriginalRadio" GroupName="dest" IsChecked="True"
+                    <RadioButton x:Uid="Restore_OriginalRadio" x:Name="OriginalRadio" GroupName="dest" IsChecked="True"
                                  Content="В исходные места (туда, откуда бэкапилось)"
                                  Checked="DestMode_Changed" />
-                    <RadioButton x:Name="FolderRadio" GroupName="dest"
+                    <RadioButton x:Uid="Restore_FolderRadio" x:Name="FolderRadio" GroupName="dest"
                                  Content="В отдельную папку" Checked="DestMode_Changed" />
                     <Grid ColumnSpacing="8">
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="*" />
                             <ColumnDefinition Width="Auto" />
                         </Grid.ColumnDefinitions>
-                        <TextBox x:Name="TargetDirBox" IsEnabled="False"
+                        <TextBox x:Uid="Restore_TargetDirBox" x:Name="TargetDirBox" IsEnabled="False"
                                  PlaceholderText="путь к папке для распаковки" />
-                        <Button x:Name="PickTargetBtn" Grid.Column="1" Content="Выбрать…"
+                        <Button x:Uid="Restore_PickTargetBtn" x:Name="PickTargetBtn" Grid.Column="1" Content="Выбрать…"
                                 CornerRadius="10" IsEnabled="False" Click="PickTargetBtn_Click" />
                     </Grid>
                 </StackPanel>
@@ -43,13 +43,13 @@
             <!-- Конфликты -->
             <Border Style="{StaticResource EbSectionCard}">
                 <StackPanel Spacing="8">
-                    <TextBlock Text="Если файл уже существует" FontSize="12"
+                    <TextBlock x:Uid="Restore_ConflictLabel" Text="Если файл уже существует" FontSize="12"
                                Foreground="{StaticResource EbTextDimBrush}" />
-                    <RadioButton x:Name="BakRadio" GroupName="conflict" IsChecked="True"
+                    <RadioButton x:Uid="Restore_BakRadio" x:Name="BakRadio" GroupName="conflict" IsChecked="True"
                                  Content="Заменять, старый переименовывать в .bak (безопасно)" />
-                    <RadioButton x:Name="OverwriteRadio" GroupName="conflict"
+                    <RadioButton x:Uid="Restore_OverwriteRadio" x:Name="OverwriteRadio" GroupName="conflict"
                                  Content="Перезаписывать" />
-                    <RadioButton x:Name="SkipRadio" GroupName="conflict"
+                    <RadioButton x:Uid="Restore_SkipRadio" x:Name="SkipRadio" GroupName="conflict"
                                  Content="Дополнять — записывать только недостающие" />
                 </StackPanel>
             </Border>
@@ -57,11 +57,11 @@
             <!-- Парольная фраза -->
             <Border Style="{StaticResource EbSectionCard}">
                 <StackPanel Spacing="8">
-                    <TextBlock Text="Шифрование" FontSize="12"
+                    <TextBlock x:Uid="Restore_EncryptionLabel" Text="Шифрование" FontSize="12"
                                Foreground="{StaticResource EbTextDimBrush}" />
                     <TextBlock x:Name="PassHint" FontSize="12" TextWrapping="Wrap"
                                Foreground="{StaticResource EbTextDimBrush}" />
-                    <PasswordBox x:Name="PassBox" PlaceholderText="парольная фраза"
+                    <PasswordBox x:Uid="Restore_PassBox" x:Name="PassBox" PlaceholderText="парольная фраза"
                                  MaxWidth="380" HorizontalAlignment="Stretch" />
                 </StackPanel>
             </Border>
@@ -69,7 +69,7 @@
             <!-- Ассеты (видно, только если в архиве есть управляемые модулями файлы) -->
             <Border x:Name="AssetsCard" Style="{StaticResource EbSectionCard}">
                 <StackPanel Spacing="8">
-                    <TextBlock Text="Папка для внешних ассетов модулей — сюда лягут файлы, которые модули выносили из своих приложений; пути в настройках будут переписаны"
+                    <TextBlock x:Uid="Restore_AssetsHint" Text="Папка для внешних ассетов модулей — сюда лягут файлы, которые модули выносили из своих приложений; пути в настройках будут переписаны"
                                FontSize="12" TextWrapping="Wrap"
                                Foreground="{StaticResource EbTextDimBrush}" />
                     <Grid ColumnSpacing="8">
@@ -78,7 +78,7 @@
                             <ColumnDefinition Width="Auto" />
                         </Grid.ColumnDefinitions>
                         <TextBox x:Name="AssetsDirBox" />
-                        <Button x:Name="PickAssetsBtn" Grid.Column="1" Content="Выбрать…"
+                        <Button x:Uid="Restore_PickAssetsBtn" x:Name="PickAssetsBtn" Grid.Column="1" Content="Выбрать…"
                                 CornerRadius="10" Click="PickAssetsBtn_Click" />
                     </Grid>
                 </StackPanel>
@@ -90,7 +90,7 @@
             <Button x:Name="LaunchBtn" Height="46" Padding="32,0" CornerRadius="23"
                     Style="{StaticResource EbAccentButtonStyle}"
                     Click="LaunchBtn_Click" Margin="0,4,0,16">
-                <TextBlock Text="Восстановить" FontWeight="SemiBold" Foreground="#1A0F22" />
+                <TextBlock x:Uid="Restore_LaunchBtnText" Text="Восстановить" FontWeight="SemiBold" Foreground="#1A0F22" />
             </Button>
         </StackPanel>
     </ScrollViewer>

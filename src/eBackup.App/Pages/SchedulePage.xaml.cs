@@ -20,22 +20,27 @@ public sealed class ScheduleItem(ScheduleDetail detail)
         {
             var when = SchedulePage.Describe(Detail);
             if (!Detail.Enabled)
-                return $"{when} · приостановлено";
+                return $"{when} · " + Loc.Get("Schedule_SubPaused");
 
             if (string.Equals(Detail.Kind, nameof(ScheduleKind.DailyWhenIdle), StringComparison.Ordinal))
             {
                 var ranToday = Detail.LastRunAt is { } last && last.LocalDateTime.Date == DateTime.Now.Date;
-                return $"{when} · {(ranToday ? "сегодня уже выполнен" : "ожидает простоя")}";
+                return $"{when} · {(ranToday ? Loc.Get("Schedule_SubRanToday") : Loc.Get("Schedule_SubWaitingIdle"))}";
             }
 
-            return Detail.NextRun is { } next ? $"{when} · следующий: {next.LocalDateTime:dd.MM HH:mm}" : when;
+            return Detail.NextRun is { } next ? $"{when} · " + Loc.Get("Schedule_SubNext", next.LocalDateTime.ToString("dd.MM HH:mm")) : when;
         }
     }
 }
 
 public sealed partial class SchedulePage : Page
 {
-    private static readonly string[] ShortDays = ["пн", "вт", "ср", "чт", "пт", "сб", "вс"];
+    private static string[] ShortDays =>
+    [
+        Loc.Get("Schedule_DayMon"), Loc.Get("Schedule_DayTue"), Loc.Get("Schedule_DayWed"),
+        Loc.Get("Schedule_DayThu"), Loc.Get("Schedule_DayFri"), Loc.Get("Schedule_DaySat"),
+        Loc.Get("Schedule_DaySun")
+    ];
 
     /// <summary>Индекс пн..вс → DayOfWeek (с воскресеньем в конце недели).</summary>
     private static DayOfWeek DayFromIndex(int i) => (DayOfWeek)((i + 1) % 7);
@@ -73,11 +78,13 @@ public sealed partial class SchedulePage : Page
     /// <summary>Человекочитаемое описание периодичности.</summary>
     public static string Describe(ScheduleDetail s) => KindOf(s) switch
     {
-        ScheduleKind.Daily => $"ежедневно в {s.Hour:00}:{s.Minute:00}",
+        ScheduleKind.Daily => Loc.Get("Schedule_DescDaily", $"{s.Hour:00}:{s.Minute:00}"),
         ScheduleKind.Weekly =>
-            $"еженедельно: {string.Join(", ", s.Days.OrderBy(d => IndexFromDay((DayOfWeek)d)).Select(d => ShortDays[IndexFromDay((DayOfWeek)d)]))} в {s.Hour:00}:{s.Minute:00}",
-        ScheduleKind.EveryHours => $"каждые {s.EveryHours} ч",
-        _ => "раз в день, при простое ПК"
+            Loc.Get("Schedule_DescWeekly",
+                string.Join(", ", s.Days.OrderBy(d => IndexFromDay((DayOfWeek)d)).Select(d => ShortDays[IndexFromDay((DayOfWeek)d)])),
+                $"{s.Hour:00}:{s.Minute:00}"),
+        ScheduleKind.EveryHours => Loc.Get("Schedule_DescEveryHours", s.EveryHours),
+        _ => Loc.Get("Schedule_DescIdle")
     };
 
     /// <summary>Подключение к службе для текущей операции (с заполнением статуса при ошибке).</summary>
@@ -85,7 +92,7 @@ public sealed partial class SchedulePage : Page
     {
         var client = await ServiceConnection.GetClientAsync();
         if (client is null)
-            SetStatus("✕ Служба eBackup недоступна: " + (ServiceConnection.Shared.Error ?? ""), ok: false);
+            SetStatus(Loc.Get("Schedule_ServiceUnavailable", ServiceConnection.Shared.Error ?? ""), ok: false);
         return client;
     }
 
@@ -98,12 +105,12 @@ public sealed partial class SchedulePage : Page
         {
             _schedules = client is null ? [] : (await client.ListSchedulesAsync()).ToList();
             if (client is null)
-                SetStatus("✕ Служба eBackup недоступна: " + (ServiceConnection.Shared.Error ?? ""), ok: false);
+                SetStatus(Loc.Get("Schedule_ServiceUnavailable", ServiceConnection.Shared.Error ?? ""), ok: false);
         }
         catch (Exception ex)
         {
             _schedules = [];
-            SetStatus("✕ Не удалось прочитать расписания: " + ex.Message, ok: false);
+            SetStatus(Loc.Get("Schedule_LoadFailed", ex.Message), ok: false);
         }
 
         var items = _schedules.Select(s => new ScheduleItem(s)).ToList();
@@ -148,7 +155,7 @@ public sealed partial class SchedulePage : Page
     {
         EmptyHintPanel.Visibility = Visibility.Collapsed;
         Editor.Visibility = Visibility.Visible;
-        EditorTitle.Text = s is null ? "Новое расписание" : s.Name;
+        EditorTitle.Text = s is null ? Loc.Get("Schedule_EditorTitleNew.Text") : s.Name;
         NameBox.Text = s?.Name ?? string.Empty;
 
         var client = await ServiceConnection.GetClientAsync();
@@ -195,8 +202,8 @@ public sealed partial class SchedulePage : Page
             StoragesPanel.Children.Add(new TextBlock
             {
                 Text = client is null
-                    ? "служба eBackup недоступна"
-                    : "хранилищ нет — добавь на странице «Хранилища»",
+                    ? Loc.Get("Schedule_StoragesServiceDown")
+                    : Loc.Get("Schedule_StoragesNone"),
                 FontSize = 12,
                 Foreground = dim
             });
@@ -223,8 +230,8 @@ public sealed partial class SchedulePage : Page
         EncryptCheck.IsChecked = s?.HasPassphrase == true;
         Pass1.Password = string.Empty;
         Pass2.Password = string.Empty;
-        Pass1.PlaceholderText = s?.HasPassphrase == true ? "пусто — оставить прежнюю" : "парольная фраза";
-        Pass2.PlaceholderText = s?.HasPassphrase == true ? "пусто — оставить прежнюю" : "повтори фразу";
+        Pass1.PlaceholderText = s?.HasPassphrase == true ? Loc.Get("Schedule_PassKeepExisting") : Loc.Get("Schedule_Pass1.PlaceholderText");
+        Pass2.PlaceholderText = s?.HasPassphrase == true ? Loc.Get("Schedule_PassKeepExisting") : Loc.Get("Schedule_Pass2.PlaceholderText");
 
         // Когда («при простое» — рекомендуемый дефолт для нового)
         var kind = s is null ? ScheduleKind.DailyWhenIdle : KindOf(s);
@@ -256,13 +263,13 @@ public sealed partial class SchedulePage : Page
             return;
         if (MainWindow.Instance.IsBusy)
         {
-            SetStatus("Уже идёт бэкап или восстановление — подожди завершения.", ok: false);
+            SetStatus(Loc.Get("Schedule_BusyWait"), ok: false);
             return;
         }
 
         // Не ждём завершения: кнопке важен сам старт, прогресс — в нижней панели.
         _ = MainWindow.Instance.RunScheduleNowAsync(_editing.Id, _editing.Name);
-        SetStatus("✓ Запущено — прогресс в нижней панели.", ok: true);
+        SetStatus(Loc.Get("Schedule_RunStarted"), ok: true);
     }
 
     private void EncryptCheck_Changed(object sender, RoutedEventArgs e)
@@ -296,7 +303,7 @@ public sealed partial class SchedulePage : Page
         {
             SchedFoldersPanel.Children.Add(new TextBlock
             {
-                Text = "пока пусто — список папок у каждого расписания свой",
+                Text = Loc.Get("Schedule_FoldersEmpty"),
                 FontSize = 12,
                 Foreground = dim
             });
@@ -362,7 +369,7 @@ public sealed partial class SchedulePage : Page
         var name = NameBox.Text.Trim();
         if (name.Length == 0)
         {
-            SetStatus("Укажи название расписания.", ok: false);
+            SetStatus(Loc.Get("Schedule_ValName"), ok: false);
             return;
         }
 
@@ -370,7 +377,7 @@ public sealed partial class SchedulePage : Page
             .Select(cb => (string)cb.Tag).ToList();
         if (moduleIds.Count == 0 && _schedFolders.Count == 0)
         {
-            SetStatus("Выбери хотя бы один модуль или добавь папку.", ok: false);
+            SetStatus(Loc.Get("Schedule_ValModuleOrFolder"), ok: false);
             return;
         }
 
@@ -378,7 +385,7 @@ public sealed partial class SchedulePage : Page
             .Select(cb => (string)cb.Tag).ToList();
         if (targetIds.Count == 0)
         {
-            SetStatus("Выбери хотя бы одно хранилище.", ok: false);
+            SetStatus(Loc.Get("Schedule_ValStorage"), ok: false);
             return;
         }
 
@@ -390,7 +397,7 @@ public sealed partial class SchedulePage : Page
             {
                 if (Pass1.Password != Pass2.Password)
                 {
-                    SetStatus("Парольные фразы не совпадают.", ok: false);
+                    SetStatus(Loc.Get("Schedule_ValPassMismatch"), ok: false);
                     return;
                 }
                 newPassphrase = Pass1.Password;
@@ -401,7 +408,7 @@ public sealed partial class SchedulePage : Page
             }
             else
             {
-                SetStatus("Введи парольную фразу для шифрования.", ok: false);
+                SetStatus(Loc.Get("Schedule_ValPassRequired"), ok: false);
                 return;
             }
         }
@@ -419,7 +426,7 @@ public sealed partial class SchedulePage : Page
         if (kind == ScheduleKind.EveryHours &&
             (!int.TryParse(EveryBox.Text.Trim(), out everyHours) || everyHours is < 1 or > 168))
         {
-            SetStatus("«Каждые N часов» — число от 1 до 168.", ok: false);
+            SetStatus(Loc.Get("Schedule_ValEveryHours"), ok: false);
             return;
         }
 
@@ -427,7 +434,7 @@ public sealed partial class SchedulePage : Page
         if (kind == ScheduleKind.DailyWhenIdle &&
             (!int.TryParse(IdleBox.Text.Trim(), out idleMinutes) || idleMinutes is < 1 or > 240))
         {
-            SetStatus("Минуты простоя — число от 1 до 240.", ok: false);
+            SetStatus(Loc.Get("Schedule_ValIdleMinutes"), ok: false);
             return;
         }
 
@@ -437,7 +444,7 @@ public sealed partial class SchedulePage : Page
             .ToList();
         if (kind == ScheduleKind.Weekly && days.Count == 0)
         {
-            SetStatus("Выбери хотя бы один день недели.", ok: false);
+            SetStatus(Loc.Get("Schedule_ValDay"), ok: false);
             return;
         }
         if (days.Count == 0)
@@ -476,12 +483,12 @@ public sealed partial class SchedulePage : Page
             await ReloadAsync(selectId: input.Id);
 
             // Зашифрованные расписания служба выполняет автоматически (фразу хранит под машинным ключом).
-            var encNote = EncryptCheck.IsChecked == true ? " · 🔒 шифрование включено" : "";
+            var encNote = EncryptCheck.IsChecked == true ? Loc.Get("Schedule_SavedEncNote") : "";
             SetStatus(!input.Enabled
-                ? "✓ Сохранено (приостановлено)" + encNote
+                ? Loc.Get("Schedule_SavedPaused") + encNote
                 : kind == ScheduleKind.DailyWhenIdle
-                    ? "✓ Сохранено · выполнится при ближайшем простое ПК" + encNote
-                    : "✓ Сохранено" + encNote, ok: true);
+                    ? Loc.Get("Schedule_SavedIdle") + encNote
+                    : Loc.Get("Schedule_Saved") + encNote, ok: true);
         }
         catch (IpcRequestException ex)
         {
@@ -489,7 +496,7 @@ public sealed partial class SchedulePage : Page
         }
         catch (Exception ex)
         {
-            SetStatus("✕ Не удалось сохранить: " + ex.Message, ok: false);
+            SetStatus(Loc.Get("Schedule_SaveFailed", ex.Message), ok: false);
         }
     }
 
@@ -501,10 +508,10 @@ public sealed partial class SchedulePage : Page
         var appRes = Application.Current.Resources;
         var dialog = new ContentDialog
         {
-            Title = "Удалить расписание?",
-            Content = $"«{_editing.Name}» больше не будет запускаться. Архивы не трогаем.",
-            PrimaryButtonText = "Удалить",
-            CloseButtonText = "Отмена",
+            Title = Loc.Get("Schedule_DeleteDialogTitle"),
+            Content = Loc.Get("Schedule_DeleteDialogContent", _editing.Name),
+            PrimaryButtonText = Loc.Get("Schedule_DeleteDialogPrimary"),
+            CloseButtonText = Loc.Get("Schedule_DeleteDialogClose"),
             DefaultButton = ContentDialogButton.Close,
             XamlRoot = XamlRoot,
             Background = (Brush)appRes["EbDialogBrush"],
@@ -533,7 +540,7 @@ public sealed partial class SchedulePage : Page
         }
         catch (Exception ex)
         {
-            SetStatus("✕ Не удалось удалить: " + ex.Message, ok: false);
+            SetStatus(Loc.Get("Schedule_DeleteFailed", ex.Message), ok: false);
         }
     }
 

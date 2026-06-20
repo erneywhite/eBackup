@@ -24,9 +24,9 @@ public sealed class ArchiveNode
 
     internal static string FormatSize(long bytes) => bytes switch
     {
-        >= 1L << 30 => $"{bytes / 1024.0 / 1024 / 1024:0.##} ГБ",
-        >= 1L << 20 => $"{bytes / 1024.0 / 1024:0.#} МБ",
-        _ => $"{Math.Max(1, bytes / 1024)} КБ"
+        >= 1L << 30 => Loc.Get("ArchiveBrowse_SizeGb", bytes / 1024.0 / 1024 / 1024),
+        >= 1L << 20 => Loc.Get("ArchiveBrowse_SizeMb", bytes / 1024.0 / 1024),
+        _ => Loc.Get("ArchiveBrowse_SizeKb", Math.Max(1, bytes / 1024))
     };
 }
 
@@ -85,9 +85,9 @@ public sealed partial class ArchiveBrowsePage : Page
                 // выбранные файлы тянутся кусками, без скачивания целиком (важно для 100+ ГБ).
                 // Секрет хранилища у службы (машинный ключ), поэтому GUI открывает через неё.
                 var client = await ServiceConnection.GetClientAsync(_cts.Token)
-                    ?? throw new InvalidOperationException(ServiceConnection.Shared.Error ?? "Служба eBackup недоступна.");
+                    ?? throw new InvalidOperationException(ServiceConnection.Shared.Error ?? Loc.Get("ArchiveBrowse_ServiceUnavailable"));
 
-                SetStatus("Читаю оглавление архива из службы (без скачивания целиком)…", dim: true);
+                SetStatus(Loc.Get("ArchiveBrowse_ReadingToc"), dim: true);
                 var open = await client.OpenArchiveReadAsync(_source.StorageId!, _source.RemoteName!, _cts.Token);
                 var handle = open.Handle;
                 var stream = new RangeStream(open.Length,
@@ -113,7 +113,7 @@ public sealed partial class ArchiveBrowsePage : Page
                     // чанки на лету (SeekableEbkeStream) — нужна фраза. Поток держим до её ввода (и повторов).
                     _encryptedSource = stream;
                     PassPanel.Visibility = Visibility.Visible;
-                    SetStatus("Архив зашифрован — введи парольную фразу.", dim: true);
+                    SetStatus(Loc.Get("ArchiveBrowse_EncryptedPrompt"), dim: true);
                     return;
                 }
 
@@ -129,7 +129,7 @@ public sealed partial class ArchiveBrowsePage : Page
                 // Локальный файл открываем сразу seek-потоком — переиспользуем между попытками ввода фразы.
                 _encryptedSource = File.OpenRead(path);
                 PassPanel.Visibility = Visibility.Visible;
-                SetStatus("Архив зашифрован — введи парольную фразу.", dim: true);
+                SetStatus(Loc.Get("ArchiveBrowse_EncryptedPrompt"), dim: true);
                 return;
             }
 
@@ -154,14 +154,14 @@ public sealed partial class ArchiveBrowsePage : Page
             return;
         if (PassBox.Password.Length == 0)
         {
-            SetStatus("Введи парольную фразу.", dim: false);
+            SetStatus(Loc.Get("ArchiveBrowse_EnterPassphrase"), dim: false);
             return;
         }
 
         _busy = true;
         try
         {
-            SetStatus("Проверяю фразу и открываю оглавление…", dim: true);
+            SetStatus(Loc.Get("ArchiveBrowse_CheckingPassphrase"), dim: true);
 
             // Источник (_encryptedSource) переиспользуем между попытками: при неверной фразе OpenAsync
             // (leaveOpen: true) его НЕ закрывает — можно сразу ввести правильную и повторить, не выходя
@@ -184,11 +184,11 @@ public sealed partial class ArchiveBrowsePage : Page
         }
         catch (InvalidDataException)
         {
-            SetStatus("✕ Неверная парольная фраза или повреждённый архив.", dim: false);
+            SetStatus("✕ " + Loc.Get("ArchiveBrowse_WrongPassphrase"), dim: false);
         }
         catch (Exception ex)
         {
-            SetStatus("✕ Не удалось открыть: " + ex.Message, dim: false);
+            SetStatus("✕ " + Loc.Get("ArchiveBrowse_OpenFailed") + ex.Message, dim: false);
             if (_unloaded)
                 Cleanup();
         }
@@ -283,9 +283,8 @@ public sealed partial class ArchiveBrowsePage : Page
 
         RestoreBtn.IsEnabled = DownloadBtn.IsEnabled = files > 0;
         SetStatus(files == 0
-            ? "Архив пуст."
-            : $"{files} файлов · {ArchiveNode.FormatSize(totalBytes)} — отметь нужное галочками "
-              + "(галочка на папке выбирает всё внутри)", dim: true);
+            ? Loc.Get("ArchiveBrowse_Empty")
+            : Loc.Get("ArchiveBrowse_TreeSummary", files, ArchiveNode.FormatSize(totalBytes)), dim: true);
     }
 
     /// <summary>Полные имена выбранных записей ZIP (папки разворачиваются в файлы).</summary>
@@ -326,12 +325,12 @@ public sealed partial class ArchiveBrowsePage : Page
         var selected = SelectedEntries();
         if (selected.Count == 0)
         {
-            SetStatus("Сначала отметь файлы галочками.", dim: false);
+            SetStatus(Loc.Get("ArchiveBrowse_SelectFirst"), dim: false);
             return;
         }
         if (MainWindow.Instance?.IsBusy == true)
         {
-            SetStatus("Идёт бэкап или восстановление — подожди завершения.", dim: false);
+            SetStatus(Loc.Get("ArchiveBrowse_Busy"), dim: false);
             return;
         }
 
@@ -347,11 +346,11 @@ public sealed partial class ArchiveBrowsePage : Page
         var run = new eBackup.Core.History.BackupRunRecord
         {
             Id = $"{DateTime.Now:yyyyMMdd-HHmmss}-{Guid.NewGuid().ToString("N")[..4]}",
-            Operation = destinationRoot is null ? "восстановление (выборочное)" : "извлечение",
+            Operation = destinationRoot is null ? Loc.Get("ArchiveBrowse_OpRestoreSelective") : Loc.Get("ArchiveBrowse_OpExtract"),
             StartedAt = DateTimeOffset.Now,
-            Trigger = "вручную · браузер архива",
+            Trigger = Loc.Get("ArchiveBrowse_TriggerManual"),
             ArchiveName = TitleText.Text,
-            Targets = [destinationRoot ?? "исходные пути"]
+            Targets = [destinationRoot ?? Loc.Get("ArchiveBrowse_OriginalPaths")]
         };
         void Log(string message) => history.AppendLog(run.Id, message);
         Log($"Архив: {TitleText.Text}" + (_remoteStream is not null ? " (читается из хранилища кусками)" : ""));
@@ -361,8 +360,8 @@ public sealed partial class ArchiveBrowsePage : Page
         try
         {
             SetStatus(destinationRoot is null
-                ? $"Восстанавливаю {selected.Count} файлов по исходным путям…"
-                : $"Скачиваю {selected.Count} файлов в {destinationRoot}…", dim: true);
+                ? Loc.Get("ArchiveBrowse_RestoringN", selected.Count)
+                : Loc.Get("ArchiveBrowse_DownloadingN", selected.Count, destinationRoot), dim: true);
             window?.ProgressStart(0.12);
             var progress = new Progress<string>(s =>
             {
@@ -392,8 +391,8 @@ public sealed partial class ArchiveBrowsePage : Page
             succeeded = true;
             run.Success = true;
             SetStatus(destinationRoot is null
-                ? $"✓ Восстановлено файлов: {selected.Count} (существовавшие сохранены как .bak)"
-                : $"✓ Скачано файлов: {selected.Count} → {destinationRoot}", dim: false, ok: true);
+                ? Loc.Get("ArchiveBrowse_RestoredN", selected.Count)
+                : Loc.Get("ArchiveBrowse_DownloadedN", selected.Count, destinationRoot), dim: false, ok: true);
         }
         catch (Exception ex)
         {

@@ -22,8 +22,8 @@
                     <ColumnDefinition Width="*" />
                     <ColumnDefinition Width="Auto" />
                 </Grid.ColumnDefinitions>
-                <TextBlock Text="История" FontSize="26" FontWeight="SemiBold" />
-                <Button x:Name="RefreshBtn" Grid.Column="1" CornerRadius="10" Padding="9,7"
+                <TextBlock x:Uid="History_Title" Text="История" FontSize="26" FontWeight="SemiBold" />
+                <Button x:Name="RefreshBtn" x:Uid="History_RefreshBtn" Grid.Column="1" CornerRadius="10" Padding="9,7"
                         VerticalAlignment="Center" Click="RefreshBtn_Click"
                         ToolTipService.ToolTip="Обновить список запусков">
                     <FontIcon Glyph="&#xE72C;" FontSize="13" />
@@ -65,7 +65,7 @@
 
         <!-- ===== Справа: деталь запуска с полным логом ===== -->
         <Grid Grid.Column="1">
-            <TextBlock x:Name="EmptyHint"
+            <TextBlock x:Name="EmptyHint" x:Uid="History_EmptyHint"
                        Text="Выбери запуск слева — здесь будет его полный лог"
                        Foreground="{StaticResource EbTextDimBrush}"
                        HorizontalAlignment="Center" VerticalAlignment="Center" />
@@ -91,7 +91,7 @@
                     <StackPanel Grid.Row="2" Orientation="Horizontal" Spacing="10">
                         <TextBlock x:Name="DetailStatus" FontSize="13" FontWeight="SemiBold"
                                    VerticalAlignment="Center" />
-                        <Button Content="Скопировать лог" CornerRadius="10"
+                        <Button x:Uid="History_CopyLog" Content="Скопировать лог" CornerRadius="10"
                                 Click="CopyLog_Click" />
                     </StackPanel>
 

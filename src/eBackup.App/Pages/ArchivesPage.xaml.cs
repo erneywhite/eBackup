@@ -41,7 +41,7 @@ public sealed partial class ArchivesPage : Page
             var client = await ServiceConnection.GetClientAsync();
             if (client is null)
             {
-                AddDim("служба eBackup недоступна: " + (ServiceConnection.Shared.Error ?? ""));
+                AddDim(Loc.Get("Archives_ServiceUnavailable", ServiceConnection.Shared.Error ?? ""));
                 return;
             }
 
@@ -52,13 +52,13 @@ public sealed partial class ArchivesPage : Page
             }
             catch (Exception ex)
             {
-                AddDim("не удалось прочитать хранилища службы: " + ex.Message);
+                AddDim(Loc.Get("Archives_StoragesReadFailed", ex.Message));
                 return;
             }
 
             if (storages.Count == 0)
             {
-                AddDim("хранилищ нет — добавь на странице «Хранилища», и архивы появятся здесь");
+                AddDim(Loc.Get("Archives_NoStorages"));
                 return;
             }
 
@@ -68,15 +68,15 @@ public sealed partial class ArchivesPage : Page
                 AddHeader(s.Kind switch
                 {
                     StorageKind.LocalFolder => $"{s.Name} — {s.Path}",
-                    StorageKind.Sftp => $"{s.Name} — sftp · {s.Username}@{s.Host}:{s.Port}, папка {s.RemoteDirectory}",
-                    StorageKind.Ftp => $"{s.Name} — {(s.UseFtps ? "ftps" : "ftp")} · {s.Username}@{s.Host}:{s.Port}, папка {s.RemoteDirectory}",
+                    StorageKind.Sftp => Loc.Get("Archives_HeaderSftp", s.Name, s.Username, s.Host, s.Port, s.RemoteDirectory),
+                    StorageKind.Ftp => Loc.Get("Archives_HeaderFtp", s.Name, s.UseFtps ? "ftps" : "ftp", s.Username, s.Host, s.Port, s.RemoteDirectory),
                     StorageKind.S3 => $"{s.Name} — s3 · {s.Bucket}"
                         + (string.IsNullOrWhiteSpace(s.RemoteDirectory) ? "" : $"/{s.RemoteDirectory!.Trim('/')}"),
                     StorageKind.WebDav => $"{s.Name} — webdav · {s.ServiceUrl}"
                         + (string.IsNullOrWhiteSpace(s.RemoteDirectory) ? "" : $"/{s.RemoteDirectory!.Trim('/')}"),
                     StorageKind.GoogleDrive =>
-                        $"{s.Name} — Google Drive, папка {(string.IsNullOrWhiteSpace(s.RemoteDirectory) ? "eBackup" : s.RemoteDirectory)}",
-                    StorageKind.Dropbox => $"{s.Name} — Dropbox, папка приложения"
+                        Loc.Get("Archives_HeaderGoogleDrive", s.Name, string.IsNullOrWhiteSpace(s.RemoteDirectory) ? "eBackup" : s.RemoteDirectory),
+                    StorageKind.Dropbox => Loc.Get("Archives_HeaderDropbox", s.Name)
                         + (string.IsNullOrWhiteSpace(s.RemoteDirectory) ? "" : $"/{s.RemoteDirectory!.Trim('/')}"),
                     _ => s.Name
                 });
@@ -88,7 +88,7 @@ public sealed partial class ArchivesPage : Page
                     var files = await client.ListArchivesAsync(s.Id, includeEncryption: true);
                     if (files.Length == 0)
                     {
-                        AddDim("архивов нет");
+                        AddDim(Loc.Get("Archives_NoArchives"));
                         continue;
                     }
 
@@ -96,11 +96,11 @@ public sealed partial class ArchivesPage : Page
                     {
                         var source = new RestoreSource(null, s.Id, f.Name); // всё единообразно через службу
                         AddRow(f.Name,
-                            $"{f.Length / 1024.0 / 1024.0:0.#} МБ · {f.LastWriteTime:dd.MM.yyyy HH:mm}",
+                            Loc.Get("Archives_RowSubtitle", f.Length / 1024.0 / 1024.0, f.LastWriteTime),
                             () => OpenRestore(source),
                             async () =>
                             {
-                                if (!await ConfirmDeleteAsync(f.Name, $"из «{s.Name}»"))
+                                if (!await ConfirmDeleteAsync(f.Name, Loc.Get("Archives_DeleteFrom", s.Name)))
                                     return;
                                 try
                                 {
@@ -108,7 +108,7 @@ public sealed partial class ArchivesPage : Page
                                 }
                                 catch (Exception ex)
                                 {
-                                    await ShowErrorAsync("Не удалось удалить: " + ex.Message);
+                                    await ShowErrorAsync(Loc.Get("Archives_DeleteFailed", ex.Message));
                                 }
                                 await RefreshAsync();
                             },
@@ -118,7 +118,7 @@ public sealed partial class ArchivesPage : Page
                 }
                 catch (Exception ex)
                 {
-                    AddDim("✕ недоступно: " + ex.Message);
+                    AddDim(Loc.Get("Archives_Unavailable", ex.Message));
                 }
             }
 
@@ -166,10 +166,10 @@ public sealed partial class ArchivesPage : Page
         var appRes = Application.Current.Resources;
         var dialog = new ContentDialog
         {
-            Title = "Удалить архив?",
-            Content = $"«{name}» будет удалён {where}. Действие необратимо.",
-            PrimaryButtonText = "Удалить",
-            CloseButtonText = "Отмена",
+            Title = Loc.Get("Archives_DeleteDialogTitle"),
+            Content = Loc.Get("Archives_DeleteDialogContent", name, where),
+            PrimaryButtonText = Loc.Get("Archives_DeleteDialogPrimary"),
+            CloseButtonText = Loc.Get("Archives_DeleteDialogCancel"),
             DefaultButton = ContentDialogButton.Close,
             XamlRoot = XamlRoot,
             Background = (Brush)appRes["EbDialogBrush"],
@@ -186,9 +186,9 @@ public sealed partial class ArchivesPage : Page
         var appRes = Application.Current.Resources;
         var dialog = new ContentDialog
         {
-            Title = "Ошибка",
+            Title = Loc.Get("Archives_ErrorDialogTitle"),
             Content = message,
-            CloseButtonText = "Понятно",
+            CloseButtonText = Loc.Get("Archives_ErrorDialogClose"),
             XamlRoot = XamlRoot,
             Background = (Brush)appRes["EbDialogBrush"],
             BorderBrush = (Brush)appRes["EbCardBorderBrush"],
@@ -211,7 +211,7 @@ public sealed partial class ArchivesPage : Page
             FontWeight = Microsoft.UI.Text.FontWeights.SemiBold
         };
         if (encrypted)
-            ToolTipService.SetToolTip(titleBlock, "Зашифрованный архив (AES-256)");
+            ToolTipService.SetToolTip(titleBlock, Loc.Get("Archives_TipEncrypted"));
         textPanel.Children.Add(titleBlock);
         textPanel.Children.Add(new TextBlock
         {
@@ -232,12 +232,12 @@ public sealed partial class ArchivesPage : Page
         {
             var browseBtn = new Button
             {
-                Content = "Открыть",
+                Content = Loc.Get("Archives_OpenButton"),
                 CornerRadius = new CornerRadius(10),
                 Padding = new Thickness(14, 6, 14, 6),
                 VerticalAlignment = VerticalAlignment.Center
             };
-            ToolTipService.SetToolTip(browseBtn, "Посмотреть содержимое и достать отдельные файлы");
+            ToolTipService.SetToolTip(browseBtn, Loc.Get("Archives_TipBrowse"));
             browseBtn.Click += (_, _) => onBrowse();
             Grid.SetColumn(browseBtn, 1);
             row.Children.Add(browseBtn);
@@ -247,7 +247,7 @@ public sealed partial class ArchivesPage : Page
         {
             var restoreBtn = new Button
             {
-                Content = "Восстановить",
+                Content = Loc.Get("Archives_RestoreButton"),
                 CornerRadius = new CornerRadius(10),
                 Padding = new Thickness(14, 6, 14, 6),
                 VerticalAlignment = VerticalAlignment.Center
@@ -267,7 +267,7 @@ public sealed partial class ArchivesPage : Page
                 VerticalAlignment = VerticalAlignment.Center,
                 Foreground = new SolidColorBrush(Microsoft.UI.ColorHelper.FromArgb(0xFF, 0xFF, 0x8A, 0x9C))
             };
-            ToolTipService.SetToolTip(deleteBtn, "Удалить архив");
+            ToolTipService.SetToolTip(deleteBtn, Loc.Get("Archives_TipDelete"));
             deleteBtn.Click += async (_, _) => await onDelete();
             Grid.SetColumn(deleteBtn, 3);
             row.Children.Add(deleteBtn);

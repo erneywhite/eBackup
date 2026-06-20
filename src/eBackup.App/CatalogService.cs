@@ -107,7 +107,7 @@ public static class CatalogService
         return new CatalogResult
         {
             Source = CatalogSource.None,
-            Error = "не удалось загрузить каталог (нет сети и кэша)"
+            Error = Loc.Get("Svc_CatalogLoadFailed")
         };
     }
 
@@ -117,7 +117,7 @@ public static class CatalogService
         var rel = m.File.Replace('\\', '/').TrimStart('/');
         if (string.IsNullOrWhiteSpace(rel) || rel.Contains("..") ||
             rel.StartsWith("http", StringComparison.OrdinalIgnoreCase))
-            throw new InvalidOperationException("недопустимый путь файла модуля в каталоге");
+            throw new InvalidOperationException(Loc.Get("Svc_CatalogBadFilePath"));
         return await Http.GetStringAsync(RawBase + rel, ct).ConfigureAwait(false);
     }
 

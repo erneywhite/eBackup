@@ -41,7 +41,7 @@ public sealed class ServiceConnection
             if (!ServiceLauncher.IsInstalled())
             {
                 State = ServiceState.NotInstalled;
-                Error = "Служба eBackup не установлена. Переустановите eBackup.";
+                Error = Loc.Get("Svc_ServiceNotInstalled");
                 return false;
             }
             if (await ServiceLauncher.TryStartAsync(TimeSpan.FromSeconds(15)).ConfigureAwait(false)
@@ -49,7 +49,7 @@ public sealed class ServiceConnection
                 return true;
 
             State = ServiceState.Unavailable;
-            Error ??= "Не удалось запустить службу eBackup.";
+            Error ??= Loc.Get("Svc_ServiceStartFailed");
             return false;
         }
         finally

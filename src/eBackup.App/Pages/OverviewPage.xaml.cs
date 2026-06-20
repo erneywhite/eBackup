@@ -45,7 +45,7 @@ public sealed partial class OverviewPage : Page
             var moduleClient = await ServiceConnection.GetClientAsync();
             if (moduleClient is null)
             {
-                ModulesTileText.Text = "служба недоступна";
+                ModulesTileText.Text = Loc.Get("Overview_ServiceUnavailable");
             }
             else
             {
@@ -55,20 +55,20 @@ public sealed partial class OverviewPage : Page
                     var enabled = mods.Count(m => m.Problem is null && m.Enabled);
                     var paused = mods.Count(m => m.Problem is null && !m.Enabled);
                     var blocked = mods.Count(m => m.Problem is not null);
-                    ModulesTileText.Text = $"✓ включено: {enabled}"
-                        + (paused > 0 ? $"\n⏸ выключено: {paused}" : "")
-                        + (blocked > 0 ? $"\n✕ заблокировано: {blocked}" : "");
+                    ModulesTileText.Text = Loc.Get("Overview_ModulesEnabled", enabled)
+                        + (paused > 0 ? "\n" + Loc.Get("Overview_ModulesPaused", paused) : "")
+                        + (blocked > 0 ? "\n" + Loc.Get("Overview_ModulesBlocked", blocked) : "");
                 }
                 catch
                 {
-                    ModulesTileText.Text = "не удалось прочитать модули";
+                    ModulesTileText.Text = Loc.Get("Overview_ModulesReadFailed");
                 }
             }
 
             // ---- расписания (из службы — их теперь исполняет служба, GUI лишь читает)
             if (moduleClient is null)
             {
-                ScheduleTileText.Text = "служба недоступна";
+                ScheduleTileText.Text = Loc.Get("Overview_ServiceUnavailable");
             }
             else
             {
@@ -78,7 +78,7 @@ public sealed partial class OverviewPage : Page
                     var active = schedules.Where(x => x.Enabled).ToList();
                     if (active.Count == 0)
                     {
-                        ScheduleTileText.Text = "нет активных — создай в «Расписании»";
+                        ScheduleTileText.Text = Loc.Get("Overview_ScheduleNone");
                     }
                     else
                     {
@@ -90,14 +90,14 @@ public sealed partial class OverviewPage : Page
                             string.Equals(x.Kind, nameof(ScheduleKind.DailyWhenIdle), StringComparison.Ordinal)
                             && (x.LastRunAt is null || x.LastRunAt.Value.LocalDateTime.Date < now.Date));
 
-                        ScheduleTileText.Text = $"активных: {active.Count}"
-                            + (nexts.Count > 0 ? $"\nближайший: {nexts.Min():dd.MM HH:mm}" : "")
-                            + (idlePending ? "\nожидает простоя ПК" : "");
+                        ScheduleTileText.Text = Loc.Get("Overview_ScheduleActive", active.Count)
+                            + (nexts.Count > 0 ? "\n" + Loc.Get("Overview_ScheduleNext", nexts.Min()) : "")
+                            + (idlePending ? "\n" + Loc.Get("Overview_ScheduleWaitingIdle") : "");
                     }
                 }
                 catch
                 {
-                    ScheduleTileText.Text = "не удалось прочитать расписания";
+                    ScheduleTileText.Text = Loc.Get("Overview_ScheduleReadFailed");
                 }
             }
 
@@ -106,10 +106,10 @@ public sealed partial class OverviewPage : Page
             var client = await ServiceConnection.GetClientAsync();
             if (client is null)
             {
-                LastBackupTitle.Text = "служба недоступна";
-                LastBackupSub.Text = ServiceConnection.Shared.Error ?? "не удалось подключиться к службе eBackup";
-                ArchivesTileText.Text = "служба недоступна";
-                StorageRows.Children.Add(new TextBlock { Text = "служба eBackup недоступна", FontSize = 12, Foreground = dim });
+                LastBackupTitle.Text = Loc.Get("Overview_ServiceUnavailable");
+                LastBackupSub.Text = ServiceConnection.Shared.Error ?? Loc.Get("Overview_ServiceConnectFailed");
+                ArchivesTileText.Text = Loc.Get("Overview_ServiceUnavailable");
+                StorageRows.Children.Add(new TextBlock { Text = Loc.Get("Overview_ServiceUnavailableRow"), FontSize = 12, Foreground = dim });
                 return;
             }
 
@@ -125,12 +125,12 @@ public sealed partial class OverviewPage : Page
 
             if (storages.Count == 0)
             {
-                LastBackupTitle.Text = "ещё не выполнялся";
-                LastBackupSub.Text = "добавь хранилище в «Хранилищах» и нажми «Сделать бэкап»";
-                ArchivesTileText.Text = "хранилищ нет";
+                LastBackupTitle.Text = Loc.Get("Overview_NeverRun");
+                LastBackupSub.Text = Loc.Get("Overview_NoStorageHint");
+                ArchivesTileText.Text = Loc.Get("Overview_NoStorage");
                 StorageRows.Children.Add(new TextBlock
                 {
-                    Text = "хранилищ нет — добавь в «Хранилищах»",
+                    Text = Loc.Get("Overview_NoStorageRow"),
                     FontSize = 12,
                     Foreground = dim
                 });
@@ -138,9 +138,9 @@ public sealed partial class OverviewPage : Page
             }
 
             LastBackupTitle.Text = "…";
-            LastBackupSub.Text = "собираю данные по хранилищам…";
+            LastBackupSub.Text = Loc.Get("Overview_GatheringStorage");
             ArchivesTileText.Text = (settings.RetentionCount > 0
-                ? $"хранится последних: {settings.RetentionCount}\n" : "") + "считаю…";
+                ? Loc.Get("Overview_RetentionPrefix", settings.RetentionCount) + "\n" : "") + Loc.Get("Overview_Counting");
 
             var gen = ++_refreshGen;
             var checks = new List<Task<(SavedStorage Storage, IReadOnlyList<RemoteFileDto>? Files)>>();
@@ -207,8 +207,8 @@ public sealed partial class OverviewPage : Page
             badge.Text = "✓";
             badge.Foreground = (Brush)Application.Current.Resources["EbOkBrush"];
             stats.Text = files.Count == 0
-                ? "пусто"
-                : $"{files.Count} шт · {FormatSize(files.Sum(f => f.Length))}";
+                ? Loc.Get("Overview_Empty")
+                : Loc.Get("Overview_ArchiveStats", files.Count, FormatSize(files.Sum(f => f.Length)));
             return (s, files);
         }
         catch
@@ -221,8 +221,8 @@ public sealed partial class OverviewPage : Page
 
     private static string FormatSize(long bytes)
         => bytes >= 1L << 30
-            ? $"{bytes / 1024.0 / 1024 / 1024:0.##} ГБ"
-            : $"{bytes / 1024.0 / 1024:0.#} МБ";
+            ? Loc.Get("Overview_SizeGb", bytes / 1024.0 / 1024 / 1024)
+            : Loc.Get("Overview_SizeMb", bytes / 1024.0 / 1024);
 
     /// <summary>Когда все ответы собраны — плитка «Архивы» и герой «Последний бэкап».</summary>
     private async Task FinishStatsAsync(
@@ -234,10 +234,10 @@ public sealed partial class OverviewPage : Page
             return; // страница успела обновиться заново — эти данные устарели
 
         var lines = results.Select(r => r.Files is null
-            ? $"{r.Storage.Name}: недоступно"
-            : $"{r.Storage.Name}: {r.Files.Count} шт · {r.Files.Sum(f => f.Length) / 1024.0 / 1024.0:0.#} МБ");
+            ? Loc.Get("Overview_StorageUnavailableLine", r.Storage.Name)
+            : Loc.Get("Overview_StorageStatsLine", r.Storage.Name, r.Files.Count, r.Files.Sum(f => f.Length) / 1024.0 / 1024.0));
         ArchivesTileText.Text =
-            (settings.RetentionCount > 0 ? $"хранится последних: {settings.RetentionCount}\n" : "")
+            (settings.RetentionCount > 0 ? Loc.Get("Overview_RetentionPrefix", settings.RetentionCount) + "\n" : "")
             + string.Join("\n", lines);
 
         // Последний бэкап — самый свежий архив по всем доступным хранилищам.
@@ -249,14 +249,14 @@ public sealed partial class OverviewPage : Page
 
         if (newest.File is null)
         {
-            LastBackupTitle.Text = "ещё не выполнялся";
-            LastBackupSub.Text = "нажми «Сделать бэкап» внизу, чтобы создать первый архив";
+            LastBackupTitle.Text = Loc.Get("Overview_NeverRun");
+            LastBackupSub.Text = Loc.Get("Overview_FirstBackupHint");
         }
         else
         {
             LastBackupTitle.Text = newest.File.Name;
             LastBackupSub.Text =
-                $"{newest.File.LastWriteTime:dd.MM.yyyy HH:mm} · {newest.File.Length / 1024.0 / 1024.0:0.#} МБ · {newest.Storage.Name}";
+                Loc.Get("Overview_LastBackupSub", newest.File.LastWriteTime, newest.File.Length / 1024.0 / 1024.0, newest.Storage.Name);
         }
     }
 

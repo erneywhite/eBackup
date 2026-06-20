@@ -5,19 +5,19 @@
 
     <ScrollViewer>
         <StackPanel Spacing="14" MaxWidth="660" HorizontalAlignment="Left">
-            <TextBlock Text="Бэкап" FontSize="26" FontWeight="SemiBold" />
+            <TextBlock x:Uid="Backup_Title" Text="Бэкап" FontSize="26" FontWeight="SemiBold" />
 
             <!-- Что бэкапим -->
             <Border Style="{StaticResource EbSectionCard}">
                 <StackPanel Spacing="8">
-                    <TextBlock Text="Что бэкапим" FontSize="12"
+                    <TextBlock x:Uid="Backup_WhatHeader" Text="Что бэкапим" FontSize="12"
                                Foreground="{StaticResource EbTextDimBrush}" />
                     <StackPanel x:Name="ModulesPanel" Spacing="6" />
 
-                    <TextBlock Text="Свои папки" FontSize="12"
+                    <TextBlock x:Uid="Backup_FoldersHeader" Text="Свои папки" FontSize="12"
                                Foreground="{StaticResource EbTextDimBrush}" Margin="0,10,0,0" />
                     <StackPanel x:Name="FoldersPanel" Spacing="6" />
-                    <Button x:Name="AddFolderBtn" Content="+ Добавить папку" CornerRadius="10"
+                    <Button x:Name="AddFolderBtn" x:Uid="Backup_AddFolderBtn" Content="+ Добавить папку" CornerRadius="10"
                             Click="AddFolderBtn_Click" Margin="0,2,0,0" />
                 </StackPanel>
             </Border>
@@ -25,7 +25,7 @@
             <!-- Куда -->
             <Border Style="{StaticResource EbSectionCard}">
                 <StackPanel Spacing="8">
-                    <TextBlock Text="Куда" FontSize="12"
+                    <TextBlock x:Uid="Backup_WhereHeader" Text="Куда" FontSize="12"
                                Foreground="{StaticResource EbTextDimBrush}" />
                     <StackPanel x:Name="StoragesPanel" Spacing="6" />
                 </StackPanel>
@@ -34,14 +34,14 @@
             <!-- Шифрование -->
             <Border Style="{StaticResource EbSectionCard}">
                 <StackPanel Spacing="8">
-                    <TextBlock Text="Шифрование" FontSize="12"
+                    <TextBlock x:Uid="Backup_EncryptionHeader" Text="Шифрование" FontSize="12"
                                Foreground="{StaticResource EbTextDimBrush}" />
-                    <CheckBox x:Name="EncryptCheck"
+                    <CheckBox x:Name="EncryptCheck" x:Uid="Backup_EncryptCheck"
                               Content="Зашифровать архив (AES-256, ключ из парольной фразы)"
                               Checked="EncryptCheck_Changed" Unchecked="EncryptCheck_Changed" />
-                    <PasswordBox x:Name="Pass1" PlaceholderText="парольная фраза"
+                    <PasswordBox x:Name="Pass1" x:Uid="Backup_Pass1" PlaceholderText="парольная фраза"
                                  Visibility="Collapsed" MaxWidth="380" HorizontalAlignment="Stretch" />
-                    <PasswordBox x:Name="Pass2" PlaceholderText="повтори фразу"
+                    <PasswordBox x:Name="Pass2" x:Uid="Backup_Pass2" PlaceholderText="повтори фразу"
                                  Visibility="Collapsed" MaxWidth="380" HorizontalAlignment="Stretch" />
                 </StackPanel>
             </Border>
@@ -52,7 +52,7 @@
             <Button x:Name="LaunchBtn" Height="46" Padding="32,0" CornerRadius="23"
                     Style="{StaticResource EbAccentButtonStyle}"
                     Click="LaunchBtn_Click" Margin="0,4,0,16">
-                <TextBlock Text="Запустить бэкап" FontWeight="SemiBold" Foreground="#1A0F22" />
+                <TextBlock x:Uid="Backup_LaunchBtn" Text="Запустить бэкап" FontWeight="SemiBold" Foreground="#1A0F22" />
             </Button>
         </StackPanel>
     </ScrollViewer>

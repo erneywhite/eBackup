@@ -18,7 +18,7 @@
                 <RowDefinition Height="Auto" />
             </Grid.RowDefinitions>
 
-            <TextBlock Grid.Row="0" Text="Расписание" FontSize="26" FontWeight="SemiBold"
+            <TextBlock x:Uid="Schedule_PageTitle" Grid.Row="0" Text="Расписание" FontSize="26" FontWeight="SemiBold"
                        Margin="0,0,0,12" />
 
             <ListView x:Name="ScheduleList" Grid.Row="1" SelectionMode="Single"
@@ -37,7 +37,7 @@
 
             <Button x:Name="AddBtn" Grid.Row="2" HorizontalAlignment="Stretch"
                     Margin="0,10,0,0" CornerRadius="12" Click="AddBtn_Click">
-                <TextBlock Text="+ Новое расписание" />
+                <TextBlock x:Uid="Schedule_AddNew" Text="+ Новое расписание" />
             </Button>
         </Grid>
 
@@ -45,9 +45,9 @@
         <Grid Grid.Column="1">
             <StackPanel x:Name="EmptyHintPanel" HorizontalAlignment="Center" VerticalAlignment="Center"
                         Spacing="6">
-                <TextBlock Text="Выбери расписание слева или создай новое"
+                <TextBlock x:Uid="Schedule_EmptyHint" Text="Выбери расписание слева или создай новое"
                            Foreground="{StaticResource EbTextDimBrush}" HorizontalAlignment="Center" />
-                <TextBlock Text="Расписания срабатывают, пока приложение запущено"
+                <TextBlock x:Uid="Schedule_EmptyHintSub" Text="Расписания срабатывают, пока приложение запущено"
                            FontSize="12" Foreground="{StaticResource EbTextDimBrush}"
                            HorizontalAlignment="Center" />
             </StackPanel>
@@ -58,101 +58,101 @@
                     Padding="20" VerticalAlignment="Top">
                 <ScrollViewer MaxHeight="580" VerticalScrollBarVisibility="Auto">
                     <StackPanel Spacing="10">
-                        <TextBlock x:Name="EditorTitle" Text="Новое расписание"
+                        <TextBlock x:Name="EditorTitle" x:Uid="Schedule_EditorTitleNew" Text="Новое расписание"
                                    FontSize="18" FontWeight="SemiBold" />
 
-                        <TextBlock Text="Название" FontSize="12"
+                        <TextBlock x:Uid="Schedule_NameLabel" Text="Название" FontSize="12"
                                    Foreground="{StaticResource EbTextDimBrush}" />
-                        <TextBox x:Name="NameBox" PlaceholderText="например: ночной бэкап OBS" />
+                        <TextBox x:Name="NameBox" x:Uid="Schedule_NameBox" PlaceholderText="например: ночной бэкап OBS" />
 
-                        <TextBlock Text="Что бэкапим" FontSize="12" Margin="0,6,0,0"
+                        <TextBlock x:Uid="Schedule_WhatLabel" Text="Что бэкапим" FontSize="12" Margin="0,6,0,0"
                                    Foreground="{StaticResource EbTextDimBrush}" />
                         <StackPanel x:Name="ModulesPanel" Spacing="6" />
 
-                        <TextBlock Text="Свои папки этого расписания" FontSize="12" Margin="0,6,0,0"
+                        <TextBlock x:Uid="Schedule_OwnFoldersLabel" Text="Свои папки этого расписания" FontSize="12" Margin="0,6,0,0"
                                    Foreground="{StaticResource EbTextDimBrush}" />
                         <StackPanel x:Name="SchedFoldersPanel" Spacing="6" />
-                        <Button x:Name="AddSchedFolderBtn" Content="+ Добавить папку" CornerRadius="10"
+                        <Button x:Name="AddSchedFolderBtn" x:Uid="Schedule_AddFolderBtn" Content="+ Добавить папку" CornerRadius="10"
                                 Click="AddSchedFolderBtn_Click" />
 
-                        <TextBlock Text="Куда" FontSize="12" Margin="0,6,0,0"
+                        <TextBlock x:Uid="Schedule_WhereLabel" Text="Куда" FontSize="12" Margin="0,6,0,0"
                                    Foreground="{StaticResource EbTextDimBrush}" />
                         <StackPanel x:Name="StoragesPanel" Spacing="6" />
 
-                        <TextBlock Text="Шифрование" FontSize="12" Margin="0,6,0,0"
+                        <TextBlock x:Uid="Schedule_EncryptionLabel" Text="Шифрование" FontSize="12" Margin="0,6,0,0"
                                    Foreground="{StaticResource EbTextDimBrush}" />
-                        <CheckBox x:Name="EncryptCheck" Content="Зашифровать архив (AES-256)"
+                        <CheckBox x:Name="EncryptCheck" x:Uid="Schedule_EncryptCheck" Content="Зашифровать архив (AES-256)"
                                   Checked="EncryptCheck_Changed" Unchecked="EncryptCheck_Changed" />
-                        <PasswordBox x:Name="Pass1" PlaceholderText="парольная фраза"
+                        <PasswordBox x:Name="Pass1" x:Uid="Schedule_Pass1" PlaceholderText="парольная фраза"
                                      Visibility="Collapsed" MaxWidth="360" HorizontalAlignment="Stretch" />
-                        <PasswordBox x:Name="Pass2" PlaceholderText="повтори фразу"
+                        <PasswordBox x:Name="Pass2" x:Uid="Schedule_Pass2" PlaceholderText="повтори фразу"
                                      Visibility="Collapsed" MaxWidth="360" HorizontalAlignment="Stretch" />
 
-                        <TextBlock Text="Когда" FontSize="12" Margin="0,6,0,0"
+                        <TextBlock x:Uid="Schedule_WhenLabel" Text="Когда" FontSize="12" Margin="0,6,0,0"
                                    Foreground="{StaticResource EbTextDimBrush}" />
                         <StackPanel Spacing="6">
-                            <RadioButton x:Name="IdleRadio" GroupName="kind" IsChecked="True"
+                            <RadioButton x:Name="IdleRadio" x:Uid="Schedule_IdleRadio" GroupName="kind" IsChecked="True"
                                          Content="Раз в день, при простое ПК (рекомендуется)"
                                          Checked="Kind_Changed" />
-                            <RadioButton x:Name="DailyRadio" Content="Ежедневно в точное время" GroupName="kind"
+                            <RadioButton x:Name="DailyRadio" x:Uid="Schedule_DailyRadio" Content="Ежедневно в точное время" GroupName="kind"
                                          Checked="Kind_Changed" />
-                            <RadioButton x:Name="WeeklyRadio" Content="Еженедельно" GroupName="kind"
+                            <RadioButton x:Name="WeeklyRadio" x:Uid="Schedule_WeeklyRadio" Content="Еженедельно" GroupName="kind"
                                          Checked="Kind_Changed" />
-                            <RadioButton x:Name="EveryRadio" Content="Каждые N часов" GroupName="kind"
+                            <RadioButton x:Name="EveryRadio" x:Uid="Schedule_EveryRadio" Content="Каждые N часов" GroupName="kind"
                                          Checked="Kind_Changed" />
                         </StackPanel>
-                        <TextBlock Text="Точное время подходит машинам, работающим постоянно (например, серверам). Пропущенные запуски не догоняются — на обычном ПК выбирай «при простое»."
+                        <TextBlock x:Uid="Schedule_StrictTimeHint" Text="Точное время подходит машинам, работающим постоянно (например, серверам). Пропущенные запуски не догоняются — на обычном ПК выбирай «при простое»."
                                    FontSize="11" TextWrapping="Wrap"
                                    Foreground="{StaticResource EbTextDimBrush}" />
 
                         <StackPanel x:Name="IdleRow" Spacing="6">
                             <StackPanel Orientation="Horizontal" Spacing="10">
-                                <TextBlock Text="Считать простоем" VerticalAlignment="Center" FontSize="12"
+                                <TextBlock x:Uid="Schedule_IdleConsider" Text="Считать простоем" VerticalAlignment="Center" FontSize="12"
                                            Foreground="{StaticResource EbTextDimBrush}" />
                                 <TextBox x:Name="IdleBox" Width="70" Text="5" />
-                                <TextBlock Text="минут без активности" VerticalAlignment="Center" FontSize="12"
+                                <TextBlock x:Uid="Schedule_IdleMinutesSuffix" Text="минут без активности" VerticalAlignment="Center" FontSize="12"
                                            Foreground="{StaticResource EbTextDimBrush}" />
                             </StackPanel>
-                            <TextBlock Text="Учитывается и занятость системы: бэкап не стартует, пока ЦП/диск/сеть загружены более чем на 50% или ОЗУ — более 85% (например, идёт компиляция или рендер)."
+                            <TextBlock x:Uid="Schedule_IdleLoadHint" Text="Учитывается и занятость системы: бэкап не стартует, пока ЦП/диск/сеть загружены более чем на 50% или ОЗУ — более 85% (например, идёт компиляция или рендер)."
                                        FontSize="11" TextWrapping="Wrap"
                                        Foreground="{StaticResource EbTextDimBrush}" />
                         </StackPanel>
 
                         <StackPanel x:Name="DayRow" Spacing="6" Visibility="Collapsed">
-                            <TextBlock Text="Дни недели (можно несколько)" FontSize="12"
+                            <TextBlock x:Uid="Schedule_DaysLabel" Text="Дни недели (можно несколько)" FontSize="12"
                                        Foreground="{StaticResource EbTextDimBrush}" />
                             <StackPanel x:Name="DaysPanel" Orientation="Horizontal" Spacing="4" />
                         </StackPanel>
 
                         <StackPanel x:Name="TimeRow" Orientation="Horizontal" Spacing="10"
                                     Visibility="Collapsed">
-                            <TextBlock Text="Время" VerticalAlignment="Center" FontSize="12"
+                            <TextBlock x:Uid="Schedule_TimeLabel" Text="Время" VerticalAlignment="Center" FontSize="12"
                                        Foreground="{StaticResource EbTextDimBrush}" />
                             <TimePicker x:Name="TimeBox" ClockIdentifier="24HourClock" />
                         </StackPanel>
 
                         <StackPanel x:Name="EveryRow" Orientation="Horizontal" Spacing="10"
                                     Visibility="Collapsed">
-                            <TextBlock Text="Каждые" VerticalAlignment="Center" FontSize="12"
+                            <TextBlock x:Uid="Schedule_EveryPrefix" Text="Каждые" VerticalAlignment="Center" FontSize="12"
                                        Foreground="{StaticResource EbTextDimBrush}" />
                             <TextBox x:Name="EveryBox" Width="70" Text="6" />
-                            <TextBlock Text="часов" VerticalAlignment="Center" FontSize="12"
+                            <TextBlock x:Uid="Schedule_EveryHoursSuffix" Text="часов" VerticalAlignment="Center" FontSize="12"
                                        Foreground="{StaticResource EbTextDimBrush}" />
                         </StackPanel>
 
-                        <ToggleSwitch x:Name="EnabledToggle" Margin="0,4,0,0" IsOn="True"
+                        <ToggleSwitch x:Name="EnabledToggle" x:Uid="Schedule_EnabledToggle" Margin="0,4,0,0" IsOn="True"
                                       OnContent="расписание активно" OffContent="приостановлено" />
 
                         <StackPanel Orientation="Horizontal" Spacing="10" Margin="0,8,0,0">
                             <Button x:Name="SaveBtn" CornerRadius="12" Padding="22,8"
                                     Style="{StaticResource EbAccentButtonStyle}"
                                     Click="SaveBtn_Click">
-                                <TextBlock Text="Сохранить" FontWeight="SemiBold" Foreground="#1A0F22" />
+                                <TextBlock x:Uid="Schedule_SaveBtn" Text="Сохранить" FontWeight="SemiBold" Foreground="#1A0F22" />
                             </Button>
-                            <Button x:Name="RunNowBtn" Content="Выполнить сейчас" CornerRadius="12"
+                            <Button x:Name="RunNowBtn" x:Uid="Schedule_RunNowBtn" Content="Выполнить сейчас" CornerRadius="12"
                                     Padding="22,8" Visibility="Collapsed" Click="RunNowBtn_Click"
                                     ToolTipService.ToolTip="Запустить задачу прямо сейчас — по сохранённым настройкам расписания" />
-                            <Button x:Name="DeleteBtn" Content="Удалить" CornerRadius="12"
+                            <Button x:Name="DeleteBtn" x:Uid="Schedule_DeleteBtn" Content="Удалить" CornerRadius="12"
                                     Padding="22,8" Foreground="{StaticResource EbErrBrush}"
                                     Visibility="Collapsed" Click="DeleteBtn_Click" />
                         </StackPanel>

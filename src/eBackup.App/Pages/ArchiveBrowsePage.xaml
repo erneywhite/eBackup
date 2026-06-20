@@ -13,7 +13,7 @@
             <RowDefinition Height="Auto" />
         </Grid.RowDefinitions>
 
-        <TextBlock x:Name="TitleText" Text="Содержимое архива"
+        <TextBlock x:Name="TitleText" x:Uid="ArchiveBrowse_Title" Text="Содержимое архива"
                    FontSize="26" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" />
 
         <TextBlock x:Name="StatusText" Grid.Row="1" FontSize="12" TextWrapping="Wrap"
@@ -22,8 +22,8 @@
         <!-- Парольная фраза: видна только для зашифрованных архивов -->
         <StackPanel x:Name="PassPanel" Grid.Row="2" Orientation="Horizontal" Spacing="10"
                     Visibility="Collapsed">
-            <PasswordBox x:Name="PassBox" Width="300" PlaceholderText="парольная фраза архива" />
-            <Button Content="Расшифровать" CornerRadius="10" Click="Decrypt_Click" />
+            <PasswordBox x:Name="PassBox" x:Uid="ArchiveBrowse_PassBox" Width="300" PlaceholderText="парольная фраза архива" />
+            <Button x:Uid="ArchiveBrowse_Decrypt" Content="Расшифровать" CornerRadius="10" Click="Decrypt_Click" />
         </StackPanel>
 
         <!-- Дерево содержимого с галочками -->
@@ -36,13 +36,13 @@
             <Button x:Name="RestoreBtn" Style="{StaticResource EbAccentButtonStyle}"
                     CornerRadius="12" Padding="22,8" IsEnabled="False"
                     Click="RestoreSelected_Click">
-                <TextBlock Text="Восстановить выбранное" FontWeight="SemiBold" Foreground="#1A0F22" />
+                <TextBlock x:Uid="ArchiveBrowse_RestoreSelected" Text="Восстановить выбранное" FontWeight="SemiBold" Foreground="#1A0F22" />
             </Button>
-            <Button x:Name="DownloadBtn" Content="Скачать в папку…" CornerRadius="12"
+            <Button x:Name="DownloadBtn" x:Uid="ArchiveBrowse_DownloadToFolder" Content="Скачать в папку…" CornerRadius="12"
                     Padding="22,8" IsEnabled="False" Click="DownloadSelected_Click" />
         </StackPanel>
 
-        <TextBlock Grid.Row="5" FontSize="11" TextWrapping="Wrap"
+        <TextBlock Grid.Row="5" x:Uid="ArchiveBrowse_Hint" FontSize="11" TextWrapping="Wrap"
                    Foreground="{StaticResource EbTextDimBrush}"
                    Text="«Восстановить выбранное» кладёт файлы по их исходным путям; существующие сохраняются рядом с расширением .bak. Спец-обработка модулей (например, перепись путей в сценах OBS) при выборочном восстановлении не выполняется — для неё используй полное восстановление." />
     </Grid>

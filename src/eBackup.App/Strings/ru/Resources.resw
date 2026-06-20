@@ -34,4 +34,532 @@
   <data name="LangRussian.Content" xml:space="preserve"><value>Русский</value></data>
   <data name="LangEnglish.Content" xml:space="preserve"><value>English</value></data>
   <data name="SettingsLanguageHint.Text" xml:space="preserve"><value>Смена языка перезапускает приложение.</value></data>
+  <data name="Overview_Title.Text" xml:space="preserve"><value>Обзор</value></data>
+  <data name="Overview_LastBackupLabel.Text" xml:space="preserve"><value>Последний бэкап</value></data>
+  <data name="Overview_ArchivesTitle.Text" xml:space="preserve"><value>Архивы</value></data>
+  <data name="Overview_ModulesTitle.Text" xml:space="preserve"><value>Модули</value></data>
+  <data name="Overview_ScheduleTitle.Text" xml:space="preserve"><value>Расписание</value></data>
+  <data name="Overview_StorageTitle.Text" xml:space="preserve"><value>Хранилища</value></data>
+  <data name="Overview_ServiceUnavailable" xml:space="preserve"><value>служба недоступна</value></data>
+  <data name="Overview_ServiceConnectFailed" xml:space="preserve"><value>не удалось подключиться к службе eBackup</value></data>
+  <data name="Overview_ServiceUnavailableRow" xml:space="preserve"><value>служба eBackup недоступна</value></data>
+  <data name="Overview_ModulesEnabled" xml:space="preserve"><value>✓ включено: {0}</value></data>
+  <data name="Overview_ModulesPaused" xml:space="preserve"><value>⏸ выключено: {0}</value></data>
+  <data name="Overview_ModulesBlocked" xml:space="preserve"><value>✕ заблокировано: {0}</value></data>
+  <data name="Overview_ModulesReadFailed" xml:space="preserve"><value>не удалось прочитать модули</value></data>
+  <data name="Overview_ScheduleNone" xml:space="preserve"><value>нет активных — создай в «Расписании»</value></data>
+  <data name="Overview_ScheduleActive" xml:space="preserve"><value>активных: {0}</value></data>
+  <data name="Overview_ScheduleNext" xml:space="preserve"><value>ближайший: {0:dd.MM HH:mm}</value></data>
+  <data name="Overview_ScheduleWaitingIdle" xml:space="preserve"><value>ожидает простоя ПК</value></data>
+  <data name="Overview_ScheduleReadFailed" xml:space="preserve"><value>не удалось прочитать расписания</value></data>
+  <data name="Overview_NeverRun" xml:space="preserve"><value>ещё не выполнялся</value></data>
+  <data name="Overview_NoStorageHint" xml:space="preserve"><value>добавь хранилище в «Хранилищах» и нажми «Сделать бэкап»</value></data>
+  <data name="Overview_NoStorage" xml:space="preserve"><value>хранилищ нет</value></data>
+  <data name="Overview_NoStorageRow" xml:space="preserve"><value>хранилищ нет — добавь в «Хранилищах»</value></data>
+  <data name="Overview_GatheringStorage" xml:space="preserve"><value>собираю данные по хранилищам…</value></data>
+  <data name="Overview_RetentionPrefix" xml:space="preserve"><value>хранится последних: {0}</value></data>
+  <data name="Overview_Counting" xml:space="preserve"><value>считаю…</value></data>
+  <data name="Overview_Empty" xml:space="preserve"><value>пусто</value></data>
+  <data name="Overview_ArchiveStats" xml:space="preserve"><value>{0} шт · {1}</value></data>
+  <data name="Overview_SizeGb" xml:space="preserve"><value>{0:0.##} ГБ</value></data>
+  <data name="Overview_SizeMb" xml:space="preserve"><value>{0:0.#} МБ</value></data>
+  <data name="Overview_StorageUnavailableLine" xml:space="preserve"><value>{0}: недоступно</value></data>
+  <data name="Overview_StorageStatsLine" xml:space="preserve"><value>{0}: {1} шт · {2:0.#} МБ</value></data>
+  <data name="Overview_FirstBackupHint" xml:space="preserve"><value>нажми «Сделать бэкап» внизу, чтобы создать первый архив</value></data>
+  <data name="Overview_LastBackupSub" xml:space="preserve"><value>{0:dd.MM.yyyy HH:mm} · {1:0.#} МБ · {2}</value></data>
+  <data name="ArchiveBrowse_Title.Text" xml:space="preserve"><value>Содержимое архива</value></data>
+  <data name="ArchiveBrowse_PassBox.PlaceholderText" xml:space="preserve"><value>парольная фраза архива</value></data>
+  <data name="ArchiveBrowse_Decrypt.Content" xml:space="preserve"><value>Расшифровать</value></data>
+  <data name="ArchiveBrowse_RestoreSelected.Text" xml:space="preserve"><value>Восстановить выбранное</value></data>
+  <data name="ArchiveBrowse_DownloadToFolder.Content" xml:space="preserve"><value>Скачать в папку…</value></data>
+  <data name="ArchiveBrowse_Hint.Text" xml:space="preserve"><value>«Восстановить выбранное» кладёт файлы по их исходным путям; существующие сохраняются рядом с расширением .bak. Спец-обработка модулей (например, перепись путей в сценах OBS) при выборочном восстановлении не выполняется — для неё используй полное восстановление.</value></data>
+  <data name="ArchiveBrowse_SizeGb" xml:space="preserve"><value>{0:0.##} ГБ</value></data>
+  <data name="ArchiveBrowse_SizeMb" xml:space="preserve"><value>{0:0.#} МБ</value></data>
+  <data name="ArchiveBrowse_SizeKb" xml:space="preserve"><value>{0} КБ</value></data>
+  <data name="ArchiveBrowse_ServiceUnavailable" xml:space="preserve"><value>Служба eBackup недоступна.</value></data>
+  <data name="ArchiveBrowse_ReadingToc" xml:space="preserve"><value>Читаю оглавление архива из службы (без скачивания целиком)…</value></data>
+  <data name="ArchiveBrowse_EncryptedPrompt" xml:space="preserve"><value>Архив зашифрован — введи парольную фразу.</value></data>
+  <data name="ArchiveBrowse_EnterPassphrase" xml:space="preserve"><value>Введи парольную фразу.</value></data>
+  <data name="ArchiveBrowse_CheckingPassphrase" xml:space="preserve"><value>Проверяю фразу и открываю оглавление…</value></data>
+  <data name="ArchiveBrowse_WrongPassphrase" xml:space="preserve"><value>Неверная парольная фраза или повреждённый архив.</value></data>
+  <data name="ArchiveBrowse_OpenFailed" xml:space="preserve"><value>Не удалось открыть: </value></data>
+  <data name="ArchiveBrowse_Empty" xml:space="preserve"><value>Архив пуст.</value></data>
+  <data name="ArchiveBrowse_TreeSummary" xml:space="preserve"><value>{0} файлов · {1} — отметь нужное галочками (галочка на папке выбирает всё внутри)</value></data>
+  <data name="ArchiveBrowse_SelectFirst" xml:space="preserve"><value>Сначала отметь файлы галочками.</value></data>
+  <data name="ArchiveBrowse_Busy" xml:space="preserve"><value>Идёт бэкап или восстановление — подожди завершения.</value></data>
+  <data name="ArchiveBrowse_OpRestoreSelective" xml:space="preserve"><value>восстановление (выборочное)</value></data>
+  <data name="ArchiveBrowse_OpExtract" xml:space="preserve"><value>извлечение</value></data>
+  <data name="ArchiveBrowse_TriggerManual" xml:space="preserve"><value>вручную · браузер архива</value></data>
+  <data name="ArchiveBrowse_OriginalPaths" xml:space="preserve"><value>исходные пути</value></data>
+  <data name="ArchiveBrowse_RestoringN" xml:space="preserve"><value>Восстанавливаю {0} файлов по исходным путям…</value></data>
+  <data name="ArchiveBrowse_DownloadingN" xml:space="preserve"><value>Скачиваю {0} файлов в {1}…</value></data>
+  <data name="ArchiveBrowse_RestoredN" xml:space="preserve"><value>✓ Восстановлено файлов: {0} (существовавшие сохранены как .bak)</value></data>
+  <data name="ArchiveBrowse_DownloadedN" xml:space="preserve"><value>✓ Скачано файлов: {0} → {1}</value></data>
+  <data name="Archives_Title.Text" xml:space="preserve"><value>Архивы</value></data>
+  <data name="Archives_ServiceUnavailable" xml:space="preserve"><value>служба eBackup недоступна: {0}</value></data>
+  <data name="Archives_StoragesReadFailed" xml:space="preserve"><value>не удалось прочитать хранилища службы: {0}</value></data>
+  <data name="Archives_NoStorages" xml:space="preserve"><value>хранилищ нет — добавь на странице «Хранилища», и архивы появятся здесь</value></data>
+  <data name="Archives_HeaderSftp" xml:space="preserve"><value>{0} — sftp · {1}@{2}:{3}, папка {4}</value></data>
+  <data name="Archives_HeaderFtp" xml:space="preserve"><value>{0} — {1} · {2}@{3}:{4}, папка {5}</value></data>
+  <data name="Archives_HeaderGoogleDrive" xml:space="preserve"><value>{0} — Google Drive, папка {1}</value></data>
+  <data name="Archives_HeaderDropbox" xml:space="preserve"><value>{0} — Dropbox, папка приложения</value></data>
+  <data name="Archives_NoArchives" xml:space="preserve"><value>архивов нет</value></data>
+  <data name="Archives_RowSubtitle" xml:space="preserve"><value>{0:0.#} МБ · {1:dd.MM.yyyy HH:mm}</value></data>
+  <data name="Archives_DeleteFrom" xml:space="preserve"><value>из «{0}»</value></data>
+  <data name="Archives_DeleteFailed" xml:space="preserve"><value>Не удалось удалить: {0}</value></data>
+  <data name="Archives_Unavailable" xml:space="preserve"><value>✕ недоступно: {0}</value></data>
+  <data name="Archives_DeleteDialogTitle" xml:space="preserve"><value>Удалить архив?</value></data>
+  <data name="Archives_DeleteDialogContent" xml:space="preserve"><value>«{0}» будет удалён {1}. Действие необратимо.</value></data>
+  <data name="Archives_DeleteDialogPrimary" xml:space="preserve"><value>Удалить</value></data>
+  <data name="Archives_DeleteDialogCancel" xml:space="preserve"><value>Отмена</value></data>
+  <data name="Archives_ErrorDialogTitle" xml:space="preserve"><value>Ошибка</value></data>
+  <data name="Archives_ErrorDialogClose" xml:space="preserve"><value>Понятно</value></data>
+  <data name="Archives_OpenButton" xml:space="preserve"><value>Открыть</value></data>
+  <data name="Archives_RestoreButton" xml:space="preserve"><value>Восстановить</value></data>
+  <data name="Backup_Title.Text" xml:space="preserve"><value>Бэкап</value></data>
+  <data name="Backup_WhatHeader.Text" xml:space="preserve"><value>Что бэкапим</value></data>
+  <data name="Backup_FoldersHeader.Text" xml:space="preserve"><value>Свои папки</value></data>
+  <data name="Backup_AddFolderBtn.Content" xml:space="preserve"><value>+ Добавить папку</value></data>
+  <data name="Backup_WhereHeader.Text" xml:space="preserve"><value>Куда</value></data>
+  <data name="Backup_EncryptionHeader.Text" xml:space="preserve"><value>Шифрование</value></data>
+  <data name="Backup_EncryptCheck.Content" xml:space="preserve"><value>Зашифровать архив (AES-256, ключ из парольной фразы)</value></data>
+  <data name="Backup_Pass1.PlaceholderText" xml:space="preserve"><value>парольная фраза</value></data>
+  <data name="Backup_Pass2.PlaceholderText" xml:space="preserve"><value>повтори фразу</value></data>
+  <data name="Backup_LaunchBtn.Text" xml:space="preserve"><value>Запустить бэкап</value></data>
+  <data name="Backup_ServiceUnavailable" xml:space="preserve"><value>служба eBackup недоступна: {0}</value></data>
+  <data name="Backup_NoStorages" xml:space="preserve"><value>хранилищ нет — добавь на странице «Хранилища»</value></data>
+  <data name="Backup_FoldersEmpty" xml:space="preserve"><value>пока пусто — добавь любые папки, которые хочешь сохранять</value></data>
+  <data name="Backup_ErrNoSource" xml:space="preserve"><value>Выбери хотя бы один модуль или добавь папку.</value></data>
+  <data name="Backup_ErrNoStorage" xml:space="preserve"><value>Выбери хотя бы одно хранилище.</value></data>
+  <data name="Backup_ErrNoPassphrase" xml:space="preserve"><value>Введи парольную фразу.</value></data>
+  <data name="Backup_ErrPassphraseMismatch" xml:space="preserve"><value>Парольные фразы не совпадают.</value></data>
+  <data name="History_Title.Text" xml:space="preserve"><value>История</value></data>
+  <data name="History_EmptyHint.Text" xml:space="preserve"><value>Выбери запуск слева — здесь будет его полный лог</value></data>
+  <data name="History_CopyLog.Content" xml:space="preserve"><value>Скопировать лог</value></data>
+  <data name="History_OpRestore" xml:space="preserve"><value>Восстановление</value></data>
+  <data name="History_OpRestoreSelective" xml:space="preserve"><value>Восстановление (выборочное)</value></data>
+  <data name="History_OpExtract" xml:space="preserve"><value>Извлечение</value></data>
+  <data name="History_OpBackup" xml:space="preserve"><value>Бэкап</value></data>
+  <data name="History_FallbackNotRestored" xml:space="preserve"><value>не восстановлено</value></data>
+  <data name="History_FallbackNotExtracted" xml:space="preserve"><value>не извлечено</value></data>
+  <data name="History_FallbackNoArchive" xml:space="preserve"><value>архив не собран</value></data>
+  <data name="History_ServiceUnavailable" xml:space="preserve"><value>Служба eBackup недоступна: {0}</value></data>
+  <data name="History_ReadHistoryFailed" xml:space="preserve"><value>Не удалось прочитать историю службы:
+{0}</value></data>
+  <data name="History_NoRuns" xml:space="preserve"><value>Запусков ещё не было — сделай первый бэкап, и здесь появится его журнал</value></data>
+  <data name="History_DurationUnfinished" xml:space="preserve"><value>не завершён</value></data>
+  <data name="History_MetaOperation" xml:space="preserve"><value>Операция: {0}</value></data>
+  <data name="History_MetaTrigger" xml:space="preserve"><value>Запуск: {0}</value></data>
+  <data name="History_MetaStarted" xml:space="preserve"><value>Начало: {0} · длительность: {1}</value></data>
+  <data name="History_MetaModules" xml:space="preserve"><value>Модули: {0}</value></data>
+  <data name="History_MetaTargets" xml:space="preserve"><value>Цели: {0}</value></data>
+  <data name="History_MetaDestination" xml:space="preserve"><value>Куда: {0}</value></data>
+  <data name="History_MetaArchiveSize" xml:space="preserve"><value>Размер архива: {0:0.#} МБ</value></data>
+  <data name="History_StatusSkipped" xml:space="preserve"><value>⚠ выполнен, но пропущено файлов: {0} (нет доступа/заняты)</value></data>
+  <data name="History_StatusSuccess" xml:space="preserve"><value>✓ выполнен успешно</value></data>
+  <data name="History_StatusFailed" xml:space="preserve"><value>завершён с ошибками</value></data>
+  <data name="History_StatusUnfinished" xml:space="preserve"><value>⏸ не завершён (прерван или служба/приложение перезапущены)</value></data>
+  <data name="History_LogLoading" xml:space="preserve"><value>загружаю лог…</value></data>
+  <data name="History_LogServiceUnavailable" xml:space="preserve"><value>служба недоступна — лог не получить</value></data>
+  <data name="History_LogNotSaved" xml:space="preserve"><value>лог этого запуска не сохранился</value></data>
+  <data name="History_LogFetchFailed" xml:space="preserve"><value>не удалось получить лог: {0}</value></data>
+  <data name="Main_StatusTitle.Text" xml:space="preserve"><value>Готов к работе</value></data>
+  <data name="Main_StatusSub.Text" xml:space="preserve"><value>последний бэкап: ещё не выполнялся</value></data>
+  <data name="Main_BackupBtnText.Text" xml:space="preserve"><value>Сделать бэкап</value></data>
+  <data name="Main_Cancelling" xml:space="preserve"><value>Отменяю…</value></data>
+  <data name="Main_Cancelling2" xml:space="preserve"><value>отмена…</value></data>
+  <data name="Main_CancelBtn" xml:space="preserve"><value>Отменить</value></data>
+  <data name="Main_BackingUp" xml:space="preserve"><value>Делаю бэкап…</value></data>
+  <data name="Main_Preparing" xml:space="preserve"><value>подготовка…</value></data>
+  <data name="Main_ServiceUnavailable" xml:space="preserve"><value>Служба eBackup недоступна.</value></data>
+  <data name="Main_BackupSummary" xml:space="preserve"><value>{0} · {1:0.#} МБ</value></data>
+  <data name="Main_BackupFinishedErrors" xml:space="preserve"><value>бэкап завершён с ошибками</value></data>
+  <data name="Main_StatusReady" xml:space="preserve"><value>Готов к работе</value></data>
+  <data name="Main_StatusBackupErrors" xml:space="preserve"><value>Бэкап завершён с ошибками</value></data>
+  <data name="Main_LastBackupAt" xml:space="preserve"><value>последний бэкап: {0:HH:mm}</value></data>
+  <data name="Main_SkippedFiles" xml:space="preserve"><value>  ⚠ пропущено файлов: {0}</value></data>
+  <data name="Main_BackupCancelled" xml:space="preserve"><value>Бэкап отменён</value></data>
+  <data name="Main_CancelledByUser" xml:space="preserve"><value>отменено пользователем</value></data>
+  <data name="Main_BackupError" xml:space="preserve"><value>Ошибка бэкапа</value></data>
+  <data name="Main_NotifyBackupDone" xml:space="preserve"><value>✅ Бэкап выполнен</value></data>
+  <data name="Main_NotifyBackupErrors" xml:space="preserve"><value>❌ Бэкап завершён с ошибками</value></data>
+  <data name="Main_SeeHistory" xml:space="preserve"><value>подробности — на странице «История»</value></data>
+  <data name="Main_UpdateBanner" xml:space="preserve"><value>🆕 Доступна версия {0} — открыть «Настройки»</value></data>
+  <data name="Main_Restoring" xml:space="preserve"><value>Восстанавливаю…</value></data>
+  <data name="Main_RestoreError" xml:space="preserve"><value>Ошибка восстановления</value></data>
+  <data name="Main_RestoredAt" xml:space="preserve"><value>восстановлено {0:HH:mm}: {1} → {2}</value></data>
+  <data name="Main_OriginalLocations" xml:space="preserve"><value>исходные места</value></data>
+  <data name="Main_RestoreErrorsTitle" xml:space="preserve"><value>Восстановление с ошибками</value></data>
+  <data name="Main_RestoreFailed" xml:space="preserve"><value>не удалось восстановить</value></data>
+  <data name="Main_ArchiveEncryptedNeedPassphrase" xml:space="preserve"><value>Архив зашифрован — укажи парольную фразу.</value></data>
+  <data name="Modules_Title.Text" xml:space="preserve"><value>Модули</value></data>
+  <data name="Modules_Import.Text" xml:space="preserve"><value>+ Импорт модуля</value></data>
+  <data name="Modules_InstalledTab.Content" xml:space="preserve"><value>Установленные</value></data>
+  <data name="Modules_CatalogTab.Content" xml:space="preserve"><value>Каталог</value></data>
+  <data name="Modules_CategoryAll.Content" xml:space="preserve"><value>Все</value></data>
+  <data name="Modules_CategoryGames.Content" xml:space="preserve"><value>Игры</value></data>
+  <data name="Modules_CategoryApps.Content" xml:space="preserve"><value>Софт</value></data>
+  <data name="Modules_CategoryOther.Content" xml:space="preserve"><value>Прочее</value></data>
+  <data name="Modules_EmptyHint.Text" xml:space="preserve"><value>Выбери модуль слева</value></data>
+  <data name="Modules_EnableToggle.OnContent" xml:space="preserve"><value>участвует в бэкапах</value></data>
+  <data name="Modules_EnableToggle.OffContent" xml:space="preserve"><value>выключен из бэкапов</value></data>
+  <data name="Modules_WhatItBacksUp.Text" xml:space="preserve"><value>Что бэкапит</value></data>
+  <data name="Modules_HintText" xml:space="preserve"><value>Декларативные модули подключаются файлом *.module.json — кнопкой «Импорт» или из каталога.</value></data>
+  <data name="Modules_ServiceUnavailable" xml:space="preserve"><value>служба eBackup недоступна: {0}</value></data>
+  <data name="Modules_ListFailed" xml:space="preserve"><value>не удалось прочитать модули службы: {0}</value></data>
+  <data name="Modules_SourceBuiltIn" xml:space="preserve"><value>встроенный модуль</value></data>
+  <data name="Modules_SourceDeclarative" xml:space="preserve"><value>декларативный модуль</value></data>
+  <data name="Modules_SourceExternal" xml:space="preserve"><value>внешний модуль</value></data>
+  <data name="Modules_CardBlocked" xml:space="preserve"><value>✕ заблокирован</value></data>
+  <data name="Modules_CardEnabled" xml:space="preserve"><value>✓ включён</value></data>
+  <data name="Modules_CardPaused" xml:space="preserve"><value>⏸ выключен</value></data>
+  <data name="Modules_DetailMeta" xml:space="preserve"><value>id: {0} · {1}</value></data>
+  <data name="Modules_DetailKindBuiltIn" xml:space="preserve"><value>встроенный</value></data>
+  <data name="Modules_DetailKindDeclarative" xml:space="preserve"><value>декларативный</value></data>
+  <data name="Modules_DetailReady" xml:space="preserve"><value>✓ готов к работе</value></data>
+  <data name="Modules_DetailBlocked" xml:space="preserve"><value>✕ заблокирован: {0}</value></data>
+  <data name="Modules_EntriesInactive" xml:space="preserve"><value>— (модуль неактивен)</value></data>
+  <data name="Modules_EntriesCollecting" xml:space="preserve"><value>собираю список…</value></data>
+  <data name="Modules_EntriesServiceUnavailable" xml:space="preserve"><value>— служба недоступна</value></data>
+  <data name="Modules_EntriesNothingFound" xml:space="preserve"><value>— ничего не найдено на этой машине</value></data>
+  <data name="Modules_EntriesMore" xml:space="preserve"><value>… и ещё {0}</value></data>
+  <data name="Modules_EntriesFailed" xml:space="preserve"><value>✕ не удалось получить список: {0}</value></data>
+  <data name="Modules_ServiceDown" xml:space="preserve"><value>служба недоступна</value></data>
+  <data name="Modules_SaveStateFailed" xml:space="preserve"><value>Не удалось сохранить состояние: {0}</value></data>
+  <data name="Modules_ImportFailed" xml:space="preserve"><value>Не удалось импортировать: {0}</value></data>
+  <data name="Modules_DeleteTitle" xml:space="preserve"><value>Удалить модуль?</value></data>
+  <data name="Modules_DeleteBody" xml:space="preserve"><value>Дескриптор «{0}» будет удалён из реестра службы. Архивы, созданные с ним, останутся.</value></data>
+  <data name="Modules_DeleteConfirm" xml:space="preserve"><value>Удалить</value></data>
+  <data name="Modules_DeleteCancel" xml:space="preserve"><value>Отмена</value></data>
+  <data name="Modules_DeleteFailed" xml:space="preserve"><value>Не удалось удалить: {0}</value></data>
+  <data name="Modules_CatalogLoading" xml:space="preserve"><value>Загружаю каталог…</value></data>
+  <data name="Modules_CatalogLoadFailed" xml:space="preserve"><value>⚠ не удалось загрузить каталог: {0}</value></data>
+  <data name="Modules_CatalogUnavailable" xml:space="preserve"><value>⚠ {0}</value></data>
+  <data name="Modules_CatalogUnavailableFallback" xml:space="preserve"><value>каталог недоступен</value></data>
+  <data name="Modules_CatalogOffline" xml:space="preserve"><value>⚠ нет сети — сохранённый список ({0})</value></data>
+  <data name="Modules_CatalogAvailable" xml:space="preserve"><value>Доступно: {0}</value></data>
+  <data name="Modules_CatalogTouches" xml:space="preserve"><value>{0} · трогает: {1}</value></data>
+  <data name="Modules_CatalogInstalled" xml:space="preserve"><value>✓ установлен</value></data>
+  <data name="Modules_CatalogUpdate" xml:space="preserve"><value>Обновить</value></data>
+  <data name="Modules_CatalogDownload" xml:space="preserve"><value>Загрузить</value></data>
+  <data name="Modules_CatalogDownloading" xml:space="preserve"><value>Загружаю…</value></data>
+  <data name="Modules_CatalogValidationFailed" xml:space="preserve"><value>файл модуля не прошёл проверку (id не совпадает или формат неверен)</value></data>
+  <data name="Modules_CatalogInstallFailed" xml:space="preserve"><value>Не удалось установить модуль: {0}</value></data>
+  <data name="Modules_CatLabelGame" xml:space="preserve"><value>игра</value></data>
+  <data name="Modules_CatLabelApp" xml:space="preserve"><value>софт</value></data>
+  <data name="Modules_CatLabelServer" xml:space="preserve"><value>сервер</value></data>
+  <data name="Modules_CatLabelModule" xml:space="preserve"><value>модуль</value></data>
+  <data name="Modules_ErrorTitle" xml:space="preserve"><value>Ошибка</value></data>
+  <data name="Modules_ErrorClose" xml:space="preserve"><value>Понятно</value></data>
+  <data name="Restore_Title.Text" xml:space="preserve"><value>Восстановление</value></data>
+  <data name="Restore_ArchiveLabel.Text" xml:space="preserve"><value>Архив</value></data>
+  <data name="Restore_DestLabel.Text" xml:space="preserve"><value>Куда восстановить</value></data>
+  <data name="Restore_OriginalRadio.Content" xml:space="preserve"><value>В исходные места (туда, откуда бэкапилось)</value></data>
+  <data name="Restore_FolderRadio.Content" xml:space="preserve"><value>В отдельную папку</value></data>
+  <data name="Restore_TargetDirBox.PlaceholderText" xml:space="preserve"><value>путь к папке для распаковки</value></data>
+  <data name="Restore_PickTargetBtn.Content" xml:space="preserve"><value>Выбрать…</value></data>
+  <data name="Restore_ConflictLabel.Text" xml:space="preserve"><value>Если файл уже существует</value></data>
+  <data name="Restore_BakRadio.Content" xml:space="preserve"><value>Заменять, старый переименовывать в .bak (безопасно)</value></data>
+  <data name="Restore_OverwriteRadio.Content" xml:space="preserve"><value>Перезаписывать</value></data>
+  <data name="Restore_SkipRadio.Content" xml:space="preserve"><value>Дополнять — записывать только недостающие</value></data>
+  <data name="Restore_EncryptionLabel.Text" xml:space="preserve"><value>Шифрование</value></data>
+  <data name="Restore_PassBox.PlaceholderText" xml:space="preserve"><value>парольная фраза</value></data>
+  <data name="Restore_AssetsHint.Text" xml:space="preserve"><value>Папка для внешних ассетов модулей — сюда лягут файлы, которые модули выносили из своих приложений; пути в настройках будут переписаны</value></data>
+  <data name="Restore_PickAssetsBtn.Content" xml:space="preserve"><value>Выбрать…</value></data>
+  <data name="Restore_LaunchBtnText.Text" xml:space="preserve"><value>Восстановить</value></data>
+  <data name="Restore_NoArchive" xml:space="preserve"><value>архив не выбран</value></data>
+  <data name="Restore_NoArchiveHint" xml:space="preserve"><value>открой страницу «Архивы» и нажми «Восстановить» на нужном архиве</value></data>
+  <data name="Restore_LocalFileSource" xml:space="preserve"><value>локальный файл: {0}</value></data>
+  <data name="Restore_PassHintEncrypted" xml:space="preserve"><value>Архив зашифрован — для восстановления нужна парольная фраза.</value></data>
+  <data name="Restore_PassHintNotEncrypted" xml:space="preserve"><value>Архив не зашифрован — фраза не нужна.</value></data>
+  <data name="Restore_StorageSource" xml:space="preserve"><value>из хранилища (скачается во временную папку перед распаковкой)</value></data>
+  <data name="Restore_PassHintMaybe" xml:space="preserve"><value>Если архив зашифрован — введи парольную фразу; иначе оставь поле пустым.</value></data>
+  <data name="Restore_ErrNoTargetDir" xml:space="preserve"><value>Укажи папку для распаковки.</value></data>
+  <data name="Restore_ErrNeedPassphrase" xml:space="preserve"><value>Архив зашифрован — введи парольную фразу.</value></data>
+  <data name="Schedule_PageTitle.Text" xml:space="preserve"><value>Расписание</value></data>
+  <data name="Schedule_AddNew.Text" xml:space="preserve"><value>+ Новое расписание</value></data>
+  <data name="Schedule_EmptyHint.Text" xml:space="preserve"><value>Выбери расписание слева или создай новое</value></data>
+  <data name="Schedule_EmptyHintSub.Text" xml:space="preserve"><value>Расписания срабатывают, пока приложение запущено</value></data>
+  <data name="Schedule_EditorTitleNew.Text" xml:space="preserve"><value>Новое расписание</value></data>
+  <data name="Schedule_NameLabel.Text" xml:space="preserve"><value>Название</value></data>
+  <data name="Schedule_NameBox.PlaceholderText" xml:space="preserve"><value>например: ночной бэкап OBS</value></data>
+  <data name="Schedule_WhatLabel.Text" xml:space="preserve"><value>Что бэкапим</value></data>
+  <data name="Schedule_OwnFoldersLabel.Text" xml:space="preserve"><value>Свои папки этого расписания</value></data>
+  <data name="Schedule_AddFolderBtn.Content" xml:space="preserve"><value>+ Добавить папку</value></data>
+  <data name="Schedule_WhereLabel.Text" xml:space="preserve"><value>Куда</value></data>
+  <data name="Schedule_EncryptionLabel.Text" xml:space="preserve"><value>Шифрование</value></data>
+  <data name="Schedule_EncryptCheck.Content" xml:space="preserve"><value>Зашифровать архив (AES-256)</value></data>
+  <data name="Schedule_Pass1.PlaceholderText" xml:space="preserve"><value>парольная фраза</value></data>
+  <data name="Schedule_Pass2.PlaceholderText" xml:space="preserve"><value>повтори фразу</value></data>
+  <data name="Schedule_WhenLabel.Text" xml:space="preserve"><value>Когда</value></data>
+  <data name="Schedule_IdleRadio.Content" xml:space="preserve"><value>Раз в день, при простое ПК (рекомендуется)</value></data>
+  <data name="Schedule_DailyRadio.Content" xml:space="preserve"><value>Ежедневно в точное время</value></data>
+  <data name="Schedule_WeeklyRadio.Content" xml:space="preserve"><value>Еженедельно</value></data>
+  <data name="Schedule_EveryRadio.Content" xml:space="preserve"><value>Каждые N часов</value></data>
+  <data name="Schedule_StrictTimeHint.Text" xml:space="preserve"><value>Точное время подходит машинам, работающим постоянно (например, серверам). Пропущенные запуски не догоняются — на обычном ПК выбирай «при простое».</value></data>
+  <data name="Schedule_IdleConsider.Text" xml:space="preserve"><value>Считать простоем</value></data>
+  <data name="Schedule_IdleMinutesSuffix.Text" xml:space="preserve"><value>минут без активности</value></data>
+  <data name="Schedule_IdleLoadHint.Text" xml:space="preserve"><value>Учитывается и занятость системы: бэкап не стартует, пока ЦП/диск/сеть загружены более чем на 50% или ОЗУ — более 85% (например, идёт компиляция или рендер).</value></data>
+  <data name="Schedule_DaysLabel.Text" xml:space="preserve"><value>Дни недели (можно несколько)</value></data>
+  <data name="Schedule_TimeLabel.Text" xml:space="preserve"><value>Время</value></data>
+  <data name="Schedule_EveryPrefix.Text" xml:space="preserve"><value>Каждые</value></data>
+  <data name="Schedule_EveryHoursSuffix.Text" xml:space="preserve"><value>часов</value></data>
+  <data name="Schedule_EnabledToggle.OnContent" xml:space="preserve"><value>расписание активно</value></data>
+  <data name="Schedule_EnabledToggle.OffContent" xml:space="preserve"><value>приостановлено</value></data>
+  <data name="Schedule_SaveBtn.Text" xml:space="preserve"><value>Сохранить</value></data>
+  <data name="Schedule_RunNowBtn.Content" xml:space="preserve"><value>Выполнить сейчас</value></data>
+  <data name="Schedule_DeleteBtn.Content" xml:space="preserve"><value>Удалить</value></data>
+  <data name="Schedule_SubPaused" xml:space="preserve"><value>приостановлено</value></data>
+  <data name="Schedule_SubRanToday" xml:space="preserve"><value>сегодня уже выполнен</value></data>
+  <data name="Schedule_SubWaitingIdle" xml:space="preserve"><value>ожидает простоя</value></data>
+  <data name="Schedule_SubNext" xml:space="preserve"><value>следующий: {0}</value></data>
+  <data name="Schedule_DayMon" xml:space="preserve"><value>пн</value></data>
+  <data name="Schedule_DayTue" xml:space="preserve"><value>вт</value></data>
+  <data name="Schedule_DayWed" xml:space="preserve"><value>ср</value></data>
+  <data name="Schedule_DayThu" xml:space="preserve"><value>чт</value></data>
+  <data name="Schedule_DayFri" xml:space="preserve"><value>пт</value></data>
+  <data name="Schedule_DaySat" xml:space="preserve"><value>сб</value></data>
+  <data name="Schedule_DaySun" xml:space="preserve"><value>вс</value></data>
+  <data name="Schedule_DescDaily" xml:space="preserve"><value>ежедневно в {0}</value></data>
+  <data name="Schedule_DescWeekly" xml:space="preserve"><value>еженедельно: {0} в {1}</value></data>
+  <data name="Schedule_DescEveryHours" xml:space="preserve"><value>каждые {0} ч</value></data>
+  <data name="Schedule_DescIdle" xml:space="preserve"><value>раз в день, при простое ПК</value></data>
+  <data name="Schedule_ServiceUnavailable" xml:space="preserve"><value>✕ Служба eBackup недоступна: {0}</value></data>
+  <data name="Schedule_LoadFailed" xml:space="preserve"><value>✕ Не удалось прочитать расписания: {0}</value></data>
+  <data name="Schedule_StoragesServiceDown" xml:space="preserve"><value>служба eBackup недоступна</value></data>
+  <data name="Schedule_StoragesNone" xml:space="preserve"><value>хранилищ нет — добавь на странице «Хранилища»</value></data>
+  <data name="Schedule_PassKeepExisting" xml:space="preserve"><value>пусто — оставить прежнюю</value></data>
+  <data name="Schedule_BusyWait" xml:space="preserve"><value>Уже идёт бэкап или восстановление — подожди завершения.</value></data>
+  <data name="Schedule_RunStarted" xml:space="preserve"><value>✓ Запущено — прогресс в нижней панели.</value></data>
+  <data name="Schedule_FoldersEmpty" xml:space="preserve"><value>пока пусто — список папок у каждого расписания свой</value></data>
+  <data name="Schedule_ValName" xml:space="preserve"><value>Укажи название расписания.</value></data>
+  <data name="Schedule_ValModuleOrFolder" xml:space="preserve"><value>Выбери хотя бы один модуль или добавь папку.</value></data>
+  <data name="Schedule_ValStorage" xml:space="preserve"><value>Выбери хотя бы одно хранилище.</value></data>
+  <data name="Schedule_ValPassMismatch" xml:space="preserve"><value>Парольные фразы не совпадают.</value></data>
+  <data name="Schedule_ValPassRequired" xml:space="preserve"><value>Введи парольную фразу для шифрования.</value></data>
+  <data name="Schedule_ValEveryHours" xml:space="preserve"><value>«Каждые N часов» — число от 1 до 168.</value></data>
+  <data name="Schedule_ValIdleMinutes" xml:space="preserve"><value>Минуты простоя — число от 1 до 240.</value></data>
+  <data name="Schedule_ValDay" xml:space="preserve"><value>Выбери хотя бы один день недели.</value></data>
+  <data name="Schedule_SavedEncNote" xml:space="preserve"><value> · 🔒 шифрование включено</value></data>
+  <data name="Schedule_SavedPaused" xml:space="preserve"><value>✓ Сохранено (приостановлено)</value></data>
+  <data name="Schedule_SavedIdle" xml:space="preserve"><value>✓ Сохранено · выполнится при ближайшем простое ПК</value></data>
+  <data name="Schedule_Saved" xml:space="preserve"><value>✓ Сохранено</value></data>
+  <data name="Schedule_SaveFailed" xml:space="preserve"><value>✕ Не удалось сохранить: {0}</value></data>
+  <data name="Schedule_DeleteDialogTitle" xml:space="preserve"><value>Удалить расписание?</value></data>
+  <data name="Schedule_DeleteDialogContent" xml:space="preserve"><value>«{0}» больше не будет запускаться. Архивы не трогаем.</value></data>
+  <data name="Schedule_DeleteDialogPrimary" xml:space="preserve"><value>Удалить</value></data>
+  <data name="Schedule_DeleteDialogClose" xml:space="preserve"><value>Отмена</value></data>
+  <data name="Schedule_DeleteFailed" xml:space="preserve"><value>✕ Не удалось удалить: {0}</value></data>
+  <data name="Svc_UpdateCheckFailed" xml:space="preserve"><value>не удалось проверить обновления (нет сети?)</value></data>
+  <data name="Svc_DownloadIncomplete" xml:space="preserve"><value>скачанный установщик неполный (размер не совпал)</value></data>
+  <data name="Svc_DownloadFailed" xml:space="preserve"><value>не удалось скачать обновление: {0}</value></data>
+  <data name="Svc_CatalogLoadFailed" xml:space="preserve"><value>не удалось загрузить каталог (нет сети и кэша)</value></data>
+  <data name="Svc_CatalogBadFilePath" xml:space="preserve"><value>недопустимый путь файла модуля в каталоге</value></data>
+  <data name="Settings_StorageHint.Text" xml:space="preserve"><value>Папки для архивов (включая сетевые диски) настраиваются на странице «Хранилища».</value></data>
+  <data name="Settings_RetentionHeader.Text" xml:space="preserve"><value>Хранение версий</value></data>
+  <data name="Settings_RetentionKeep.Text" xml:space="preserve"><value>Хранить последних</value></data>
+  <data name="Settings_RetentionArchives.Text" xml:space="preserve"><value>архивов</value></data>
+  <data name="Settings_RetentionHint.Text" xml:space="preserve"><value>0 — хранить все. Правило применяется после каждого бэкапа: и в локальной папке, и на серверах, куда заливался архив (старые удаляются автоматически).</value></data>
+  <data name="Settings_ArchiveHeader.Text" xml:space="preserve"><value>Архив</value></data>
+  <data name="Settings_MachineNameToggle.OnContent" xml:space="preserve"><value>Добавлять имя компьютера в имя архива</value></data>
+  <data name="Settings_MachineNameToggle.OffContent" xml:space="preserve"><value>Добавлять имя компьютера в имя архива</value></data>
+  <data name="Settings_Compression.Text" xml:space="preserve"><value>Сжатие</value></data>
+  <data name="Settings_CompressionFast.Content" xml:space="preserve"><value>Быстрее (слабее жмёт)</value></data>
+  <data name="Settings_CompressionNormal.Content" xml:space="preserve"><value>Обычное</value></data>
+  <data name="Settings_CompressionMax.Content" xml:space="preserve"><value>Максимальное (медленнее)</value></data>
+  <data name="Settings_ArchiveHint.Text" xml:space="preserve"><value>Имя компьютера полезно, когда несколько ПК бэкапятся в одно хранилище: ebackup_DESKTOP-ABC_obs_2026-… Сжатие влияет на время бэкапа и размер архива.</value></data>
+  <data name="Settings_RestoreHeader.Text" xml:space="preserve"><value>Восстановление</value></data>
+  <data name="Settings_AssetsLabel.Text" xml:space="preserve"><value>Папка ассетов по умолчанию (внешние файлы сцен и т.п.)</value></data>
+  <data name="Settings_AssetsBox.PlaceholderText" xml:space="preserve"><value>пусто — Documents\eBackup\Assets</value></data>
+  <data name="Settings_BrowseBtn.Content" xml:space="preserve"><value>Обзор…</value></data>
+  <data name="Settings_BehaviorHeader.Text" xml:space="preserve"><value>Поведение</value></data>
+  <data name="Settings_TrayToggle.OnContent" xml:space="preserve"><value>Сворачивать в трей при закрытии окна</value></data>
+  <data name="Settings_TrayToggle.OffContent" xml:space="preserve"><value>Сворачивать в трей при закрытии окна</value></data>
+  <data name="Settings_AutostartToggle.OnContent" xml:space="preserve"><value>Запускать вместе с Windows (свёрнуто, в трее)</value></data>
+  <data name="Settings_AutostartToggle.OffContent" xml:space="preserve"><value>Запускать вместе с Windows (свёрнуто, в трее)</value></data>
+  <data name="Settings_NotifyToggle.OnContent" xml:space="preserve"><value>Уведомлять о результатах бэкапов</value></data>
+  <data name="Settings_NotifyToggle.OffContent" xml:space="preserve"><value>Уведомлять о результатах бэкапов</value></data>
+  <data name="Settings_SelfTestEvery.Text" xml:space="preserve"><value>Проверять хранилища каждые</value></data>
+  <data name="Settings_SelfTestMinutes.Text" xml:space="preserve"><value>минут</value></data>
+  <data name="Settings_BehaviorHint.Text" xml:space="preserve"><value>0 — не проверять по таймеру (значки ✓/✕ обновятся при открытии страницы или кнопкой ⟳). В трее расписания продолжают работать; полный выход — через меню иконки в трее.</value></data>
+  <data name="Settings_SaveBtn.Text" xml:space="preserve"><value>Сохранить</value></data>
+  <data name="Settings_UpdatesHeader.Text" xml:space="preserve"><value>Обновления</value></data>
+  <data name="Settings_UpdCheckBtn.Content" xml:space="preserve"><value>Проверить обновления</value></data>
+  <data name="Settings_AppDataHeader.Text" xml:space="preserve"><value>Данные приложения</value></data>
+  <data name="Settings_OpenConfigBtn.Content" xml:space="preserve"><value>Папка настроек</value></data>
+  <data name="Settings_OpenModulesBtn.Content" xml:space="preserve"><value>Папка модулей</value></data>
+  <data name="Settings_OpenLogBtn.Content" xml:space="preserve"><value>Журнал ошибок</value></data>
+  <data name="Settings_CleanTempBtn.Content" xml:space="preserve"><value>Очистить временные файлы</value></data>
+  <data name="Settings_AppDataHint.Text" xml:space="preserve"><value>В папке настроек — конфиги и расписания; в папку модулей кладутся drop-in модули (*.module.json); журнал пригодится, если что-то пошло не так. Временные файлы остаются после прерванных бэкапов и скачиваний.</value></data>
+  <data name="Settings_AboutHeader.Text" xml:space="preserve"><value>О программе</value></data>
+  <data name="Settings_Tagline.Text" xml:space="preserve"><value>Бэкапы, которые переезжают с тобой.</value></data>
+  <data name="Settings_CoffeeBtn.Text" xml:space="preserve"><value>☕ Купить кофе</value></data>
+  <data name="Settings_CoffeeHint.Text" xml:space="preserve"><value>Кофе — это просто «спасибо»: всё работает бесплатно и так.</value></data>
+  <data name="Settings_UpdCurrentVersion" xml:space="preserve"><value>Текущая версия: {0}</value></data>
+  <data name="Settings_UpdChecking" xml:space="preserve"><value>Проверяю наличие обновлений…</value></data>
+  <data name="Settings_UpdCheckingBtn" xml:space="preserve"><value>Проверяю…</value></data>
+  <data name="Settings_UpdAvailable" xml:space="preserve"><value>Доступна новая версия {0}.</value></data>
+  <data name="Settings_UpdDownloadBtn" xml:space="preserve"><value>Скачать и установить</value></data>
+  <data name="Settings_UpdDownloading" xml:space="preserve"><value>Скачиваю обновление… {0:0}%</value></data>
+  <data name="Settings_UpdDownloadingBtn" xml:space="preserve"><value>Скачиваю…</value></data>
+  <data name="Settings_UpdInstalling" xml:space="preserve"><value>Устанавливаю и перезапускаю…</value></data>
+  <data name="Settings_UpdCheckError" xml:space="preserve"><value>ошибка проверки</value></data>
+  <data name="Settings_UpdUpToDate" xml:space="preserve"><value>Установлена последняя версия.</value></data>
+  <data name="Settings_CleanBusy" xml:space="preserve"><value>Идёт бэкап или восстановление — временные файлы сейчас нужны.</value></data>
+  <data name="Settings_CleanNothing" xml:space="preserve"><value>✓ Временных файлов нет — и так чисто.</value></data>
+  <data name="Settings_CleanDone" xml:space="preserve"><value>✓ Очищено: освобождено {0:0.#} МБ.</value></data>
+  <data name="Settings_CleanFailed" xml:space="preserve"><value>✕ Не удалось очистить: {0}</value></data>
+  <data name="Settings_OpenFolderFailed" xml:space="preserve"><value>✕ Не удалось открыть папку: {0}</value></data>
+  <data name="Settings_ValidateRetention" xml:space="preserve"><value>«Хранить последних» — целое число от 0.</value></data>
+  <data name="Settings_ValidateSelfTest" xml:space="preserve"><value>Проверка хранилищ — число минут от 0 до 1440.</value></data>
+  <data name="Settings_Saved" xml:space="preserve"><value>✓ Сохранено</value></data>
+  <data name="Storage_Title.Text" xml:space="preserve"><value>Хранилища</value></data>
+  <data name="Storage_AddBtn.Text" xml:space="preserve"><value>+ Добавить хранилище</value></data>
+  <data name="Storage_AddFolderItem.Text" xml:space="preserve"><value>Папка или сетевой диск</value></data>
+  <data name="Storage_AddSftpItem.Text" xml:space="preserve"><value>SFTP-сервер</value></data>
+  <data name="Storage_AddFtpItem.Text" xml:space="preserve"><value>FTP / FTPS-сервер</value></data>
+  <data name="Storage_AddS3Item.Text" xml:space="preserve"><value>S3-совместимое (AWS, MinIO, B2, R2…)</value></data>
+  <data name="Storage_AddWebDavItem.Text" xml:space="preserve"><value>WebDAV (Nextcloud, Яндекс.Диск…)</value></data>
+  <data name="Storage_AddGDriveItem.Text" xml:space="preserve"><value>Google Drive</value></data>
+  <data name="Storage_AddDropboxItem.Text" xml:space="preserve"><value>Dropbox</value></data>
+  <data name="Storage_AddMegaItem.Text" xml:space="preserve"><value>MEGA (mega.nz)</value></data>
+  <data name="Storage_EmptyHint.Text" xml:space="preserve"><value>Выбери хранилище слева или добавь новое</value></data>
+  <data name="Storage_EditorTitle.Text" xml:space="preserve"><value>Новое хранилище</value></data>
+  <data name="Storage_NameLabel.Text" xml:space="preserve"><value>Название</value></data>
+  <data name="Storage_NameBox.PlaceholderText" xml:space="preserve"><value>имя хранилища — как будет показано в списке</value></data>
+  <data name="Storage_FolderPathLabel.Text" xml:space="preserve"><value>Путь к папке</value></data>
+  <data name="Storage_PathBox.PlaceholderText" xml:space="preserve"><value>D:\Backups, Z:\… или \\nas\share\backups</value></data>
+  <data name="Storage_BrowsePathBtn.Content" xml:space="preserve"><value>Обзор…</value></data>
+  <data name="Storage_OpenPathBtn.Content" xml:space="preserve"><value>Открыть</value></data>
+  <data name="Storage_ShareAuthHint.Text" xml:space="preserve"><value>Авторизация для сетевой папки (если требуется; подключение временное — в системе не сохраняется)</value></data>
+  <data name="Storage_ShareUserBox.PlaceholderText" xml:space="preserve"><value>логин (например, nas\user или user)</value></data>
+  <data name="Storage_SharePassBox.PlaceholderText" xml:space="preserve"><value>пароль</value></data>
+  <data name="Storage_GDriveAccountLabel.Text" xml:space="preserve"><value>Аккаунт Google</value></data>
+  <data name="Storage_GDriveLoginBtn.Content" xml:space="preserve"><value>Войти через браузер…</value></data>
+  <data name="Storage_GDriveFolderLabel.Text" xml:space="preserve"><value>Папка на Диске</value></data>
+  <data name="Storage_GDriveScopeHint.Text" xml:space="preserve"><value>Приложение видит только собственные файлы (scope drive.file) — к остальному содержимому Диска доступа нет.</value></data>
+  <data name="Storage_DropboxAccountLabel.Text" xml:space="preserve"><value>Аккаунт Dropbox</value></data>
+  <data name="Storage_DropboxLoginBtn.Content" xml:space="preserve"><value>Войти через браузер…</value></data>
+  <data name="Storage_DropboxSubfolderLabel.Text" xml:space="preserve"><value>Подпапка (внутри Apps/папки приложения)</value></data>
+  <data name="Storage_DropboxFolderBox.PlaceholderText" xml:space="preserve"><value>пусто — корень папки приложения</value></data>
+  <data name="Storage_DropboxScopeHint.Text" xml:space="preserve"><value>Доступ ограничен изолированной папкой Apps — остальной Dropbox приложению не виден.</value></data>
+  <data name="Storage_WebDavUrlLabel.Text" xml:space="preserve"><value>Базовый URL</value></data>
+  <data name="Storage_WebDavUrlBox.PlaceholderText" xml:space="preserve"><value>https://webdav.yandex.ru или https://сервер/remote.php/dav/files/логин</value></data>
+  <data name="Storage_WebDavDirLabel.Text" xml:space="preserve"><value>Папка для архивов</value></data>
+  <data name="Storage_WebDavDirBox.PlaceholderText" xml:space="preserve"><value>например: backups/eBackup (пусто — корень)</value></data>
+  <data name="Storage_WebDavUserLabel.Text" xml:space="preserve"><value>Логин</value></data>
+  <data name="Storage_WebDavUserBox.PlaceholderText" xml:space="preserve"><value>имя пользователя</value></data>
+  <data name="Storage_WebDavPassBox.PlaceholderText" xml:space="preserve"><value>пароль</value></data>
+  <data name="Storage_WebDavPassHint.Text" xml:space="preserve"><value>Для Яндекс.Диска используй «пароль приложения» (создаётся в настройках Яндекс ID), для Nextcloud — пароль приложения из настроек безопасности.</value></data>
+  <data name="Storage_MegaEmailLabel.Text" xml:space="preserve"><value>E-mail аккаунта MEGA</value></data>
+  <data name="Storage_MegaPassBox.PlaceholderText" xml:space="preserve"><value>пароль аккаунта</value></data>
+  <data name="Storage_MegaMfaLabel.Text" xml:space="preserve"><value>Код 2FA (если включена двухфакторная аутентификация)</value></data>
+  <data name="Storage_MegaMfaBox.PlaceholderText" xml:space="preserve"><value>6 цифр из приложения-аутентификатора</value></data>
+  <data name="Storage_MegaLoginBtn.Content" xml:space="preserve"><value>Войти</value></data>
+  <data name="Storage_MegaDirLabel.Text" xml:space="preserve"><value>Папка для архивов</value></data>
+  <data name="Storage_MegaDirBox.PlaceholderText" xml:space="preserve"><value>например: eBackup (пусто — eBackup)</value></data>
+  <data name="Storage_MegaSessionHint.Text" xml:space="preserve"><value>Входишь один раз — дальше служба ходит в MEGA по сохранённой сессии (без пароля и 2FA, в т.ч. по расписанию). Пароль не хранится.</value></data>
+  <data name="Storage_S3EndpointLabel.Text" xml:space="preserve"><value>Endpoint</value></data>
+  <data name="Storage_S3UrlBox.PlaceholderText" xml:space="preserve"><value>https://s3.eu-central-1.amazonaws.com или адрес MinIO/B2/R2</value></data>
+  <data name="Storage_S3BucketLabel.Text" xml:space="preserve"><value>Бакет</value></data>
+  <data name="Storage_S3PrefixLabel.Text" xml:space="preserve"><value>Папка в бакете (префикс)</value></data>
+  <data name="Storage_S3PrefixBox.PlaceholderText" xml:space="preserve"><value>пусто — корень бакета</value></data>
+  <data name="Storage_S3AccessLabel.Text" xml:space="preserve"><value>Access Key ID</value></data>
+  <data name="Storage_S3AccessBox.PlaceholderText" xml:space="preserve"><value>ключ доступа</value></data>
+  <data name="Storage_S3SecretBox.PlaceholderText" xml:space="preserve"><value>Secret Access Key</value></data>
+  <data name="Storage_S3PathStyleCheck.Content" xml:space="preserve"><value>Path-style адресация (нужна MinIO/B2/R2; для AWS можно снять)</value></data>
+  <data name="Storage_FtpHostLabel.Text" xml:space="preserve"><value>Хост / IP</value></data>
+  <data name="Storage_FtpHostBox.PlaceholderText" xml:space="preserve"><value>адрес сервера (домен или IP)</value></data>
+  <data name="Storage_FtpPortLabel.Text" xml:space="preserve"><value>Порт</value></data>
+  <data name="Storage_FtpUserLabel.Text" xml:space="preserve"><value>Логин</value></data>
+  <data name="Storage_FtpUserBox.PlaceholderText" xml:space="preserve"><value>имя пользователя на сервере</value></data>
+  <data name="Storage_FtpPassBox.PlaceholderText" xml:space="preserve"><value>пароль</value></data>
+  <data name="Storage_FtpDirLabel.Text" xml:space="preserve"><value>Удалённая папка для архивов</value></data>
+  <data name="Storage_FtpsCheck.Content" xml:space="preserve"><value>FTPS — шифровать соединение (TLS)</value></data>
+  <data name="Storage_FtpAllowUntrustedCheck.Content" xml:space="preserve"><value>Принимать самоподписанный/непроверенный сертификат</value></data>
+  <data name="Storage_FtpUntrustedHint.Text" xml:space="preserve"><value>Без этой галочки сертификат FTPS проверяется по системным корням. Включай её только для NAS с самоподписанным сертификатом — это ослабляет защиту от подмены (MITM); для важных архивов дополнительно шифруй сам архив.</value></data>
+  <data name="Storage_SftpHostLabel.Text" xml:space="preserve"><value>Хост / IP</value></data>
+  <data name="Storage_HostBox.PlaceholderText" xml:space="preserve"><value>адрес сервера (домен или IP)</value></data>
+  <data name="Storage_SftpPortLabel.Text" xml:space="preserve"><value>Порт</value></data>
+  <data name="Storage_SftpUserLabel.Text" xml:space="preserve"><value>Логин</value></data>
+  <data name="Storage_UserBox.PlaceholderText" xml:space="preserve"><value>имя пользователя на сервере</value></data>
+  <data name="Storage_AuthLabel.Text" xml:space="preserve"><value>Аутентификация</value></data>
+  <data name="Storage_AuthPassword.Content" xml:space="preserve"><value>Пароль</value></data>
+  <data name="Storage_AuthKey.Content" xml:space="preserve"><value>SSH-ключ</value></data>
+  <data name="Storage_PassBox.PlaceholderText" xml:space="preserve"><value>пароль</value></data>
+  <data name="Storage_KeyPemBox.PlaceholderText" xml:space="preserve"><value>-----BEGIN OPENSSH PRIVATE KEY-----  (вставь содержимое приватного ключа)</value></data>
+  <data name="Storage_KeyPassBox.PlaceholderText" xml:space="preserve"><value>парольная фраза ключа (если есть)</value></data>
+  <data name="Storage_SftpDirLabel.Text" xml:space="preserve"><value>Удалённая папка для архивов</value></data>
+  <data name="Storage_BrowseBtn.Content" xml:space="preserve"><value>Обзор…</value></data>
+  <data name="Storage_TestBtn.Content" xml:space="preserve"><value>Тест</value></data>
+  <data name="Storage_SaveBtn.Text" xml:space="preserve"><value>Сохранить</value></data>
+  <data name="Storage_DeleteBtn.Content" xml:space="preserve"><value>Удалить</value></data>
+  <data name="Storage_CloseEditorBtn.Content" xml:space="preserve"><value>Закрыть</value></data>
+  <data name="Storage_SubtitleGDrive" xml:space="preserve"><value>gdrive · папка {0}</value></data>
+  <data name="Storage_SubtitleDropbox" xml:space="preserve"><value>dropbox · папка приложения</value></data>
+  <data name="Storage_SubtitleMega" xml:space="preserve"><value>mega · {0} · папка {1}</value></data>
+  <data name="Storage_ServiceUnavailable" xml:space="preserve"><value>Служба eBackup недоступна.</value></data>
+  <data name="Storage_ServiceUnavailableTitle" xml:space="preserve"><value>Служба eBackup недоступна:</value></data>
+  <data name="Storage_ReadFailed" xml:space="preserve"><value>Не удалось прочитать хранилища службы:</value></data>
+  <data name="Storage_EmptyHintText" xml:space="preserve"><value>Выбери хранилище слева или добавь новое</value></data>
+  <data name="Storage_NewFolderTitle" xml:space="preserve"><value>Новая папка / сетевой диск</value></data>
+  <data name="Storage_NewFtpTitle" xml:space="preserve"><value>Новое FTP-подключение</value></data>
+  <data name="Storage_NewS3Title" xml:space="preserve"><value>Новое S3-хранилище</value></data>
+  <data name="Storage_NewWebDavTitle" xml:space="preserve"><value>Новое WebDAV-хранилище</value></data>
+  <data name="Storage_NewSftpTitle" xml:space="preserve"><value>Новое SFTP-подключение</value></data>
+  <data name="Storage_KeepExisting" xml:space="preserve"><value>пусто — оставить прежний</value></data>
+  <data name="Storage_PasswordPlaceholder" xml:space="preserve"><value>пароль</value></data>
+  <data name="Storage_KeyPemPlaceholder" xml:space="preserve"><value>-----BEGIN OPENSSH PRIVATE KEY-----  (вставь содержимое приватного ключа)</value></data>
+  <data name="Storage_KeepExistingKey" xml:space="preserve"><value>пусто — оставить прежний ключ</value></data>
+  <data name="Storage_KeyPassPlaceholder" xml:space="preserve"><value>парольная фраза ключа (если есть)</value></data>
+  <data name="Storage_KeepExistingKeyPass" xml:space="preserve"><value>пусто — оставить прежнюю</value></data>
+  <data name="Storage_AccountConnected" xml:space="preserve"><value>✓ аккаунт подключён</value></data>
+  <data name="Storage_AccountNotConnected" xml:space="preserve"><value>аккаунт не подключён</value></data>
+  <data name="Storage_OpeningBrowserGoogle" xml:space="preserve"><value>Открываю браузер — подтверди вход в Google…</value></data>
+  <data name="Storage_OpeningBrowserDropbox" xml:space="preserve"><value>Открываю браузер — подтверди вход в Dropbox…</value></data>
+  <data name="Storage_LoginCancelled" xml:space="preserve"><value>Вход отменён.</value></data>
+  <data name="Storage_LoginDone" xml:space="preserve"><value>✓ Вход выполнен — нажми «Сохранить».</value></data>
+  <data name="Storage_MegaNeedCreds" xml:space="preserve"><value>Введи e-mail и пароль аккаунта MEGA.</value></data>
+  <data name="Storage_MegaLoggingIn" xml:space="preserve"><value>Вхожу в MEGA…</value></data>
+  <data name="Storage_MegaNeed2Fa" xml:space="preserve"><value>Нужен код 2FA из приложения-аутентификатора — введи его и нажми «Войти».</value></data>
+  <data name="Storage_NeedPathFirst" xml:space="preserve"><value>Сначала укажи путь к папке.</value></data>
+  <data name="Storage_OpenFailed" xml:space="preserve"><value>✕ Не удалось открыть: {0}</value></data>
+  <data name="Storage_ErrNeedPath" xml:space="preserve"><value>Укажи путь к папке.</value></data>
+  <data name="Storage_ErrLoginGoogle" xml:space="preserve"><value>Сначала войди в аккаунт Google.</value></data>
+  <data name="Storage_ErrLoginDropbox" xml:space="preserve"><value>Сначала войди в аккаунт Dropbox.</value></data>
+  <data name="Storage_ErrNeedUrlUser" xml:space="preserve"><value>Укажи URL и логин.</value></data>
+  <data name="Storage_ErrNeedPassword" xml:space="preserve"><value>Введи пароль.</value></data>
+  <data name="Storage_ErrNeedS3Fields" xml:space="preserve"><value>Укажи endpoint, бакет и Access Key ID.</value></data>
+  <data name="Storage_ErrNeedSecretKey" xml:space="preserve"><value>Введи Secret Access Key.</value></data>
+  <data name="Storage_ErrNeedHostUser" xml:space="preserve"><value>Укажи хост и логин.</value></data>
+  <data name="Storage_ErrPortRange" xml:space="preserve"><value>Порт должен быть числом от 1 до 65535.</value></data>
+  <data name="Storage_ErrLoginMega" xml:space="preserve"><value>Сначала войди в аккаунт MEGA (кнопка «Войти»).</value></data>
+  <data name="Storage_ErrNeedPrivateKey" xml:space="preserve"><value>Вставь содержимое приватного ключа.</value></data>
+  <data name="Storage_Testing" xml:space="preserve"><value>Проверяю…</value></data>
+  <data name="Storage_Saved" xml:space="preserve"><value>✓ Сохранено (секреты под машинным ключом службы)</value></data>
+  <data name="Storage_SaveFailed" xml:space="preserve"><value>✕ Не удалось сохранить: {0}</value></data>
+  <data name="Storage_DeleteDialogTitle" xml:space="preserve"><value>Удалить хранилище?</value></data>
+  <data name="Storage_DeleteDialogBody" xml:space="preserve"><value>«{0}» будет удалено из списка. Архивы в нём не трогаем.</value></data>
+  <data name="Storage_DeleteDialogConfirm" xml:space="preserve"><value>Удалить</value></data>
+  <data name="Storage_DeleteDialogCancel" xml:space="preserve"><value>Отмена</value></data>
+  <data name="Storage_DeleteFailed" xml:space="preserve"><value>✕ Не удалось удалить: {0}</value></data>
+  <data name="Storage_BrowseUnavailable" xml:space="preserve"><value>Обзор удалённых папок появится после переноса в службу — пока укажи путь вручную.</value></data>
+  <data name="Storage_FolderOpenFailed" xml:space="preserve"><value>✕ Не удалось открыть папку: {0}</value></data>
+  <data name="Archives_RefreshBtn.[using:Microsoft.UI.Xaml.Controls]ToolTipService.ToolTip" xml:space="preserve"><value>Обновить списки архивов</value></data>
+  <data name="History_RefreshBtn.[using:Microsoft.UI.Xaml.Controls]ToolTipService.ToolTip" xml:space="preserve"><value>Обновить список запусков</value></data>
+  <data name="Overview_RefreshBtn.[using:Microsoft.UI.Xaml.Controls]ToolTipService.ToolTip" xml:space="preserve"><value>Обновить дашборд и проверить все хранилища</value></data>
+  <data name="Storage_RefreshBtn.[using:Microsoft.UI.Xaml.Controls]ToolTipService.ToolTip" xml:space="preserve"><value>Проверить доступность всех хранилищ</value></data>
+  <data name="Schedule_RunNowBtn.[using:Microsoft.UI.Xaml.Controls]ToolTipService.ToolTip" xml:space="preserve"><value>Запустить задачу прямо сейчас — по сохранённым настройкам расписания</value></data>
+  <data name="Storage_OpenPathBtn.[using:Microsoft.UI.Xaml.Controls]ToolTipService.ToolTip" xml:space="preserve"><value>Открыть папку в проводнике</value></data>
+  <data name="Storage_CloseEditorBtn.[using:Microsoft.UI.Xaml.Controls]ToolTipService.ToolTip" xml:space="preserve"><value>Закрыть без сохранения</value></data>
+  <data name="Archives_TipEncrypted" xml:space="preserve"><value>Зашифрованный архив (AES-256)</value></data>
+  <data name="Archives_TipBrowse" xml:space="preserve"><value>Посмотреть содержимое и достать отдельные файлы</value></data>
+  <data name="Archives_TipDelete" xml:space="preserve"><value>Удалить архив</value></data>
+  <data name="Modules_TipDelete" xml:space="preserve"><value>Удалить модуль</value></data>
+  <data name="Svc_ServiceNotInstalled" xml:space="preserve"><value>Служба eBackup не установлена. Переустановите eBackup.</value></data>
+  <data name="Svc_ServiceStartFailed" xml:space="preserve"><value>Не удалось запустить службу eBackup.</value></data>
+  <data name="Svc_ExePathFailed" xml:space="preserve"><value>Не удалось определить путь к exe.</value></data>
+  <data name="Main_DefaultStorageName" xml:space="preserve"><value>Локальная папка</value></data>
+  <data name="Main_TriggerManual" xml:space="preserve"><value>вручную</value></data>
+  <data name="Main_TriggerSchedule" xml:space="preserve"><value>вручную · расписание «{0}»</value></data>
 </root>

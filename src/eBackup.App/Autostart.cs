@@ -30,7 +30,7 @@ public static class Autostart
         if (enabled)
         {
             var exe = Environment.ProcessPath
-                ?? throw new InvalidOperationException("Не удалось определить путь к exe.");
+                ?? throw new InvalidOperationException(Loc.Get("Svc_ExePathFailed"));
             key.SetValue(ValueName, $"\"{exe}\" --minimized");
         }
         else

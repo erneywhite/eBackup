@@ -22,17 +22,17 @@
                     <ColumnDefinition Width="*" />
                     <ColumnDefinition Width="Auto" />
                 </Grid.ColumnDefinitions>
-                <TextBlock Text="Модули" FontSize="26" FontWeight="SemiBold" />
+                <TextBlock x:Uid="Modules_Title" Text="Модули" FontSize="26" FontWeight="SemiBold" />
                 <Button x:Name="ImportBtn" Grid.Column="1" CornerRadius="10" Padding="14,7"
                         VerticalAlignment="Center" Click="ImportBtn_Click">
-                    <TextBlock Text="+ Импорт модуля" />
+                    <TextBlock x:Uid="Modules_Import" Text="+ Импорт модуля" />
                 </Button>
             </Grid>
 
             <StackPanel Grid.Row="1" Orientation="Horizontal" Spacing="8" Margin="0,0,0,12">
-                <ToggleButton x:Name="InstalledTab" Content="Установленные" IsChecked="True"
+                <ToggleButton x:Name="InstalledTab" x:Uid="Modules_InstalledTab" Content="Установленные" IsChecked="True"
                               CornerRadius="10" Click="InstalledTab_Click" />
-                <ToggleButton x:Name="CatalogTab" Content="Каталог"
+                <ToggleButton x:Name="CatalogTab" x:Uid="Modules_CatalogTab" Content="Каталог"
                               CornerRadius="10" Click="CatalogTab_Click" />
             </StackPanel>
 
@@ -49,10 +49,10 @@
                         <StackPanel Orientation="Horizontal" Spacing="10">
                             <ComboBox x:Name="CategoryFilter" MinWidth="150" SelectedIndex="0"
                                       SelectionChanged="CategoryFilter_SelectionChanged">
-                                <ComboBoxItem Content="Все" Tag="" />
-                                <ComboBoxItem Content="Игры" Tag="game" />
-                                <ComboBoxItem Content="Софт" Tag="app" />
-                                <ComboBoxItem Content="Прочее" Tag="other" />
+                                <ComboBoxItem x:Uid="Modules_CategoryAll" Content="Все" Tag="" />
+                                <ComboBoxItem x:Uid="Modules_CategoryGames" Content="Игры" Tag="game" />
+                                <ComboBoxItem x:Uid="Modules_CategoryApps" Content="Софт" Tag="app" />
+                                <ComboBoxItem x:Uid="Modules_CategoryOther" Content="Прочее" Tag="other" />
                             </ComboBox>
                             <TextBlock x:Name="CatalogStatus" FontSize="12" VerticalAlignment="Center"
                                        TextWrapping="Wrap" Foreground="{StaticResource EbTextDimBrush}" />
@@ -65,7 +65,7 @@
 
         <!-- ===== Правая часть: деталь выбранного модуля ===== -->
         <Grid Grid.Column="1">
-            <TextBlock x:Name="EmptyHint" Text="Выбери модуль слева"
+            <TextBlock x:Name="EmptyHint" x:Uid="Modules_EmptyHint" Text="Выбери модуль слева"
                        Foreground="{StaticResource EbTextDimBrush}"
                        HorizontalAlignment="Center" VerticalAlignment="Center" />
 
@@ -82,12 +82,12 @@
                         <TextBlock x:Name="DetailStatus" FontSize="12" TextWrapping="Wrap" />
 
                         <!-- Выключатель участия в бэкапах (на восстановление не влияет) -->
-                        <ToggleSwitch x:Name="EnableToggle" Margin="0,4,0,0"
+                        <ToggleSwitch x:Name="EnableToggle" x:Uid="Modules_EnableToggle" Margin="0,4,0,0"
                                       OnContent="участвует в бэкапах"
                                       OffContent="выключен из бэкапов"
                                       Toggled="EnableToggle_Toggled" />
 
-                        <TextBlock Text="Что бэкапит" FontSize="12" Margin="0,8,0,0"
+                        <TextBlock x:Uid="Modules_WhatItBacksUp" Text="Что бэкапит" FontSize="12" Margin="0,8,0,0"
                                    Foreground="{StaticResource EbTextDimBrush}" />
                         <StackPanel x:Name="DetailEntries" Spacing="4" />
                     </StackPanel>

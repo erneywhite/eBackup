@@ -13,5 +13,6 @@ public static class Loc
 
     public static string Get(string key) => Rl.GetString(key);
 
-    public static string Get(string key, params object[] args) => string.Format(Rl.GetString(key), args);
+    // args допускает null-элементы (например, опциональные host/порт/имя) — string.Format отдаёт для них пустую строку.
+    public static string Get(string key, params object?[] args) => string.Format(Rl.GetString(key), args);
 }

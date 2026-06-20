@@ -7,7 +7,7 @@
         <StackPanel Spacing="14" MaxWidth="660" HorizontalAlignment="Left">
             <TextBlock x:Uid="SettingsTitle" Text="Настройки" FontSize="26" FontWeight="SemiBold" />
 
-            <TextBlock Text="Папки для архивов (включая сетевые диски) настраиваются на странице «Хранилища»."
+            <TextBlock x:Uid="Settings_StorageHint" Text="Папки для архивов (включая сетевые диски) настраиваются на странице «Хранилища»."
                        FontSize="12" TextWrapping="Wrap"
                        Foreground="{StaticResource EbTextDimBrush}" />
 
@@ -30,14 +30,14 @@
             <!-- Хранение версий -->
             <Border Style="{StaticResource EbSectionCard}">
                 <StackPanel Spacing="8">
-                    <TextBlock Text="Хранение версий" FontSize="12"
+                    <TextBlock x:Uid="Settings_RetentionHeader" Text="Хранение версий" FontSize="12"
                                Foreground="{StaticResource EbTextDimBrush}" />
                     <StackPanel Orientation="Horizontal" Spacing="10">
-                        <TextBlock Text="Хранить последних" VerticalAlignment="Center" />
+                        <TextBlock x:Uid="Settings_RetentionKeep" Text="Хранить последних" VerticalAlignment="Center" />
                         <TextBox x:Name="RetentionBox" Width="80" Text="0" />
-                        <TextBlock Text="архивов" VerticalAlignment="Center" />
+                        <TextBlock x:Uid="Settings_RetentionArchives" Text="архивов" VerticalAlignment="Center" />
                     </StackPanel>
-                    <TextBlock Text="0 — хранить все. Правило применяется после каждого бэкапа: и в локальной папке, и на серверах, куда заливался архив (старые удаляются автоматически)."
+                    <TextBlock x:Uid="Settings_RetentionHint" Text="0 — хранить все. Правило применяется после каждого бэкапа: и в локальной папке, и на серверах, куда заливался архив (старые удаляются автоматически)."
                                FontSize="12" TextWrapping="Wrap"
                                Foreground="{StaticResource EbTextDimBrush}" />
                 </StackPanel>
@@ -46,20 +46,20 @@
             <!-- Архив -->
             <Border Style="{StaticResource EbSectionCard}">
                 <StackPanel Spacing="8">
-                    <TextBlock Text="Архив" FontSize="12"
+                    <TextBlock x:Uid="Settings_ArchiveHeader" Text="Архив" FontSize="12"
                                Foreground="{StaticResource EbTextDimBrush}" />
-                    <ToggleSwitch x:Name="MachineNameToggle"
+                    <ToggleSwitch x:Name="MachineNameToggle" x:Uid="Settings_MachineNameToggle"
                                   OnContent="Добавлять имя компьютера в имя архива"
                                   OffContent="Добавлять имя компьютера в имя архива" />
                     <StackPanel Orientation="Horizontal" Spacing="10">
-                        <TextBlock Text="Сжатие" VerticalAlignment="Center" />
+                        <TextBlock x:Uid="Settings_Compression" Text="Сжатие" VerticalAlignment="Center" />
                         <ComboBox x:Name="CompressionBox" Width="190" SelectedIndex="1">
-                            <ComboBoxItem Content="Быстрее (слабее жмёт)" />
-                            <ComboBoxItem Content="Обычное" />
-                            <ComboBoxItem Content="Максимальное (медленнее)" />
+                            <ComboBoxItem x:Uid="Settings_CompressionFast" Content="Быстрее (слабее жмёт)" />
+                            <ComboBoxItem x:Uid="Settings_CompressionNormal" Content="Обычное" />
+                            <ComboBoxItem x:Uid="Settings_CompressionMax" Content="Максимальное (медленнее)" />
                         </ComboBox>
                     </StackPanel>
-                    <TextBlock Text="Имя компьютера полезно, когда несколько ПК бэкапятся в одно хранилище: ebackup_DESKTOP-ABC_obs_2026-… Сжатие влияет на время бэкапа и размер архива."
+                    <TextBlock x:Uid="Settings_ArchiveHint" Text="Имя компьютера полезно, когда несколько ПК бэкапятся в одно хранилище: ebackup_DESKTOP-ABC_obs_2026-… Сжатие влияет на время бэкапа и размер архива."
                                FontSize="11" TextWrapping="Wrap"
                                Foreground="{StaticResource EbTextDimBrush}" />
                 </StackPanel>
@@ -68,18 +68,18 @@
             <!-- Восстановление -->
             <Border Style="{StaticResource EbSectionCard}">
                 <StackPanel Spacing="8">
-                    <TextBlock Text="Восстановление" FontSize="12"
+                    <TextBlock x:Uid="Settings_RestoreHeader" Text="Восстановление" FontSize="12"
                                Foreground="{StaticResource EbTextDimBrush}" />
-                    <TextBlock Text="Папка ассетов по умолчанию (внешние файлы сцен и т.п.)"
+                    <TextBlock x:Uid="Settings_AssetsLabel" Text="Папка ассетов по умолчанию (внешние файлы сцен и т.п.)"
                                FontSize="12" Foreground="{StaticResource EbTextDimBrush}" />
                     <Grid ColumnSpacing="8">
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="*" />
                             <ColumnDefinition Width="Auto" />
                         </Grid.ColumnDefinitions>
-                        <TextBox x:Name="AssetsDirBox"
+                        <TextBox x:Name="AssetsDirBox" x:Uid="Settings_AssetsBox"
                                  PlaceholderText="пусто — Documents\eBackup\Assets" />
-                        <Button x:Name="PickAssetsDirBtn" Grid.Column="1" Content="Обзор…"
+                        <Button x:Name="PickAssetsDirBtn" x:Uid="Settings_BrowseBtn" Grid.Column="1" Content="Обзор…"
                                 CornerRadius="10" Click="PickAssetsDir_Click" />
                     </Grid>
                 </StackPanel>
@@ -88,23 +88,23 @@
             <!-- Поведение: трей и автозапуск -->
             <Border Style="{StaticResource EbSectionCard}">
                 <StackPanel Spacing="8">
-                    <TextBlock Text="Поведение" FontSize="12"
+                    <TextBlock x:Uid="Settings_BehaviorHeader" Text="Поведение" FontSize="12"
                                Foreground="{StaticResource EbTextDimBrush}" />
-                    <ToggleSwitch x:Name="TrayToggle"
+                    <ToggleSwitch x:Name="TrayToggle" x:Uid="Settings_TrayToggle"
                                   OnContent="Сворачивать в трей при закрытии окна"
                                   OffContent="Сворачивать в трей при закрытии окна" />
-                    <ToggleSwitch x:Name="AutostartToggle"
+                    <ToggleSwitch x:Name="AutostartToggle" x:Uid="Settings_AutostartToggle"
                                   OnContent="Запускать вместе с Windows (свёрнуто, в трее)"
                                   OffContent="Запускать вместе с Windows (свёрнуто, в трее)" />
-                    <ToggleSwitch x:Name="NotifyToggle"
+                    <ToggleSwitch x:Name="NotifyToggle" x:Uid="Settings_NotifyToggle"
                                   OnContent="Уведомлять о результатах бэкапов"
                                   OffContent="Уведомлять о результатах бэкапов" />
                     <StackPanel Orientation="Horizontal" Spacing="10">
-                        <TextBlock Text="Проверять хранилища каждые" VerticalAlignment="Center" />
+                        <TextBlock x:Uid="Settings_SelfTestEvery" Text="Проверять хранилища каждые" VerticalAlignment="Center" />
                         <TextBox x:Name="SelfTestBox" Width="60" Text="5" />
-                        <TextBlock Text="минут" VerticalAlignment="Center" />
+                        <TextBlock x:Uid="Settings_SelfTestMinutes" Text="минут" VerticalAlignment="Center" />
                     </StackPanel>
-                    <TextBlock Text="0 — не проверять по таймеру (значки ✓/✕ обновятся при открытии страницы или кнопкой ⟳). В трее расписания продолжают работать; полный выход — через меню иконки в трее."
+                    <TextBlock x:Uid="Settings_BehaviorHint" Text="0 — не проверять по таймеру (значки ✓/✕ обновятся при открытии страницы или кнопкой ⟳). В трее расписания продолжают работать; полный выход — через меню иконки в трее."
                                FontSize="11" TextWrapping="Wrap"
                                Foreground="{StaticResource EbTextDimBrush}" />
                 </StackPanel>
@@ -114,7 +114,7 @@
                 <Button x:Name="SaveBtn" Height="42" Padding="28,0" CornerRadius="21"
                         Style="{StaticResource EbAccentButtonStyle}"
                         Click="SaveBtn_Click">
-                    <TextBlock Text="Сохранить" FontWeight="SemiBold" Foreground="#1A0F22" />
+                    <TextBlock x:Uid="Settings_SaveBtn" Text="Сохранить" FontWeight="SemiBold" Foreground="#1A0F22" />
                 </Button>
                 <TextBlock x:Name="StatusText" FontSize="12" VerticalAlignment="Center" />
             </StackPanel>
@@ -122,12 +122,12 @@
             <!-- Обновления (GitHub Releases, в стиле eCoda) -->
             <Border Style="{StaticResource EbSectionCard}">
                 <StackPanel Spacing="8">
-                    <TextBlock Text="Обновления" FontSize="12"
+                    <TextBlock x:Uid="Settings_UpdatesHeader" Text="Обновления" FontSize="12"
                                Foreground="{StaticResource EbTextDimBrush}" />
                     <TextBlock x:Name="UpdCurrentText" />
                     <TextBlock x:Name="UpdStatusText" FontSize="12" TextWrapping="Wrap"
                                Foreground="{StaticResource EbTextDimBrush}" />
-                    <Button x:Name="UpdActionBtn" Content="Проверить обновления"
+                    <Button x:Name="UpdActionBtn" x:Uid="Settings_UpdCheckBtn" Content="Проверить обновления"
                             CornerRadius="10" Padding="16,7" Click="UpdAction_Click"
                             HorizontalAlignment="Left" />
                     <ProgressBar x:Name="UpdProgress" Visibility="Collapsed"
@@ -139,15 +139,15 @@
             <!-- Данные приложения -->
             <Border Style="{StaticResource EbSectionCard}">
                 <StackPanel Spacing="10">
-                    <TextBlock Text="Данные приложения" FontSize="12"
+                    <TextBlock x:Uid="Settings_AppDataHeader" Text="Данные приложения" FontSize="12"
                                Foreground="{StaticResource EbTextDimBrush}" />
                     <StackPanel Orientation="Horizontal" Spacing="10">
-                        <Button Content="Папка настроек" CornerRadius="10" Click="OpenConfig_Click" />
-                        <Button Content="Папка модулей" CornerRadius="10" Click="OpenModules_Click" />
-                        <Button Content="Журнал ошибок" CornerRadius="10" Click="OpenLog_Click" />
-                        <Button Content="Очистить временные файлы" CornerRadius="10" Click="CleanTemp_Click" />
+                        <Button x:Uid="Settings_OpenConfigBtn" Content="Папка настроек" CornerRadius="10" Click="OpenConfig_Click" />
+                        <Button x:Uid="Settings_OpenModulesBtn" Content="Папка модулей" CornerRadius="10" Click="OpenModules_Click" />
+                        <Button x:Uid="Settings_OpenLogBtn" Content="Журнал ошибок" CornerRadius="10" Click="OpenLog_Click" />
+                        <Button x:Uid="Settings_CleanTempBtn" Content="Очистить временные файлы" CornerRadius="10" Click="CleanTemp_Click" />
                     </StackPanel>
-                    <TextBlock Text="В папке настроек — конфиги и расписания; в папку модулей кладутся drop-in модули (*.module.json); журнал пригодится, если что-то пошло не так. Временные файлы остаются после прерванных бэкапов и скачиваний."
+                    <TextBlock x:Uid="Settings_AppDataHint" Text="В папке настроек — конфиги и расписания; в папку модулей кладутся drop-in модули (*.module.json); журнал пригодится, если что-то пошло не так. Временные файлы остаются после прерванных бэкапов и скачиваний."
                                FontSize="11" TextWrapping="Wrap"
                                Foreground="{StaticResource EbTextDimBrush}" />
                 </StackPanel>
@@ -156,7 +156,7 @@
             <!-- О программе -->
             <Border Style="{StaticResource EbSectionCard}">
                 <StackPanel Spacing="10">
-                    <TextBlock Text="О программе" FontSize="12"
+                    <TextBlock x:Uid="Settings_AboutHeader" Text="О программе" FontSize="12"
                                Foreground="{StaticResource EbTextDimBrush}" />
                     <StackPanel Orientation="Horizontal" Spacing="8">
                         <TextBlock Text="eBackup" FontSize="16" FontWeight="SemiBold"
@@ -165,17 +165,17 @@
                         <TextBlock x:Name="VersionText" FontSize="12" VerticalAlignment="Center"
                                    Foreground="{StaticResource EbTextDimBrush}" />
                     </StackPanel>
-                    <TextBlock Text="Бэкапы, которые переезжают с тобой."
+                    <TextBlock x:Uid="Settings_Tagline" Text="Бэкапы, которые переезжают с тобой."
                                FontSize="12" TextWrapping="Wrap"
                                Foreground="{StaticResource EbTextDimBrush}" />
                     <StackPanel Orientation="Horizontal" Spacing="10">
                         <Button CornerRadius="12" Padding="18,8"
                                 Style="{StaticResource EbAccentButtonStyle}" Click="Coffee_Click">
-                            <TextBlock Text="☕ Купить кофе" FontWeight="SemiBold" Foreground="#1A0F22" />
+                            <TextBlock x:Uid="Settings_CoffeeBtn" Text="☕ Купить кофе" FontWeight="SemiBold" Foreground="#1A0F22" />
                         </Button>
                         <Button Content="GitHub" CornerRadius="12" Padding="18,8" Click="GitHub_Click" />
                     </StackPanel>
-                    <TextBlock Text="Кофе — это просто «спасибо»: всё работает бесплатно и так."
+                    <TextBlock x:Uid="Settings_CoffeeHint" Text="Кофе — это просто «спасибо»: всё работает бесплатно и так."
                                FontSize="11" TextWrapping="Wrap"
                                Foreground="{StaticResource EbTextDimBrush}" />
                 </StackPanel>
