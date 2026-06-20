@@ -17,8 +17,8 @@ namespace eBackup.Core.Crypto;
 /// </summary>
 public static class ArchiveCipher
 {
-    private static readonly byte[] Magic = "EBKE"u8.ToArray();
-    private const byte Version = 1;
+    internal static readonly byte[] Magic = "EBKE"u8.ToArray();
+    internal const byte Version = 1;
     private const int ChunkSize = 1 << 20;          // 1 MiB
     private const int Argon2MemoryKb = 64 * 1024;   // 64 MiB
     private const int Argon2Iterations = 3;
@@ -229,7 +229,7 @@ public static class ArchiveCipher
         return total;
     }
 
-    private static byte[] DeriveKey(string passphrase, byte[] salt, int memKb, int iterations, int parallelism)
+    internal static byte[] DeriveKey(string passphrase, byte[] salt, int memKb, int iterations, int parallelism)
     {
         using var argon2 = new Argon2id(Encoding.UTF8.GetBytes(passphrase))
         {
