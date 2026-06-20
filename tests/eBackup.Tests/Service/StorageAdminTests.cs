@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
+using eBackup.Core.Crypto;
 using eBackup.Core.History;
 using eBackup.Core.Modules;
 using eBackup.Core.Security;
@@ -183,6 +184,29 @@ public sealed class StorageAdminTests : IDisposable
         var files = await handlers.ListArchivesAsync(new ListArchivesRequest { StorageId = "d" }, Caller, default);
         Assert.Contains(files, f => f.Name == "b1.ebk");
         Assert.Contains(files, f => f.Name == "b2.ebk" && f.Length == 2);
+    }
+
+    [Fact]
+    public async Task ListArchives_Flags_Encrypted_Archives()
+    {
+        var (handlers, _, jobs) = Build();
+        await using var __ = jobs;
+
+        var dir = Path.Combine(_root, "arch-enc");
+        Directory.CreateDirectory(dir);
+        await File.WriteAllTextAsync(Path.Combine(dir, "plain.ebk"), "not really ebke");
+        var src = Path.Combine(_root, "src.bin");
+        await File.WriteAllTextAsync(src, "secret payload");
+        await ArchiveCipher.EncryptAsync(src, Path.Combine(dir, "enc.ebk"), "pass");
+
+        await handlers.UpsertStorageAsync(new StorageInput
+        {
+            Id = "e", Name = "E", Kind = "LocalFolder", Settings = new() { ["path"] = dir },
+        }, Caller, default);
+
+        var files = await handlers.ListArchivesAsync(new ListArchivesRequest { StorageId = "e" }, Caller, default);
+        Assert.True(files.Single(f => f.Name == "enc.ebk").Encrypted, "EBKE-архив должен быть помечен зашифрованным");
+        Assert.False(files.Single(f => f.Name == "plain.ebk").Encrypted, "обычный .ebk не должен быть помечен");
     }
 
     [Fact]

@@ -96,6 +96,17 @@ public sealed class MegaStorage(SavedStorage config, ISecretProtector protector)
         }
     }
 
+    public async Task<bool> IsArchiveEncryptedAsync(string remoteName, CancellationToken ct = default)
+    {
+        var client = await LoginAsync().ConfigureAwait(false);
+        var node = await FindFileAsync(client, remoteName).ConfigureAwait(false);
+        if (node is null)
+            return false;
+        // Только голова: MegaApiClient отдаёт поток, тянущий чанки по мере чтения, — весь архив не качаем.
+        await using var s = await client.DownloadAsync(node, progress: null, cancellationToken: ct).ConfigureAwait(false);
+        return await ArchiveHead.IsEbkeAsync(s, ct).ConfigureAwait(false);
+    }
+
     /// <summary>Найти узел-файл по имени в папке приложения (или null).</summary>
     private async Task<INode?> FindFileAsync(IMegaApiClient client, string remoteName)
     {

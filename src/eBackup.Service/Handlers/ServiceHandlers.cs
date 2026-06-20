@@ -322,10 +322,21 @@ public sealed class ServiceHandlers : IIpcHandlers
         // Листинг архивов ИЗ СЛУЖБЫ: у GUI нет секрета хранилища (он под машинным ключом).
         var saved = (await _storages.LoadAsync(ct).ConfigureAwait(false)).FirstOrDefault(s => s.Id == req.StorageId)
             ?? throw new IpcFaultException(IpcErrorCodes.NotFound, "Хранилище не найдено.");
-        var files = await StorageFactory.Create(saved, _storages.Protector).ListDetailedAsync(ct).ConfigureAwait(false);
-        return files
-            .Select(f => new RemoteFileDto { Name = f.Name, Length = f.Length, LastWriteTime = f.LastWriteTime })
-            .ToArray();
+        var storage = StorageFactory.Create(saved, _storages.Protector);
+        var files = await storage.ListDetailedAsync(ct).ConfigureAwait(false);
+
+        // Метка 🔒: подглядываем сигнатуру EBKE в голове каждого архива (для seek-хранилищ дёшево;
+        // папка/MEGA/FTP читают только голову). Сбой подглядывания не срывает листинг.
+        var result = new RemoteFileDto[files.Count];
+        for (var i = 0; i < files.Count; i++)
+        {
+            var f = files[i];
+            bool encrypted;
+            try { encrypted = await storage.IsArchiveEncryptedAsync(f.Name, ct).ConfigureAwait(false); }
+            catch { encrypted = false; }
+            result[i] = new RemoteFileDto { Name = f.Name, Length = f.Length, LastWriteTime = f.LastWriteTime, Encrypted = encrypted };
+        }
+        return result;
     }
 
     public async Task<Ack> DeleteArchiveAsync(DeleteArchiveRequest req, CallerContext caller, CancellationToken ct)

@@ -76,6 +76,15 @@ public sealed class FolderStorage(SavedStorage config, ISecretProtector protecto
     /// <summary>Полный путь файла в хранилище (для прямого восстановления без копирования).</summary>
     public string GetLocalPath(string remoteName) => System.IO.Path.Combine(Root, remoteName);
 
+    public async Task<bool> IsArchiveEncryptedAsync(string remoteName, CancellationToken ct = default)
+    {
+        var path = await Task.Run(() => { EnsureConnected(); return GetLocalPath(remoteName); }, ct).ConfigureAwait(false);
+        if (!File.Exists(path))
+            return false;
+        await using var s = File.OpenRead(path);
+        return await ArchiveHead.IsEbkeAsync(s, ct).ConfigureAwait(false);
+    }
+
     // ---------- SMB-подключение с явными учётными данными ----------
 
     private void EnsureConnected()

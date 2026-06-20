@@ -99,4 +99,11 @@ public sealed class FtpStorage(SavedStorage config, ISecretProtector protector) 
             return ConnectionTestResult.Fail(ex.Message);
         }
     }
+
+    public async Task<bool> IsArchiveEncryptedAsync(string remoteName, CancellationToken ct = default)
+    {
+        using var client = await ConnectAsync(ct).ConfigureAwait(false);
+        await using var s = await client.OpenRead(RemotePath(remoteName), token: ct).ConfigureAwait(false);
+        return await ArchiveHead.IsEbkeAsync(s, ct).ConfigureAwait(false);
+    }
 }

@@ -85,6 +85,9 @@ public sealed record RemoteFileDto
     public string Name { get; init; } = "";
     public long Length { get; init; }
     public DateTime LastWriteTime { get; init; }
+
+    /// <summary>Архив зашифрован (сигнатура EBKE) — для метки 🔒 в списке.</summary>
+    public bool Encrypted { get; init; }
 }
 
 /// <summary>Полные НЕсекретные поля хранилища для редактора + имена присутствующих секретов

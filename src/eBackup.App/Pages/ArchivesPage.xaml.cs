@@ -110,7 +110,8 @@ public sealed partial class ArchivesPage : Page
                                 }
                                 await RefreshAsync();
                             },
-                            () => OpenBrowse(source));
+                            () => OpenBrowse(source),
+                            encrypted: f.Encrypted);
                     }
                 }
                 catch (Exception ex)
@@ -194,12 +195,19 @@ public sealed partial class ArchivesPage : Page
     }
 
     private void AddRow(string title, string subtitle, Action? onRestore = null,
-        Func<Task>? onDelete = null, Action? onBrowse = null)
+        Func<Task>? onDelete = null, Action? onBrowse = null, bool encrypted = false)
     {
         var appRes = Application.Current.Resources;
 
         var textPanel = new StackPanel { Spacing = 2, VerticalAlignment = VerticalAlignment.Center };
-        textPanel.Children.Add(new TextBlock { Text = title, FontWeight = Microsoft.UI.Text.FontWeights.SemiBold });
+        var titleBlock = new TextBlock
+        {
+            Text = (encrypted ? "🔒 " : "") + title,
+            FontWeight = Microsoft.UI.Text.FontWeights.SemiBold
+        };
+        if (encrypted)
+            ToolTipService.SetToolTip(titleBlock, "Зашифрованный архив (AES-256)");
+        textPanel.Children.Add(titleBlock);
         textPanel.Children.Add(new TextBlock
         {
             Text = subtitle,
