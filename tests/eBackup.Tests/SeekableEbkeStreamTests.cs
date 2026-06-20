@@ -60,6 +60,22 @@ public sealed class SeekableEbkeStreamTests : IDisposable
     }
 
     [Fact]
+    public async Task Failed_Open_With_LeaveOpen_Keeps_Source_For_Retry()
+    {
+        // Регрессия браузера: после неверной фразы исходный поток (leaveOpen:true) НЕ закрывается,
+        // и по нему можно сразу повторить с верной фразой — не выходя из «Открыть».
+        var plain = Pattern(3000);
+        var enc = await EncryptBytesAsync(plain, "right");
+        await using var fs = File.OpenRead(enc);
+
+        await Assert.ThrowsAsync<InvalidDataException>(() => SeekableEbkeStream.OpenAsync(fs, "wrong", leaveOpen: true));
+
+        // тот же поток — повтор с верной фразой открывается и читает
+        await using var s = await SeekableEbkeStream.OpenAsync(fs, "right", leaveOpen: true);
+        Assert.Equal(plain, ReadAll(s));
+    }
+
+    [Fact]
     public async Task Tampered_Chunk_Throws()
     {
         var enc = await EncryptBytesAsync(Pattern(5000), "pass");

@@ -39,9 +39,9 @@ public sealed partial class ArchiveBrowsePage : Page
     private RestoreSource? _source;
     private string? _zipPath;        // локальный НЕзашифрованный ZIP
     private Stream? _remoteStream;   // seekable поток для листания/извлечения кусками: удалённый ZIP
-                                     // ИЛИ расшифрованный на лету (SeekableEbkeStream поверх удалённого/локального)
-    private string? _encryptedPath;  // локальный зашифрованный .ebk, ждёт парольную фразу
-    private Stream? _pendingRemoteEncrypted; // удалённый зашифрованный seek-поток, ждёт фразу
+                                     // ИЛИ расшифрованный на лету (SeekableEbkeStream поверх _encryptedSource)
+    private Stream? _encryptedSource; // сырой seek-поток зашифрованного архива (удалённый RangeStream / локальный
+                                      // файл): живёт между попытками ввода фразы, закрывается в Cleanup
     private bool _busy;
     private bool _unloaded;
     private readonly CancellationTokenSource _cts = new();
@@ -110,8 +110,8 @@ public sealed partial class ArchiveBrowsePage : Page
                 if (encrypted)
                 {
                     // Зашифрованный удалённый архив листаем и извлекаем по частям, расшифровывая нужные
-                    // чанки на лету (SeekableEbkeStream) — нужна фраза. Поток держим до её ввода.
-                    _pendingRemoteEncrypted = stream;
+                    // чанки на лету (SeekableEbkeStream) — нужна фраза. Поток держим до её ввода (и повторов).
+                    _encryptedSource = stream;
                     PassPanel.Visibility = Visibility.Visible;
                     SetStatus("Архив зашифрован — введи парольную фразу.", dim: true);
                     return;
@@ -126,7 +126,8 @@ public sealed partial class ArchiveBrowsePage : Page
 
             if (ArchiveCipher.IsEncrypted(path))
             {
-                _encryptedPath = path;
+                // Локальный файл открываем сразу seek-потоком — переиспользуем между попытками ввода фразы.
+                _encryptedSource = File.OpenRead(path);
                 PassPanel.Visibility = Visibility.Visible;
                 SetStatus("Архив зашифрован — введи парольную фразу.", dim: true);
                 return;
@@ -149,7 +150,7 @@ public sealed partial class ArchiveBrowsePage : Page
 
     private async void Decrypt_Click(object sender, RoutedEventArgs e)
     {
-        if (_busy || (_encryptedPath is null && _pendingRemoteEncrypted is null))
+        if (_busy || _encryptedSource is null)
             return;
         if (PassBox.Password.Length == 0)
         {
@@ -162,21 +163,10 @@ public sealed partial class ArchiveBrowsePage : Page
         {
             SetStatus("Проверяю фразу и открываю оглавление…", dim: true);
 
-            // Зашифрованный источник как seek-поток: удалённый (уже открыт) или локальный файл.
-            // SeekableEbkeStream становится владельцем и закроет его на выходе. Дальше — обычный
-            // seek-путь: листание и извлечение читают только нужные чанки, расшифровывая на лету.
-            var source = _pendingRemoteEncrypted ?? File.OpenRead(_encryptedPath!);
-            _pendingRemoteEncrypted = null; // владение передаётся SeekableEbkeStream
-            Stream plain;
-            try
-            {
-                plain = await SeekableEbkeStream.OpenAsync(source, PassBox.Password, leaveOpen: false, _cts.Token);
-            }
-            catch
-            {
-                source.Dispose();
-                throw;
-            }
+            // Источник (_encryptedSource) переиспользуем между попытками: при неверной фразе OpenAsync
+            // (leaveOpen: true) его НЕ закрывает — можно сразу ввести правильную и повторить, не выходя
+            // из «Открыть». Сам источник закроется в Cleanup. Дальше — обычный seek-путь (чтение кусками).
+            var plain = await SeekableEbkeStream.OpenAsync(_encryptedSource, PassBox.Password, leaveOpen: true, _cts.Token);
             if (_unloaded)
             {
                 plain.Dispose();
@@ -185,7 +175,6 @@ public sealed partial class ArchiveBrowsePage : Page
             }
 
             _remoteStream = plain;
-            _encryptedPath = null;
             PassPanel.Visibility = Visibility.Collapsed;
             await BuildTreeAsync();
         }
@@ -438,7 +427,9 @@ public sealed partial class ArchiveBrowsePage : Page
         try { _remoteStream?.Dispose(); } catch { }
         _remoteStream = null;
 
-        try { _pendingRemoteEncrypted?.Dispose(); } catch { }
-        _pendingRemoteEncrypted = null;
+        // Сырой источник зашифрованного архива закрываем отдельно: обёртка (SeekableEbkeStream,
+        // leaveOpen) его не трогает. Для незашифрованных _encryptedSource null — двойного закрытия нет.
+        try { _encryptedSource?.Dispose(); } catch { }
+        _encryptedSource = null;
     }
 }
