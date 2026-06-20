@@ -34,6 +34,13 @@
             <ListView x:Name="StorageList" Grid.Row="1" SelectionMode="Single"
                       SelectionChanged="StorageList_SelectionChanged"
                       ItemContainerStyle="{StaticResource EbNavItemStyle}">
+                <ListView.ItemContainerTransitions>
+                    <TransitionCollection>
+                        <EntranceThemeTransition />
+                        <AddDeleteThemeTransition />
+                        <ReorderThemeTransition />
+                    </TransitionCollection>
+                </ListView.ItemContainerTransitions>
                 <ListView.ItemTemplate>
                     <DataTemplate x:DataType="pages:StorageItem">
                         <Grid Margin="0,8" ColumnSpacing="8">

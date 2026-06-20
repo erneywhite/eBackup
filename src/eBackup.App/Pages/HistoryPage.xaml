@@ -33,6 +33,13 @@
             <ListView x:Name="RunList" Grid.Row="1" SelectionMode="Single"
                       SelectionChanged="RunList_SelectionChanged"
                       ItemContainerStyle="{StaticResource EbNavItemStyle}">
+                <ListView.ItemContainerTransitions>
+                    <TransitionCollection>
+                        <EntranceThemeTransition />
+                        <AddDeleteThemeTransition />
+                        <ReorderThemeTransition />
+                    </TransitionCollection>
+                </ListView.ItemContainerTransitions>
                 <ListView.ItemTemplate>
                     <DataTemplate x:DataType="pages:RunItem">
                         <Grid Margin="0,8" ColumnSpacing="8">

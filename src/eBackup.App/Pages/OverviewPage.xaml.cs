@@ -20,6 +20,7 @@ public sealed partial class OverviewPage : Page
         Loaded += async (_, _) =>
         {
             MainWindow.BackupCompleted += OnBackupCompleted;
+            Entrance.Play(ContentPanel); // карточки обзора всплывают по очереди при открытии
             await RefreshAsync();
         };
         Unloaded += (_, _) => MainWindow.BackupCompleted -= OnBackupCompleted;

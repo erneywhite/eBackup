@@ -172,6 +172,20 @@
         <!-- ===== Нижняя панель-статус (аналог плеера eCoda) =====
              Во время бэкапа сама панель работает прогрессбаром: градиентная
              заливка плавно заполняет её по фазам и тает по завершении. -->
+        <!-- Акцент-свечение под нижней панелью: мягкий виолет-ореол (в духе «авроры»), за самой панелью.
+             Градиент гаснет до полного нуля у краёв (RadiusX/Y ≤ 0.5..0.55 + промежуточные стопы) —
+             чтобы не было резкой границы при отсечении прямоугольником. -->
+        <Border Grid.Row="1" Margin="0,-24,0,0" CornerRadius="40" IsHitTestVisible="False">
+            <Border.Background>
+                <RadialGradientBrush Center="0.5,0.5" GradientOrigin="0.5,0.5" RadiusX="0.5" RadiusY="0.55">
+                    <GradientStop Color="#38C97DF6" Offset="0" />
+                    <GradientStop Color="#1CC97DF6" Offset="0.42" />
+                    <GradientStop Color="#06C97DF6" Offset="0.74" />
+                    <GradientStop Color="#00C97DF6" Offset="1" />
+                </RadialGradientBrush>
+            </Border.Background>
+        </Border>
+
         <Border Grid.Row="1" Margin="12,0,12,12" CornerRadius="16"
                 Background="{StaticResource EbCardBrush}"
                 BorderBrush="{StaticResource EbCardBorderBrush}" BorderThickness="1">

@@ -36,6 +36,7 @@ public sealed partial class ArchivesPage : Page
         try
         {
             Sections.Children.Clear();
+            Sections.Opacity = 0; // прячем на время асинхронной загрузки — покажем разом со «стаггером», без двойного мелькания
 
             var client = await ServiceConnection.GetClientAsync();
             if (client is null)
@@ -120,9 +121,12 @@ public sealed partial class ArchivesPage : Page
                     AddDim("✕ недоступно: " + ex.Message);
                 }
             }
+
+            Entrance.Play(Sections); // заголовки и карточки мягко всплывают по очереди
         }
         finally
         {
+            Sections.Opacity = 1; // показываем (Entrance уже выставил детям opacity 0 и анимирует их)
             _refreshing = false;
             RefreshBtn.IsEnabled = true;
         }
