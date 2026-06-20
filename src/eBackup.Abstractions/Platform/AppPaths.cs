@@ -54,6 +54,9 @@ public static class AppPaths
     public static string MachineModulesDir          => Path.Combine(MachineConfigDir, "modules");
     public static string MachineDisabledModulesFile => Path.Combine(MachineConfigDir, "disabled-modules.json");
 
+    /// <summary>Язык UI для строк службы/ядра (фазы, журнал, ошибки): "ru"/"en". Пишет служба по Hello от GUI.</summary>
+    public static string MachineLanguageFile        => Path.Combine(MachineConfigDir, "ui-language");
+
     /// <summary>Папки, которые движок НИКОГДА не бэкапит (тул не должен архивировать свой ключ).</summary>
     public static IReadOnlyList<string> SecretBackupExclusions => [KeysDir];
 }

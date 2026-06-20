@@ -68,6 +68,17 @@ public sealed class ServiceConnection
             Client = await IpcPipeClient.ConnectAsync(ct: connectCts.Token).ConfigureAwait(false);
             State = ServiceState.Connected;
             Error = null;
+
+            // Сообщаем службе язык UI — её строки (фазы прогресса, журнал запуска, ошибки) пойдут на нём,
+            // в т.ч. фоновые/плановые прогоны (служба запоминает язык машинно).
+            try
+            {
+                var lang = Microsoft.Windows.Globalization.ApplicationLanguages.PrimaryLanguageOverride;
+                var two = !string.IsNullOrEmpty(lang) && lang.StartsWith("ru", StringComparison.OrdinalIgnoreCase) ? "ru" : "en";
+                await Client.HelloAsync(new eBackup.Ipc.Contracts.HelloRequest { UiLanguage = two }, ct).ConfigureAwait(false);
+            }
+            catch { /* не критично — служба останется на прежнем языке */ }
+
             return true;
         }
         catch (Exception ex)

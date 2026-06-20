@@ -46,6 +46,10 @@ public sealed record HelloRequest
 {
     public int ClientProtocol { get; init; } = IpcContractInfo.WireProtocol;
     public string ClientBuild { get; init; } = "";
+
+    /// <summary>Язык UI GUI ("ru"/"en") — служба применяет его к своим строкам (фазы/журнал/ошибки)
+    /// и запоминает для фоновых/плановых прогонов. null — не менять.</summary>
+    public string? UiLanguage { get; init; }
 }
 
 public sealed record StartBackupRequest

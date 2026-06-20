@@ -3,6 +3,7 @@ using System.Text;
 using eBackup.Core.Abstractions;
 using eBackup.Core.Crypto;
 using eBackup.Core.Engine;
+using eBackup.Localization;
 using eBackup.Storage;
 
 namespace eBackup.Service.Jobs;
@@ -80,7 +81,7 @@ public sealed class RestoreRunner : IJobRunner
             // Лёгкая проба фразы по началу архива (seek) — при опечатке НЕ качаем весь архив зря.
             if (passphrase is not null && storage is ISeekableArchiveStorage seekable)
             {
-                sink.Phase("Проверяю парольную фразу…", 0);
+                sink.Phase(L.Get("Phase_VerifyingPassphrase"), 0);
                 var ok = true;
                 Stream? head = null;
                 try
@@ -98,7 +99,7 @@ public sealed class RestoreRunner : IJobRunner
                 }
             }
 
-            sink.Phase($"Получаю {r.RemoteName} из «{saved.Name}»…", 0);
+            sink.Phase(L.Get("Phase_Downloading", r.RemoteName, saved.Name), 0);
             await storage.DownloadAsync(r.RemoteName, temp, ct).ConfigureAwait(false);
             Log($"Архив получен: {new FileInfo(temp).Length / 1024.0 / 1024.0:0.#} МБ");
 

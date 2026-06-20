@@ -22,6 +22,10 @@ catch (Exception)
     // Нет привилегии на Global-объект (консоль под обычным юзером) — единственность не навязываем.
 }
 
+// Язык строк службы/ядра (фазы/журнал/ошибки) — из машинного конфига (по умолчанию русский);
+// GUI обновит его по Hello. Применяем до старта воркеров, чтобы плановые прогоны шли на нужном языке.
+ServiceLanguage.ApplyPersisted();
+
 var builder = Host.CreateApplicationBuilder(args);
 builder.Services.AddWindowsService(options => options.ServiceName = "eBackup");
 builder.Services.AddSingleton<ServicePipeline>();   // общий конвейер для IPC- и Schedule-воркеров

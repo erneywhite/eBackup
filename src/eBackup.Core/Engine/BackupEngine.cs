@@ -7,6 +7,7 @@ using eBackup.Core.Crypto;
 using eBackup.Core.Model;
 using eBackup.Core.Modules;
 using eBackup.Core.Paths;
+using eBackup.Localization;
 using eBackup.Platform;
 using Microsoft.Extensions.FileSystemGlobbing;
 
@@ -75,7 +76,7 @@ public sealed class BackupEngine
             {
                 ct.ThrowIfCancellationRequested();
 
-                progress?.Report($"{module.DisplayName}: собираю файлы…");
+                progress?.Report(L.Get("Phase_ModuleCollecting", module.DisplayName));
 
                 // Изоляция сбоев: упавший модуль не должен ронять весь бэкап.
                 IReadOnlyList<PathEntry> entries;
@@ -160,7 +161,7 @@ public sealed class BackupEngine
                                 dirFiles++;
                                 log?.Invoke($"  + {basePrefix}/{rel} ({FormatSize(length)})");
                                 if (++fileCount % 250 == 0)
-                                    progress?.Report($"{module.DisplayName}: {fileCount} файлов…");
+                                    progress?.Report(L.Get("Phase_ModuleFiles", module.DisplayName, fileCount));
                             }
                             catch (Exception ex) when (ex is UnauthorizedAccessException or IOException)
                             {
@@ -189,7 +190,7 @@ public sealed class BackupEngine
             }
 
             // Манифест в корень архива.
-            progress?.Report("Записываю манифест…");
+            progress?.Report(L.Get("Phase_WritingManifest"));
             log?.Invoke($"Манифест: {manifest.Modules.Count} модулей, "
                 + $"{manifest.Modules.Sum(m => m.Entries.Count)} записей");
             var manifestEntry = zip.CreateEntry("manifest.json");
@@ -204,12 +205,12 @@ public sealed class BackupEngine
 
         // Верификация до того, как архив уйдёт из временной папки: битые данные
         // не должны добраться ни до одного хранилища.
-        progress?.Report("Проверяю архив…");
+        progress?.Report(L.Get("Phase_VerifyingArchive"));
         await VerifyArchiveAsync(buildPath, manifest, log, ct).ConfigureAwait(false);
 
         if (passphrase is not null)
         {
-            progress?.Report("Шифрую архив (AES-256-GCM)…");
+            progress?.Report(L.Get("Phase_Encrypting"));
             var encryptWatch = Stopwatch.StartNew();
             try
             {
@@ -341,7 +342,7 @@ public sealed class BackupEngine
         {
             if (string.IsNullOrEmpty(passphrase))
                 throw new InvalidOperationException("Архив зашифрован — требуется парольная фраза.");
-            progress?.Report("Расшифровываю архив…");
+            progress?.Report(L.Get("Phase_Decrypting"));
             var decryptWatch = Stopwatch.StartNew();
             var tempRoot = tempDirectory ?? Path.GetTempPath();
             Directory.CreateDirectory(tempRoot);
@@ -442,7 +443,7 @@ public sealed class BackupEngine
 
         foreach (var module in manifest.Modules)
         {
-            progress?.Report($"Восстанавливаю: {module.DisplayName}…");
+            progress?.Report(L.Get("Phase_Restoring", module.DisplayName));
             log?.Invoke($"Модуль «{module.DisplayName}» ({module.ModuleId}): {module.Entries.Count} записей");
             foreach (var entry in module.Entries)
             {
@@ -550,7 +551,7 @@ public sealed class BackupEngine
                     if (!hooks.TryGetValue(moduleEntry.ModuleId, out var module))
                         continue;
 
-                    progress?.Report($"{moduleEntry.DisplayName}: раскладываю ассеты…");
+                    progress?.Report(L.Get("Phase_PlacingAssets", moduleEntry.DisplayName));
                     log?.Invoke($"Restore-хук модуля «{moduleEntry.DisplayName}»: раскладываю ассеты…");
 
                     // Хуку, читающему/пишущему профиль (OBS правит сцены), отдаём тот же резолвер:

@@ -50,7 +50,12 @@ public sealed class ServiceHandlers : IIpcHandlers
     private const int PassphraseTicketSeconds = 30; // короткое окно Stash→Start (решение пользователя)
 
     public Task<HelloResponse> HelloAsync(HelloRequest req, CallerContext caller, CancellationToken ct)
-        => Task.FromResult(new HelloResponse
+    {
+        // Язык UI от GUI — применяем к строкам службы/ядра и запоминаем для фоновых/плановых прогонов.
+        if (!string.IsNullOrWhiteSpace(req.UiLanguage))
+            ServiceLanguage.Set(req.UiLanguage);
+
+        return Task.FromResult(new HelloResponse
         {
             ServerProtocol = IpcContractInfo.WireProtocol,
             MinClientProtocol = IpcContractInfo.MinClientProtocol,
@@ -59,6 +64,7 @@ public sealed class ServiceHandlers : IIpcHandlers
             Capabilities = [IpcContractInfo.Capabilities.SchedulingServiceOwned], // расписания исполняет служба
             UserResolved = true,
         });
+    }
 
     // ---- задачи ----
 

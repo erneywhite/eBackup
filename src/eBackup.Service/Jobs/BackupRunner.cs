@@ -2,6 +2,7 @@ using System.IO.Compression;
 using System.Security.Cryptography;
 using eBackup.Core.Abstractions;
 using eBackup.Core.Engine;
+using eBackup.Localization;
 using eBackup.Storage;
 
 namespace eBackup.Service.Jobs;
@@ -140,7 +141,7 @@ public sealed class BackupRunner : IJobRunner
             foreach (var target in targets)
             {
                 ct.ThrowIfCancellationRequested();
-                sink.Phase($"Сохраняю в «{target.Name}»…", 0);
+                sink.Phase(L.Get("Phase_SavingToTarget", target.Name), 0);
                 Log($"«{target.Name}»: заливаю…");
                 try
                 {
@@ -201,7 +202,7 @@ public sealed class BackupRunner : IJobRunner
                     failed.Add($"{target.Name}: {ex.Message}");
                     Log($"«{target.Name}»: ✕ {ex.Message}");
                 }
-                sink.Phase("Заливка…", (double)(++step) / targets.Count);
+                sink.Phase(L.Get("Phase_Uploading"), (double)(++step) / targets.Count);
             }
 
             var ok = failed.Count == 0;

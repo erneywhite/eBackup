@@ -2,6 +2,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\eBackup.Abstractions\eBackup.Abstractions.csproj" />
+    <ProjectReference Include="..\eBackup.Localization\eBackup.Localization.csproj" />
   </ItemGroup>
 
   <ItemGroup>

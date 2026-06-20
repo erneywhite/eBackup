@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <resheader name="resmimetype">
+    <value>text/microsoft-resx</value>
+  </resheader>
+  <resheader name="version">
+    <value>2.0</value>
+  </resheader>
+  <resheader name="reader">
+    <value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <resheader name="writer">
+    <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+
+  <!-- Фазы прогресса бэкапа/восстановления (нижняя панель GUI + журнал запуска) -->
+  <data name="Phase_ModuleCollecting" xml:space="preserve"><value>{0}: собираю файлы…</value></data>
+  <data name="Phase_ModuleFiles" xml:space="preserve"><value>{0}: {1} файлов…</value></data>
+  <data name="Phase_WritingManifest" xml:space="preserve"><value>Записываю манифест…</value></data>
+  <data name="Phase_VerifyingArchive" xml:space="preserve"><value>Проверяю архив…</value></data>
+  <data name="Phase_Encrypting" xml:space="preserve"><value>Шифрую архив (AES-256-GCM)…</value></data>
+  <data name="Phase_Decrypting" xml:space="preserve"><value>Расшифровываю архив…</value></data>
+  <data name="Phase_Restoring" xml:space="preserve"><value>Восстанавливаю: {0}…</value></data>
+  <data name="Phase_PlacingAssets" xml:space="preserve"><value>{0}: раскладываю ассеты…</value></data>
+  <data name="Phase_SavingToTarget" xml:space="preserve"><value>Сохраняю в «{0}»…</value></data>
+  <data name="Phase_Uploading" xml:space="preserve"><value>Заливка…</value></data>
+  <data name="Phase_VerifyingPassphrase" xml:space="preserve"><value>Проверяю парольную фразу…</value></data>
+  <data name="Phase_Downloading" xml:space="preserve"><value>Получаю {0} из «{1}»…</value></data>
+</root>
