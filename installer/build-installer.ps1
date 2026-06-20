@@ -20,7 +20,7 @@ $publish = Join-Path $repo "publish"
 # Версия из csproj.
 [xml]$csproj = Get-Content $proj
 $version = ($csproj.Project.PropertyGroup.Version | Where-Object { $_ }) -as [string]
-if (-not $version) { $version = "1.4.0" }
+if (-not $version) { $version = "1.5.0" }
 Write-Host "eBackup $version — сборка установщика" -ForegroundColor Cyan
 
 # Найти ISCC.
