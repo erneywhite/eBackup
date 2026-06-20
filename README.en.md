@@ -52,7 +52,7 @@ Uninstalling the app removes the service too.
 
 The main dashboard — "Overview": your latest backup, storages with their status, and one-click backup.
 
-![eBackup — Overview screen](docs/screenshots/overview.png)
+![eBackup — Overview screen](docs/screenshots/overview_eng.png)
 
 ## Storage
 
