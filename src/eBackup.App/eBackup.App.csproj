@@ -15,7 +15,7 @@
     <!-- Носим рантайм Windows App SDK с собой — не требуем установки у пользователя -->
     <WindowsAppSDKSelfContained>true</WindowsAppSDKSelfContained>
     <ApplicationManifest>app.manifest</ApplicationManifest>
-    <Version>1.5.0</Version>
+    <Version>1.5.1</Version>
     <Authors>Erney White</Authors>
     <Company>Erney White</Company>
     <Product>eBackup</Product>

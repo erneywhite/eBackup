@@ -46,7 +46,13 @@ public sealed class S3Storage(SavedStorage config, ISecretProtector protector)
             new AmazonS3Config
             {
                 ServiceURL = url,
-                ForcePathStyle = config.ForcePathStyle
+                ForcePathStyle = config.ForcePathStyle,
+                // S3-совместимые шлюзы (MEGA S4, Backblaze B2 и др.) не принимают aws-chunked с trailing-
+                // checksum, который AWS SDK v4 добавляет по умолчанию → «Trailer signature verification failed»
+                // при заливке. Считаем/проверяем контрольную сумму только когда операция этого требует
+                // (для PutObject не требуется); на «настоящий» AWS S3 это не влияет.
+                RequestChecksumCalculation = RequestChecksumCalculation.WHEN_REQUIRED,
+                ResponseChecksumValidation = ResponseChecksumValidation.WHEN_REQUIRED,
             });
     }
 

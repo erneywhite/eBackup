@@ -166,12 +166,26 @@ public sealed partial class HistoryPage : Page
                 LogText.Text = Loc.Get("History_LogServiceUnavailable");
                 return;
             }
-            var resp = await client.GetRunLogAsync(run.Id, 0, 5000);
-            if (_selected?.Run.Id != run.Id)
-                return; // пока грузили, выбрали другой запуск
-            LogText.Text = resp.Lines.Length > 0
-                ? string.Join("\n", resp.Lines.Select(l => l.Text))
-                : Loc.Get("History_LogNotSaved");
+            // Тянем ВЕСЬ лог постранично (крупный бэкап логирует каждый файл — десятки тысяч строк;
+            // одной страницы не хватало, и хвост с верификацией/ошибкой заливки не был виден).
+            var sb = new System.Text.StringBuilder();
+            long seq = 0;
+            var count = 0;
+            while (true)
+            {
+                var resp = await client.GetRunLogAsync(run.Id, seq, 5000);
+                if (_selected?.Run.Id != run.Id)
+                    return; // пока грузили, выбрали другой запуск
+                foreach (var l in resp.Lines)
+                {
+                    sb.Append(l.Text).Append('\n');
+                    count++;
+                }
+                seq = resp.NextSeq;
+                if (!resp.HasMore || resp.Lines.Length == 0 || count > 500_000) // предохранитель от рантажа
+                    break;
+            }
+            LogText.Text = count > 0 ? sb.ToString().TrimEnd('\n') : Loc.Get("History_LogNotSaved");
         }
         catch (Exception ex)
         {
