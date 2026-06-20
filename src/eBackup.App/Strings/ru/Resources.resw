@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <resheader name="resmimetype">
+    <value>text/microsoft-resx</value>
+  </resheader>
+  <resheader name="version">
+    <value>2.0</value>
+  </resheader>
+  <resheader name="reader">
+    <value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <resheader name="writer">
+    <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+
+  <!-- Навигация -->
+  <data name="NavOverview.Text" xml:space="preserve"><value>Обзор</value></data>
+  <data name="NavModules.Text" xml:space="preserve"><value>Модули</value></data>
+  <data name="NavStorage.Text" xml:space="preserve"><value>Хранилища</value></data>
+  <data name="NavArchives.Text" xml:space="preserve"><value>Архивы</value></data>
+  <data name="NavSchedule.Text" xml:space="preserve"><value>Расписание</value></data>
+  <data name="NavHistory.Text" xml:space="preserve"><value>История</value></data>
+  <data name="NavSettings.Text" xml:space="preserve"><value>Настройки</value></data>
+  <data name="BrandTagline.Text" xml:space="preserve"><value>бэкапы, которые переезжают с тобой</value></data>
+
+  <!-- Трей -->
+  <data name="TrayOpen.Text" xml:space="preserve"><value>Открыть eBackup</value></data>
+  <data name="TrayBackup.Text" xml:space="preserve"><value>Сделать бэкап…</value></data>
+  <data name="TrayExit.Text" xml:space="preserve"><value>Выход</value></data>
+
+  <!-- Настройки: заголовок + выбор языка -->
+  <data name="SettingsTitle.Text" xml:space="preserve"><value>Настройки</value></data>
+  <data name="SettingsLanguageHeader.Text" xml:space="preserve"><value>Язык</value></data>
+  <data name="LangRussian.Content" xml:space="preserve"><value>Русский</value></data>
+  <data name="LangEnglish.Content" xml:space="preserve"><value>English</value></data>
+  <data name="SettingsLanguageHint.Text" xml:space="preserve"><value>Смена языка перезапускает приложение.</value></data>
+</root>

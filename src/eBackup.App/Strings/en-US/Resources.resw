@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <resheader name="resmimetype">
+    <value>text/microsoft-resx</value>
+  </resheader>
+  <resheader name="version">
+    <value>2.0</value>
+  </resheader>
+  <resheader name="reader">
+    <value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <resheader name="writer">
+    <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+
+  <!-- Навигация -->
+  <data name="NavOverview.Text" xml:space="preserve"><value>Overview</value></data>
+  <data name="NavModules.Text" xml:space="preserve"><value>Modules</value></data>
+  <data name="NavStorage.Text" xml:space="preserve"><value>Storage</value></data>
+  <data name="NavArchives.Text" xml:space="preserve"><value>Archives</value></data>
+  <data name="NavSchedule.Text" xml:space="preserve"><value>Schedule</value></data>
+  <data name="NavHistory.Text" xml:space="preserve"><value>History</value></data>
+  <data name="NavSettings.Text" xml:space="preserve"><value>Settings</value></data>
+  <data name="BrandTagline.Text" xml:space="preserve"><value>backups that move with you</value></data>
+
+  <!-- Трей -->
+  <data name="TrayOpen.Text" xml:space="preserve"><value>Open eBackup</value></data>
+  <data name="TrayBackup.Text" xml:space="preserve"><value>Back up now…</value></data>
+  <data name="TrayExit.Text" xml:space="preserve"><value>Exit</value></data>
+
+  <!-- Настройки: заголовок + выбор языка -->
+  <data name="SettingsTitle.Text" xml:space="preserve"><value>Settings</value></data>
+  <data name="SettingsLanguageHeader.Text" xml:space="preserve"><value>Language</value></data>
+  <data name="LangRussian.Content" xml:space="preserve"><value>Русский</value></data>
+  <data name="LangEnglish.Content" xml:space="preserve"><value>English</value></data>
+  <data name="SettingsLanguageHint.Text" xml:space="preserve"><value>Changing the language restarts the app.</value></data>
+</root>

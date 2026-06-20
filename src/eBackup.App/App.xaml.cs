@@ -9,6 +9,17 @@ public partial class App : Application
 
     public App()
     {
+        // Язык интерфейса — ДО создания окна: настройка пользователя, иначе по языку системы (ru → ru,
+        // иначе en). Дальше resw-строки (x:Uid + Loc) резолвятся под выбранный язык. Смена — с перезапуском.
+        try
+        {
+            var lang = AppSettings.Load().Language;
+            if (string.IsNullOrEmpty(lang))
+                lang = System.Globalization.CultureInfo.CurrentUICulture.TwoLetterISOLanguageName == "ru" ? "ru" : "en";
+            Microsoft.Windows.Globalization.ApplicationLanguages.PrimaryLanguageOverride = lang;
+        }
+        catch { /* не критично — останется язык по умолчанию */ }
+
         InitializeComponent();
 
         // Страховка: необработанное исключение (например, из async void обработчика)

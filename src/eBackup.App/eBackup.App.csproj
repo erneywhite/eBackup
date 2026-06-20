@@ -28,6 +28,11 @@
     </Content>
   </ItemGroup>
 
+  <!-- Локализация: .resw (ru + en) компилируются в resources.pri -->
+  <ItemGroup>
+    <PRIResource Include="Strings\**\*.resw" />
+  </ItemGroup>
+
   <!-- WinUI unpackaged: dotnet publish не копирует app-PRI (eBackup.App.pri),
        без него ms-appx-ресурсы и XAML не грузятся. Копируем вручную. -->
   <Target Name="CopyAppPriToPublish" AfterTargets="Publish">

@@ -7,10 +7,18 @@ namespace eBackup.App.Pages;
 
 public sealed partial class SettingsPage : Page
 {
+    private bool _languageReady; // защита от срабатывания SelectionChanged при первичной установке
+
     public SettingsPage()
     {
         InitializeComponent();
         var settings = AppSettings.Load();
+
+        // Язык: показываем текущий эффективный (PrimaryLanguageOverride уже выставлен в App на старте).
+        var curLang = Microsoft.Windows.Globalization.ApplicationLanguages.PrimaryLanguageOverride;
+        LanguageBox.SelectedIndex = curLang.StartsWith("ru", StringComparison.OrdinalIgnoreCase) ? 0 : 1;
+        _languageReady = true;
+
         RetentionBox.Text = settings.RetentionCount.ToString();
         TrayToggle.IsOn = settings.MinimizeToTray;
         AutostartToggle.IsOn = Autostart.IsEnabled();
@@ -200,6 +208,35 @@ public sealed partial class SettingsPage : Page
         {
             SetStatus("✕ " + ex.Message, ok: false);
         }
+    }
+
+    private void LanguageBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (!_languageReady)
+            return;
+
+        var tag = (LanguageBox.SelectedItem as ComboBoxItem)?.Tag as string;
+        if (string.IsNullOrEmpty(tag))
+            return;
+
+        var settings = AppSettings.Load();
+        if (string.Equals(settings.Language, tag, StringComparison.OrdinalIgnoreCase))
+            return; // язык не изменился
+
+        settings.Language = tag;
+        settings.Save();
+
+        // Применяется при следующем старте (PrimaryLanguageOverride в App). Перезапускаемся.
+        // На успехе процесс завершается внутри Restart; если вернулось — рестарт не удался, делаем вручную.
+        Microsoft.Windows.AppLifecycle.AppInstance.Restart(string.Empty);
+        try
+        {
+            var exe = Environment.ProcessPath;
+            if (exe is not null)
+                System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo { FileName = exe, UseShellExecute = true });
+        }
+        catch { /* фолбэк не удался — пользователь перезапустит сам */ }
+        Application.Current.Exit();
     }
 
     private void SetStatus(string text, bool ok)

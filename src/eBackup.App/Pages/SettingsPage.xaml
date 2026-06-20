@@ -5,11 +5,27 @@
 
     <ScrollViewer>
         <StackPanel Spacing="14" MaxWidth="660" HorizontalAlignment="Left">
-            <TextBlock Text="Настройки" FontSize="26" FontWeight="SemiBold" />
+            <TextBlock x:Uid="SettingsTitle" Text="Настройки" FontSize="26" FontWeight="SemiBold" />
 
             <TextBlock Text="Папки для архивов (включая сетевые диски) настраиваются на странице «Хранилища»."
                        FontSize="12" TextWrapping="Wrap"
                        Foreground="{StaticResource EbTextDimBrush}" />
+
+            <!-- Язык интерфейса -->
+            <Border Style="{StaticResource EbSectionCard}">
+                <StackPanel Spacing="8">
+                    <TextBlock x:Uid="SettingsLanguageHeader" Text="Язык" FontSize="12"
+                               Foreground="{StaticResource EbTextDimBrush}" />
+                    <ComboBox x:Name="LanguageBox" Width="220"
+                              SelectionChanged="LanguageBox_SelectionChanged">
+                        <ComboBoxItem x:Uid="LangRussian" Content="Русский" Tag="ru" />
+                        <ComboBoxItem x:Uid="LangEnglish" Content="English" Tag="en" />
+                    </ComboBox>
+                    <TextBlock x:Uid="SettingsLanguageHint" Text="Смена языка перезапускает приложение."
+                               FontSize="11" TextWrapping="Wrap"
+                               Foreground="{StaticResource EbTextDimBrush}" />
+                </StackPanel>
+            </Border>
 
             <!-- Хранение версий -->
             <Border Style="{StaticResource EbSectionCard}">

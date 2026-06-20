@@ -24,10 +24,10 @@
                         ContextMenuMode="SecondWindow">
             <tb:TaskbarIcon.ContextFlyout>
                 <MenuFlyout>
-                    <MenuFlyoutItem Text="Открыть eBackup" Click="TrayOpen_Click" />
-                    <MenuFlyoutItem Text="Сделать бэкап…" Click="TrayBackup_Click" />
+                    <MenuFlyoutItem x:Uid="TrayOpen" Text="Открыть eBackup" Click="TrayOpen_Click" />
+                    <MenuFlyoutItem x:Uid="TrayBackup" Text="Сделать бэкап…" Click="TrayBackup_Click" />
                     <MenuFlyoutSeparator />
-                    <MenuFlyoutItem Text="Выход" Click="TrayExit_Click" />
+                    <MenuFlyoutItem x:Uid="TrayExit" Text="Выход" Click="TrayExit_Click" />
                 </MenuFlyout>
             </tb:TaskbarIcon.ContextFlyout>
         </tb:TaskbarIcon>
@@ -93,7 +93,7 @@
                     <TextBlock Text="eBackup" FontSize="20" FontWeight="Bold"
                                HorizontalAlignment="Center"
                                Foreground="{StaticResource EbAccentGradient}" />
-                    <TextBlock Text="бэкапы, которые переезжают с тобой" FontSize="10.5"
+                    <TextBlock x:Uid="BrandTagline" Text="бэкапы, которые переезжают с тобой" FontSize="10.5"
                                TextWrapping="Wrap" TextAlignment="Center" MaxWidth="150"
                                HorizontalAlignment="Center" Margin="0,-4,0,0"
                                Foreground="{StaticResource EbTextDimBrush}" />
@@ -105,37 +105,37 @@
                     <ListViewItem Tag="overview" IsSelected="True">
                         <StackPanel Orientation="Horizontal" Spacing="12">
                             <FontIcon Glyph="&#xE80F;" FontSize="16" />
-                            <TextBlock Text="Обзор" />
+                            <TextBlock x:Uid="NavOverview" Text="Обзор" />
                         </StackPanel>
                     </ListViewItem>
                     <ListViewItem Tag="modules">
                         <StackPanel Orientation="Horizontal" Spacing="12">
                             <FontIcon Glyph="&#xE71D;" FontSize="16" />
-                            <TextBlock Text="Модули" />
+                            <TextBlock x:Uid="NavModules" Text="Модули" />
                         </StackPanel>
                     </ListViewItem>
                     <ListViewItem Tag="storage">
                         <StackPanel Orientation="Horizontal" Spacing="12">
                             <FontIcon Glyph="&#xEDA2;" FontSize="16" />
-                            <TextBlock Text="Хранилища" />
+                            <TextBlock x:Uid="NavStorage" Text="Хранилища" />
                         </StackPanel>
                     </ListViewItem>
                     <ListViewItem Tag="archives">
                         <StackPanel Orientation="Horizontal" Spacing="12">
                             <FontIcon Glyph="&#xE8B7;" FontSize="16" />
-                            <TextBlock Text="Архивы" />
+                            <TextBlock x:Uid="NavArchives" Text="Архивы" />
                         </StackPanel>
                     </ListViewItem>
                     <ListViewItem Tag="schedule">
                         <StackPanel Orientation="Horizontal" Spacing="12">
                             <FontIcon Glyph="&#xE787;" FontSize="16" />
-                            <TextBlock Text="Расписание" />
+                            <TextBlock x:Uid="NavSchedule" Text="Расписание" />
                         </StackPanel>
                     </ListViewItem>
                     <ListViewItem Tag="history">
                         <StackPanel Orientation="Horizontal" Spacing="12">
                             <FontIcon Glyph="&#xE81C;" FontSize="16" />
-                            <TextBlock Text="История" />
+                            <TextBlock x:Uid="NavHistory" Text="История" />
                         </StackPanel>
                     </ListViewItem>
                 </ListView>
@@ -147,7 +147,7 @@
                         Padding="12,10">
                     <StackPanel Orientation="Horizontal" Spacing="12">
                         <FontIcon Glyph="&#xE713;" FontSize="16" />
-                        <TextBlock Text="Настройки" />
+                        <TextBlock x:Uid="NavSettings" Text="Настройки" />
                     </StackPanel>
                 </Button>
             </Grid>
