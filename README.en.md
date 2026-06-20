@@ -20,8 +20,8 @@
 
 **eBackup** backs up application settings and any folders you pick, stores archives in several
 places at once — from a local folder or NAS to Google Drive, Dropbox and MEGA — and carefully
-puts everything back, even on another computer or after an OS reinstall. A branded dark UI,
-a background service and a full CLI.
+puts everything back, even on another computer or after an OS reinstall. A bilingual
+(English / Russian) branded dark UI, a background service and a full CLI.
 
 Free, open source, no subscriptions or paywalls. If eBackup came in handy, you can
 [buy the author a coffee ☕](https://dalink.to/toristarm).
@@ -34,6 +34,7 @@ Free, open source, no subscriptions or paywalls. If eBackup came in handy, you c
 - ✅ **Every backup is verified** — the archive is re-read and checked against SHA-256; corrupted data never reaches any storage.
 - 🧩 **Modules and a catalog** — OBS, VTube Studio, browsers, games and more; one-click install.
 - 📦 **Portable `.ebk` format** — paths inside the archive are tokenized, so restore works on any PC.
+- 🌍 **English and Russian** — switch the language in one click (Settings → Language); the whole UI is translated, and even the background service writes its log in the chosen language.
 
 ## Install
 
@@ -159,6 +160,7 @@ dotnet test  eBackup.sln
 | `eBackup.Storage` (+ `.Sftp`, `.Local`) | Unified storage model, OAuth (PKCE + loopback), ranged reads of remote archives |
 | `eBackup.Modules.Obs`, `eBackup.Modules.VTubeStudio` | Built-in modules with smart discovery |
 | `eBackup.Ipc` | Named-pipe contract and transport between the GUI and the service |
+| `eBackup.Localization` | Service/core strings (RU/EN): .resx + ResourceManager (the GUI is localized via resw + x:Uid) |
 | `eBackup.Service` | The LocalSystem background service: all privileged work |
 | `eBackup.App` | WinUI 3 GUI — a thin client of the service |
 | `eBackup.Cli` | Command-line interface |
