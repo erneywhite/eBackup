@@ -37,10 +37,11 @@ public sealed class ArchiveNode
 public sealed partial class ArchiveBrowsePage : Page
 {
     private RestoreSource? _source;
-    private string? _zipPath;        // локальный ZIP (после скачивания/расшифровки)
-    private Stream? _remoteStream;   // удалённый ZIP с произвольным доступом — без скачивания
-    private string? _encryptedPath;  // зашифрованный .ebk, ждёт парольную фразу
-    private string? _tempDecrypted;  // расшифрованная копия (удаляется при уходе)
+    private string? _zipPath;        // локальный НЕзашифрованный ZIP
+    private Stream? _remoteStream;   // seekable поток для листания/извлечения кусками: удалённый ZIP
+                                     // ИЛИ расшифрованный на лету (SeekableEbkeStream поверх удалённого/локального)
+    private string? _encryptedPath;  // локальный зашифрованный .ebk, ждёт парольную фразу
+    private Stream? _pendingRemoteEncrypted; // удалённый зашифрованный seek-поток, ждёт фразу
     private bool _busy;
     private bool _unloaded;
     private readonly CancellationTokenSource _cts = new();
@@ -48,9 +49,9 @@ public sealed partial class ArchiveBrowsePage : Page
     public ArchiveBrowsePage()
     {
         InitializeComponent();
-        // Уход со страницы отменяет скачивание/расшифровку и подчищает временные
-        // файлы. Обрыв не мгновенный, поэтому после каждого await в загрузочных
-        // путях стоит проверка _unloaded с повторной чисткой.
+        // Уход со страницы отменяет чтение и закрывает потоки / seek-сессии службы.
+        // Обрыв не мгновенный, поэтому после каждого await в загрузочных путях стоит
+        // проверка _unloaded с повторной чисткой.
         Unloaded += (_, _) =>
         {
             _unloaded = true;
@@ -98,19 +99,25 @@ public sealed partial class ArchiveBrowsePage : Page
                     return;
                 }
 
+                TitleText.Text = _source.RemoteName;
+
                 var encrypted = await Task.Run(() => ArchiveCipher.IsEncrypted(stream), _cts.Token);
+                if (_unloaded)
+                {
+                    stream.Dispose();
+                    return;
+                }
                 if (encrypted)
                 {
-                    // По частям зашифрованный архив не читается (EBKE чанковый). Но восстановить ЦЕЛИКОМ
-                    // через службу уже можно — направляем туда вместо тупика.
-                    stream.Dispose();
-                    SetStatus("Зашифрованный архив нельзя просматривать по частям — восстановите его целиком "
-                        + "кнопкой «Восстановить» (парольную фразу спросят при восстановлении).", dim: false);
+                    // Зашифрованный удалённый архив листаем и извлекаем по частям, расшифровывая нужные
+                    // чанки на лету (SeekableEbkeStream) — нужна фраза. Поток держим до её ввода.
+                    _pendingRemoteEncrypted = stream;
+                    PassPanel.Visibility = Visibility.Visible;
+                    SetStatus("Архив зашифрован — введи парольную фразу.", dim: true);
                     return;
                 }
 
                 _remoteStream = stream;
-                TitleText.Text = _source.RemoteName;
                 await BuildTreeAsync();
                 return;
             }
@@ -142,7 +149,7 @@ public sealed partial class ArchiveBrowsePage : Page
 
     private async void Decrypt_Click(object sender, RoutedEventArgs e)
     {
-        if (_busy || _encryptedPath is null)
+        if (_busy || (_encryptedPath is null && _pendingRemoteEncrypted is null))
             return;
         if (PassBox.Password.Length == 0)
         {
@@ -153,21 +160,32 @@ public sealed partial class ArchiveBrowsePage : Page
         _busy = true;
         try
         {
-            SetStatus("Расшифровываю…", dim: true);
-            var temp = Path.Combine(
-                Path.GetTempPath(), "eBackup", $"browse-dec-{Guid.NewGuid():N}.ebk");
-            Directory.CreateDirectory(Path.GetDirectoryName(temp)!);
-            // Путь запоминается ДО await: уйдём со страницы посреди расшифровки —
-            // чистка всё равно будет знать, что удалять (открытый текст
-            // зашифрованного архива не должен задерживаться в temp).
-            _tempDecrypted = temp;
-            await ArchiveCipher.DecryptAsync(_encryptedPath, temp, PassBox.Password, _cts.Token);
+            SetStatus("Проверяю фразу и открываю оглавление…", dim: true);
+
+            // Зашифрованный источник как seek-поток: удалённый (уже открыт) или локальный файл.
+            // SeekableEbkeStream становится владельцем и закроет его на выходе. Дальше — обычный
+            // seek-путь: листание и извлечение читают только нужные чанки, расшифровывая на лету.
+            var source = _pendingRemoteEncrypted ?? File.OpenRead(_encryptedPath!);
+            _pendingRemoteEncrypted = null; // владение передаётся SeekableEbkeStream
+            Stream plain;
+            try
+            {
+                plain = await SeekableEbkeStream.OpenAsync(source, PassBox.Password, leaveOpen: false, _cts.Token);
+            }
+            catch
+            {
+                source.Dispose();
+                throw;
+            }
             if (_unloaded)
             {
+                plain.Dispose();
                 Cleanup();
                 return;
             }
-            _zipPath = temp;
+
+            _remoteStream = plain;
+            _encryptedPath = null;
             PassPanel.Visibility = Visibility.Collapsed;
             await BuildTreeAsync();
         }
@@ -175,9 +193,13 @@ public sealed partial class ArchiveBrowsePage : Page
         {
             Cleanup();
         }
+        catch (InvalidDataException)
+        {
+            SetStatus("✕ Неверная парольная фраза или повреждённый архив.", dim: false);
+        }
         catch (Exception ex)
         {
-            SetStatus("✕ Не удалось расшифровать: " + ex.Message, dim: false);
+            SetStatus("✕ Не удалось открыть: " + ex.Message, dim: false);
             if (_unloaded)
                 Cleanup();
         }
@@ -416,7 +438,7 @@ public sealed partial class ArchiveBrowsePage : Page
         try { _remoteStream?.Dispose(); } catch { }
         _remoteStream = null;
 
-        if (_tempDecrypted is not null)
-            try { File.Delete(_tempDecrypted); } catch { }
+        try { _pendingRemoteEncrypted?.Dispose(); } catch { }
+        _pendingRemoteEncrypted = null;
     }
 }
