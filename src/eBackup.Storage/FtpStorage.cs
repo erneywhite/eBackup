@@ -1,4 +1,5 @@
 using eBackup.Core.Security;
+using eBackup.Localization;
 using eBackup.Storage.Sftp;
 using FluentFTP;
 
@@ -92,7 +93,7 @@ public sealed class FtpStorage(SavedStorage config, ISecretProtector protector) 
             using var client = await ConnectAsync(ct).ConfigureAwait(false);
             if (Dir.Length > 0 && !await client.DirectoryExists(Dir, ct).ConfigureAwait(false))
                 await client.CreateDirectory(Dir, ct).ConfigureAwait(false);
-            return ConnectionTestResult.Ok($"Подключение успешно ({(config.UseFtps ? "FTPS" : "FTP")}).");
+            return ConnectionTestResult.Ok(L.Get("Stg_FtpOk", config.UseFtps ? "FTPS" : "FTP"));
         }
         catch (Exception ex)
         {

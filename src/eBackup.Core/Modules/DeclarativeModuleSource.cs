@@ -2,6 +2,7 @@ using System.Text.Json;
 using eBackup.Core.Abstractions;
 using eBackup.Core.Model;
 using eBackup.Core.Paths;
+using eBackup.Localization;
 
 namespace eBackup.Core.Modules;
 
@@ -42,22 +43,22 @@ public sealed class DeclarativeModuleSource(string? modulesDirectory = null) : I
         }
         catch (Exception ex)
         {
-            return Blocked(fallbackId, file, $"не читается JSON: {ex.Message}");
+            return Blocked(fallbackId, file, L.Get("Core_ModuleJsonUnreadable", ex.Message));
         }
 
         if (json is null || string.IsNullOrWhiteSpace(json.Id))
-            return Blocked(fallbackId, file, "нет id");
+            return Blocked(fallbackId, file, L.Get("Core_ModuleNoId"));
 
         var id = json.Id.Trim();
         if (!ModuleValidation.IsValidId(id))
-            return Blocked(id, file, "недопустимый id (разрешено: a-z 0-9 . _ -, до 64 символов)");
+            return Blocked(id, file, L.Get("Core_ModuleInvalidId"));
 
         if (!string.IsNullOrWhiteSpace(json.MinApiVersion))
         {
             if (!ApiVersion.TryParse(json.MinApiVersion, out var min))
-                return Blocked(id, file, $"неверная minApiVersion: {json.MinApiVersion}");
+                return Blocked(id, file, L.Get("Core_ModuleBadMinApiVersion", json.MinApiVersion));
             if (min.CompareTo(ContractInfo.Current) > 0)
-                return Blocked(id, file, $"требуется eBackup новее (контракт {min} > {ContractInfo.Current})");
+                return Blocked(id, file, L.Get("Core_ModuleNeedsNewerEBackup", min, ContractInfo.Current));
         }
 
         var entries = new List<PathEntry>();
@@ -67,10 +68,10 @@ public sealed class DeclarativeModuleSource(string? modulesDirectory = null) : I
                 continue; // реестр движком пока не поддерживается — пропускаем
 
             if (string.IsNullOrWhiteSpace(e.TokenPath) || PathTokens.HasTraversal(e.TokenPath!))
-                return Blocked(id, file, $"недопустимый путь (пустой или содержит «..»): {e.TokenPath}");
+                return Blocked(id, file, L.Get("Core_ModuleBadPath", e.TokenPath));
 
             if (string.IsNullOrWhiteSpace(e.ArchivePath) || !ModuleValidation.IsSafeArchivePath(e.ArchivePath))
-                return Blocked(id, file, $"недопустимый archivePath: {e.ArchivePath}");
+                return Blocked(id, file, L.Get("Core_ModuleBadArchivePath", e.ArchivePath));
 
             IReadOnlyList<string> excludes = e.Type == PathEntryType.Directory
                 ? e.ExcludeGlobs
@@ -88,7 +89,7 @@ public sealed class DeclarativeModuleSource(string? modulesDirectory = null) : I
         }
 
         if (entries.Count == 0)
-            return Blocked(id, file, "нет валидных записей");
+            return Blocked(id, file, L.Get("Core_ModuleNoValidEntries"));
 
         var name = string.IsNullOrWhiteSpace(json.DisplayName) ? id : json.DisplayName!.Trim();
         return new ModuleDescriptor

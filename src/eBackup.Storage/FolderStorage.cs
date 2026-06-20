@@ -1,5 +1,6 @@
 using System.Runtime.InteropServices;
 using eBackup.Core.Security;
+using eBackup.Localization;
 using eBackup.Storage.Sftp;
 
 namespace eBackup.Storage;
@@ -65,7 +66,7 @@ public sealed class FolderStorage(SavedStorage config, ISecretProtector protecto
                 var probe = System.IO.Path.Combine(Root, $".ebk-probe-{Guid.NewGuid():N}");
                 File.WriteAllText(probe, "ok");
                 File.Delete(probe);
-                return ConnectionTestResult.Ok($"Папка доступна для записи: {Root}");
+                return ConnectionTestResult.Ok(L.Get("Stg_FolderWritable", Root));
             }
             catch (Exception ex)
             {

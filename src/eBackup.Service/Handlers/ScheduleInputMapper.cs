@@ -1,6 +1,7 @@
 using System.Text;
 using eBackup.Core.Scheduling;
 using eBackup.Ipc.Contracts;
+using eBackup.Localization;
 using eBackup.Service.Jobs;
 
 namespace eBackup.Service.Handlers;
@@ -63,7 +64,7 @@ public static class ScheduleInputMapper
         Passphrase = null,                       // фраза НЕ в DTO — служба кладёт её на Job.ResolvedPassphrase (EnqueueScheduled)
         IncludeMachineName = s.IncludeMachineName,
         RetentionCount = s.RetentionCount,
-        Trigger = $"по расписанию «{s.Name}»",
+        Trigger = L.Get("Svc_TriggerSchedule", s.Name),
         ClientRequestId = "",                    // служба не повторяет запрос — идемпотентность не нужна
     };
 

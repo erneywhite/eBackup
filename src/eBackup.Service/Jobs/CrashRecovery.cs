@@ -1,4 +1,5 @@
 using eBackup.Core.History;
+using eBackup.Localization;
 
 namespace eBackup.Service.Jobs;
 
@@ -23,7 +24,7 @@ public static class CrashRecovery
             r.State = "Interrupted";
             r.Success = false;
             r.FinishedAt = DateTimeOffset.Now;
-            r.Error ??= "Прервано: служба была перезапущена.";
+            r.Error ??= L.Get("Svc_InterruptedServiceRestarted");
             await history.SaveRunAsync(r).ConfigureAwait(false);
             fixedCount++;
         }

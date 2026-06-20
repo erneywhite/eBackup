@@ -1,4 +1,5 @@
 using eBackup.Core.Abstractions;
+using eBackup.Localization;
 using Renci.SshNet;
 
 namespace eBackup.Storage.Sftp;
@@ -103,7 +104,7 @@ public sealed class SftpStorageProvider : IStorageProvider
             try
             {
                 using var client = Connect();
-                return ConnectionTestResult.Ok($"Подключение успешно. Рабочая папка: {client.WorkingDirectory}");
+                return ConnectionTestResult.Ok(L.Get("Stg_SftpOk", client.WorkingDirectory));
             }
             catch (Exception ex)
             {
@@ -156,7 +157,7 @@ public sealed class SftpStorageProvider : IStorageProvider
             methods.Add(new PasswordAuthenticationMethod(o.Username, o.Password));
 
         if (methods.Count == 0)
-            throw new InvalidOperationException("Для SFTP нужно указать пароль или приватный ключ.");
+            throw new InvalidOperationException(L.Get("Stg_SftpNeedAuth"));
 
         return new ConnectionInfo(o.Host, o.Port, o.Username, methods.ToArray());
     }

@@ -62,8 +62,8 @@ public sealed class BackupRunner : IJobRunner
         // (иначе отдали бы ОТКРЫТЫЙ архив). Закрывает и потерю слота при постановке, и провал резолва.
         if (job.RequiresEncryption && (job.ResolvedPassphrase is null || job.ResolvedPassphrase.Length == 0))
         {
-            Log("Бэкап отменён: затребовано шифрование, но парольная фраза недоступна.");
-            return new JobOutcome(false, 0, 0, null, "Шифрование затребовано, но парольная фраза недоступна.");
+            Log(L.Get("Svc_BackupCancelledEncryptionNoPassphrase"));
+            return new JobOutcome(false, 0, 0, null, L.Get("Svc_EncryptionRequestedNoPassphrase"));
         }
 
         var allModules = new List<IBackupModule>(_resolveModules(job.Request!.ModuleIds));
@@ -72,8 +72,8 @@ public sealed class BackupRunner : IJobRunner
         if (allModules.Count == 0)
         {
             WipePassphrase();
-            Log("Бэкап отменён: не выбрано ни модулей, ни папок.");
-            return new JobOutcome(false, 0, 0, null, "Не выбрано ни модулей, ни папок.");
+            Log(L.Get("Svc_BackupCancelledNothingSelected"));
+            return new JobOutcome(false, 0, 0, null, L.Get("Svc_NothingSelected"));
         }
 
         // Своя папка на каждый прогон → изоляция и гарантированная зачистка (вся run-папка удаляется в finally).
@@ -89,8 +89,8 @@ public sealed class BackupRunner : IJobRunner
             _ => CompressionLevel.Optimal,
         };
 
-        Log($"Запуск: {job.Trigger}");
-        Log("В бэкапе: " + string.Join(", ", allModules.Select(m => m.Id)));
+        Log(L.Get("Svc_RunStart", job.Trigger));
+        Log(L.Get("Svc_BackupContents", string.Join(", ", allModules.Select(m => m.Id))));
 
         var engine = new BackupEngine();
         // Крупные фазы → Phase-ноты (живой прогресс); реальная доля прогресса — позже.
@@ -112,14 +112,14 @@ public sealed class BackupRunner : IJobRunner
 
             var size = new FileInfo(archive).Length;
             var archiveName = Path.GetFileName(archive);
-            Log($"Архив собран: {archiveName} — {Mb(size)} МБ, пропущено файлов: {engine.LastSkippedCount}");
+            Log(L.Get("Svc_ArchiveBuilt", archiveName, Mb(size), engine.LastSkippedCount));
 
             var targetIds = job.Request!.TargetStorageIds;
             if (_storages is null || targetIds.Length == 0)
             {
                 // Локальный режим: переносим архив из run-папки в стабильное место (run-папку зачистит finally).
                 try { File.Move(archive, Path.Combine(_buildDir, archiveName), overwrite: true); } catch { /* останется в run-папке */ }
-                Log("Хранилища не выбраны — архив сохранён локально.");
+                Log(L.Get("Svc_NoStoragesSavedLocally"));
                 return new JobOutcome(true, engine.LastSkippedCount, size, archiveName, null);
             }
 
@@ -130,7 +130,7 @@ public sealed class BackupRunner : IJobRunner
                 .Where(s => s is not null).Select(s => s!)
                 .ToList();
             var missing = targetIds.Length - targets.Count;
-            if (missing > 0) Log($"⚠ Пропущено хранилищ (не найдены в конфиге службы): {missing}");
+            if (missing > 0) Log(L.Get("Svc_StoragesMissingInConfig", missing));
 
             var done = new List<string>();
             var failed = new List<string>();
@@ -142,13 +142,13 @@ public sealed class BackupRunner : IJobRunner
             {
                 ct.ThrowIfCancellationRequested();
                 sink.Phase(L.Get("Phase_SavingToTarget", target.Name), 0);
-                Log($"«{target.Name}»: заливаю…");
+                Log(L.Get("Svc_TargetUploading", target.Name));
                 try
                 {
                     // Для локальной папки честно отказываемся ДО заливки, если место не влезает.
                     if (target.Kind == StorageKind.LocalFolder && target.Path is { } tp
                         && TryFreeBytes(tp, out var free) && free < size)
-                        throw new IOException($"недостаточно места: нужно {Mb(size)} МБ, свободно {Mb(free)} МБ");
+                        throw new IOException(L.Get("Svc_NotEnoughSpace", Mb(size), Mb(free)));
 
                     var storage = StorageFactory.Create(target, _storages.Protector);
                     await storage.UploadAsync(archive, archiveName, ct).ConfigureAwait(false);
@@ -157,23 +157,23 @@ public sealed class BackupRunner : IJobRunner
                     var files = await storage.ListDetailedAsync(ct).ConfigureAwait(false);
                     var remote = files.FirstOrDefault(f => f.Name == archiveName);
                     if (remote is null)
-                        throw new IOException("верификация: файл не появился в листинге после заливки");
+                        throw new IOException(L.Get("Svc_VerifyFileNotListed"));
                     if (remote.Length > 0 && remote.Length != size)
-                        throw new IOException($"верификация: размер не совпал (локально {size} Б, в хранилище {remote.Length} Б)");
+                        throw new IOException(L.Get("Svc_VerifySizeMismatch", size, remote.Length));
 
                     if (storage is FolderStorage folder)
                     {
                         localSha ??= await Task.Run(() => Sha256(archive), ct).ConfigureAwait(false);
                         var copySha = await Task.Run(() => Sha256(folder.GetLocalPath(archiveName)), ct).ConfigureAwait(false);
                         if (!copySha.Equals(localSha, StringComparison.OrdinalIgnoreCase))
-                            throw new IOException("верификация: SHA-256 копии не совпал с архивом");
-                        Log($"«{target.Name}»: верификация ✓ SHA-256 копии совпадает");
+                            throw new IOException(L.Get("Svc_VerifyShaMismatch"));
+                        Log(L.Get("Svc_VerifyShaOk", target.Name));
                     }
                     else
                     {
                         Log(remote.Length > 0
-                            ? $"«{target.Name}»: верификация ✓ размер совпадает ({Mb(remote.Length)} МБ)"
-                            : $"«{target.Name}»: верификация — хранилище не сообщает размер, сверка пропущена");
+                            ? L.Get("Svc_VerifySizeOk", target.Name, Mb(remote.Length))
+                            : L.Get("Svc_VerifySizeUnknown", target.Name));
                     }
 
                     done.Add(target.Name);
@@ -189,7 +189,7 @@ public sealed class BackupRunner : IJobRunner
                         foreach (var old in sameGroup.Skip(retention))
                         {
                             await storage.DeleteAsync(old.Name, ct).ConfigureAwait(false);
-                            Log($"«{target.Name}»: retention (группа {groupKey}) — удалил {old.Name}");
+                            Log(L.Get("Svc_RetentionDeleted", target.Name, groupKey, old.Name));
                         }
                     }
                 }
@@ -200,19 +200,19 @@ public sealed class BackupRunner : IJobRunner
                 catch (Exception ex)
                 {
                     failed.Add($"{target.Name}: {ex.Message}");
-                    Log($"«{target.Name}»: ✕ {ex.Message}");
+                    Log(L.Get("Svc_TargetFailed", target.Name, ex.Message));
                 }
                 sink.Phase(L.Get("Phase_Uploading"), (double)(++step) / targets.Count);
             }
 
             var ok = failed.Count == 0;
             var error = ok ? null : string.Join("; ", failed);
-            Log(ok ? $"Готово → {string.Join(", ", done)}" : $"Завершено с ошибками: {error}");
+            Log(ok ? L.Get("Svc_DoneTargets", string.Join(", ", done)) : L.Get("Svc_FinishedWithErrors", error));
             return new JobOutcome(ok, engine.LastSkippedCount, size, archiveName, error);
         }
         catch (OperationCanceledException)
         {
-            Log("⏹ Отменено — временные файлы сборки убраны.");
+            Log(L.Get("Svc_BackupCancelledCleanup"));
             throw; // JobManager пометит задачу Cancelled
         }
         finally

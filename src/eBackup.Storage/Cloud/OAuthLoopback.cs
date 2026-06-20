@@ -3,6 +3,7 @@ using System.Net;
 using System.Net.Sockets;
 using System.Security.Cryptography;
 using System.Text;
+using eBackup.Localization;
 
 namespace eBackup.Storage.Cloud;
 
@@ -37,9 +38,7 @@ public static class OAuthLoopback
         }
         catch (HttpListenerException ex)
         {
-            throw new IOException(
-                $"Порт {port} уже занят (возможно, ждёт ответа предыдущая попытка входа " +
-                "или запущена вторая копия eBackup). Попробуй ещё раз через минуту.", ex);
+            throw new IOException(L.Get("Stg_OAuthPortBusy", port), ex);
         }
         try
         {
@@ -71,7 +70,7 @@ public static class OAuthLoopback
                 catch (OperationCanceledException)
                 {
                     ct.ThrowIfCancellationRequested(); // внешняя отмена — не таймаут
-                    throw new TimeoutException("Вход не подтверждён в браузере (таймаут 3 минуты).");
+                    throw new TimeoutException(L.Get("Stg_OAuthTimeout"));
                 }
 
                 if (context.Request.QueryString["state"] == state)
@@ -79,25 +78,27 @@ public static class OAuthLoopback
 
                 // Устаревшая вкладка входа или посторонний запрос (favicon и т.п.) —
                 // отвечаем и продолжаем ждать «свой» редирект.
-                await RespondAsync(context, Page("dim", "↻", "Устаревшая вкладка входа",
-                    "Закрой её и подтверди вход в последней открытой вкладке.",
+                await RespondAsync(context, Page("dim", "↻", L.Get("Stg_OAuthStaleTabTitle"),
+                    L.Get("Stg_OAuthStaleTabBody"),
                     tryCloseTab: false)).ConfigureAwait(false);
             }
 
             var code = context.Request.QueryString["code"];
             var error = context.Request.QueryString["error"];
 
-            var who = providerName is null ? "Аккаунт" : providerName + "-аккаунт";
+            var who = providerName is null
+                ? L.Get("Stg_OAuthGenericAccount")
+                : L.Get("Stg_OAuthProviderAccount", providerName);
             await RespondAsync(context, code is null
-                ? Page("err", "✕", "Вход не выполнен",
-                    "Авторизация отклонена — вернись в eBackup и попробуй ещё раз. Вкладку можно закрыть.",
+                ? Page("err", "✕", L.Get("Stg_OAuthFailedTitle"),
+                    L.Get("Stg_OAuthFailedBody"),
                     tryCloseTab: true)
-                : Page("ok", "✓", "Готово!",
-                    $"{who} подключён к eBackup. Вкладку можно закрыть.",
+                : Page("ok", "✓", L.Get("Stg_OAuthDoneTitle"),
+                    L.Get("Stg_OAuthDoneBody", who),
                     tryCloseTab: true)).ConfigureAwait(false);
 
             if (code is null)
-                throw new InvalidOperationException("Авторизация отклонена: " + (error ?? "код не получен"));
+                throw new InvalidOperationException(L.Get("Stg_OAuthRejected", error ?? L.Get("Stg_OAuthNoCode")));
 
             return new AuthCode(code, redirect, verifier);
         }
@@ -134,9 +135,11 @@ public static class OAuthLoopback
             ? "<script>window.open('','_self');window.close();" +
               "setTimeout(function(){window.close()},300);</script>"
             : "";
+        var pageTitle = L.Get("Stg_OAuthPageTitle");
+        var tagline = L.Get("Stg_OAuthTagline");
         return $$"""
-<!doctype html><html lang="ru"><head><meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1"><title>eBackup — вход</title><style>
+<!doctype html><html><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1"><title>{{pageTitle}}</title><style>
 *{box-sizing:border-box}
 body{margin:0;min-height:100vh;display:flex;align-items:center;justify-content:center;
 font-family:"Segoe UI",system-ui,sans-serif;color:#EFEAF6;background:
@@ -157,7 +160,7 @@ p{margin:0;color:#A89BC0;font-size:14px;line-height:1.55}
 -webkit-background-clip:text;background-clip:text;color:transparent}
 </style></head><body><div class="card">
 <div class="badge {{kind}}">{{glyph}}</div><h1>{{title}}</h1><p>{{message}}</p>
-<div class="brand"><b>eBackup</b> — бэкапы, которые переезжают с тобой</div>
+<div class="brand"><b>eBackup</b> — {{tagline}}</div>
 </div>{{script}}</body></html>
 """;
     }

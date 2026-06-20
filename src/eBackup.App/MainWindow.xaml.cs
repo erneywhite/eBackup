@@ -528,7 +528,7 @@ public sealed partial class MainWindow : Window
             _operationRunning = false;
             _backupCts?.Dispose();
             _backupCts = null;
-            BackupBtnText.Text = Loc.Get("Main_BackupBtnText");
+            BackupBtnText.Text = Loc.Get("Main_BackupBtnReset");
             BackupBtn.IsEnabled = true;
             BackupCompleted?.Invoke();
             await FadeOutFillAsync();

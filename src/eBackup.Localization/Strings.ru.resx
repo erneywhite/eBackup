@@ -26,4 +26,138 @@
   <data name="Phase_Uploading" xml:space="preserve"><value>Заливка…</value></data>
   <data name="Phase_VerifyingPassphrase" xml:space="preserve"><value>Проверяю парольную фразу…</value></data>
   <data name="Phase_Downloading" xml:space="preserve"><value>Получаю {0} из «{1}»…</value></data>
+  <data name="Core_BuildingZip" xml:space="preserve"><value>Сборка ZIP: {0} · сжатие: {1}</value></data>
+  <data name="Core_ModuleSkippedDiscovery" xml:space="preserve"><value>✕ Модуль «{0}» пропущен (ошибка обнаружения): {1}</value></data>
+  <data name="Core_ModuleEntriesToCollect" xml:space="preserve"><value>Модуль «{0}» ({1}): {2} записей для сбора</value></data>
+  <data name="Core_AddedFileSha" xml:space="preserve"><value>  + {0} ({1}) · sha256 {2}…</value></data>
+  <data name="Core_FileSkippedAccess" xml:space="preserve"><value>  ✕ пропущен (нет доступа/занят): {0} — {1}</value></data>
+  <data name="Core_FolderToSource" xml:space="preserve"><value>  Папка {0} → {1}</value></data>
+  <data name="Core_ExcludeMasksSuffix" xml:space="preserve"><value> · масок-исключений: {0}</value></data>
+  <data name="Core_AddedFile" xml:space="preserve"><value>  + {0} ({1})</value></data>
+  <data name="Core_FolderFileCount" xml:space="preserve"><value>  Папка {0}: {1} файлов</value></data>
+  <data name="Core_SkipEntry" xml:space="preserve"><value>  – Пропуск: {0} ({1})</value></data>
+  <data name="Core_ReasonFileMissing" xml:space="preserve"><value>файла нет</value></data>
+  <data name="Core_ReasonFolderMissing" xml:space="preserve"><value>папки нет</value></data>
+  <data name="Core_ReasonTypeUnsupported" xml:space="preserve"><value>тип пока не поддерживается</value></data>
+  <data name="Core_ModuleTotal" xml:space="preserve"><value>Модуль «{0}»: итого {1} файлов · {2} · {3} мс</value></data>
+  <data name="Core_ManifestSummary" xml:space="preserve"><value>Манифест: {0} модулей, {1} записей</value></data>
+  <data name="Core_ZipReady" xml:space="preserve"><value>ZIP готов: {0}</value></data>
+  <data name="Core_FilesSkippedBackup" xml:space="preserve"><value>⚠ Пропущено файлов (нет доступа/заняты): {0} — не вошли в архив.</value></data>
+  <data name="Core_EncryptedVerified" xml:space="preserve"><value>Зашифровано (Argon2id + AES-256-GCM) + проверено за {0} мс → {1}</value></data>
+  <data name="Core_VerificationOk" xml:space="preserve"><value>Верификация ✓: {0} записей · {1} распаковано (CRC32 ок) · SHA-256 сверено: {2} · {3} мс</value></data>
+  <data name="Core_UnitGb" xml:space="preserve"><value>{0} ГБ</value></data>
+  <data name="Core_UnitMb" xml:space="preserve"><value>{0} МБ</value></data>
+  <data name="Core_UnitKb" xml:space="preserve"><value>{0} КБ</value></data>
+  <data name="Core_CompressionFastest" xml:space="preserve"><value>быстрое</value></data>
+  <data name="Core_CompressionMax" xml:space="preserve"><value>максимальное</value></data>
+  <data name="Core_CompressionNone" xml:space="preserve"><value>без сжатия</value></data>
+  <data name="Core_CompressionNormal" xml:space="preserve"><value>обычное</value></data>
+  <data name="Core_EncryptedNeedsPassphrase" xml:space="preserve"><value>Архив зашифрован — требуется парольная фраза.</value></data>
+  <data name="Core_Decrypted" xml:space="preserve"><value>Расшифрован (Argon2id + AES-256-GCM) за {0} мс</value></data>
+  <data name="Core_EncryptedNoChunkedRead" xml:space="preserve"><value>Архив зашифрован — выборочное чтение по кускам недоступно; восстановите его целиком (через службу).</value></data>
+  <data name="Core_ManifestSummaryRestore" xml:space="preserve"><value>Манифест: {0} модулей, {1} записей · создан {2:dd.MM.yyyy HH:mm}</value></data>
+  <data name="Core_OnMachineSuffix" xml:space="preserve"><value> на {0}</value></data>
+  <data name="Core_DestinationOriginal" xml:space="preserve"><value>Назначение: исходные пути (режим конфликтов: {0})</value></data>
+  <data name="Core_DestinationFolder" xml:space="preserve"><value>Назначение: {0}</value></data>
+  <data name="Core_RestoreModuleEntries" xml:space="preserve"><value>Модуль «{0}» ({1}): {2} записей</value></data>
+  <data name="Core_RestoreIncomplete" xml:space="preserve"><value>Восстановлено не всё: пропущено файлов — {0}. </value></data>
+  <data name="Core_FilesSkippedRestore" xml:space="preserve"><value>⚠ Пропущено файлов при восстановлении (заняты/нет доступа): {0} · </value></data>
+  <data name="Core_RestoreHookPlacingAssets" xml:space="preserve"><value>Restore-хук модуля «{0}»: раскладываю ассеты…</value></data>
+  <data name="Core_RestoredFile" xml:space="preserve"><value>  → {0} ({1})</value></data>
+  <data name="Core_RestoreFileFailed" xml:space="preserve"><value>  ✕ {0}: {1}</value></data>
+  <data name="Core_LogReadFailed" xml:space="preserve"><value>не удалось прочитать лог: {0}</value></data>
+  <data name="Core_SourceLoadFailed" xml:space="preserve"><value>Источник не загрузился: {0}</value></data>
+  <data name="Core_IdTakenByHigherPriority" xml:space="preserve"><value>id '{0}' уже занят модулем с более высоким приоритетом</value></data>
+  <data name="Core_ModuleJsonUnreadable" xml:space="preserve"><value>не читается JSON: {0}</value></data>
+  <data name="Core_ModuleNoId" xml:space="preserve"><value>нет id</value></data>
+  <data name="Core_ModuleInvalidId" xml:space="preserve"><value>недопустимый id (разрешено: a-z 0-9 . _ -, до 64 символов)</value></data>
+  <data name="Core_ModuleBadMinApiVersion" xml:space="preserve"><value>неверная minApiVersion: {0}</value></data>
+  <data name="Core_ModuleNeedsNewerEBackup" xml:space="preserve"><value>требуется eBackup новее (контракт {0} &gt; {1})</value></data>
+  <data name="Core_ModuleBadPath" xml:space="preserve"><value>недопустимый путь (пустой или содержит «..»): {0}</value></data>
+  <data name="Core_ModuleBadArchivePath" xml:space="preserve"><value>недопустимый archivePath: {0}</value></data>
+  <data name="Core_ModuleNoValidEntries" xml:space="preserve"><value>нет валидных записей</value></data>
+  <data name="Svc_RestoreSourceMissing" xml:space="preserve"><value>Не указан источник восстановления.</value></data>
+  <data name="Svc_PassphraseTicketEmpty" xml:space="preserve"><value>Пустой тикет парольной фразы.</value></data>
+  <data name="Svc_PassphraseTicketExpired" xml:space="preserve"><value>Срок действия парольной фразы истёк — повторите.</value></data>
+  <data name="Svc_PassphraseTicketInvalid" xml:space="preserve"><value>Тикет парольной фразы недействителен.</value></data>
+  <data name="Svc_JobNotFoundOrNoCancelRights" xml:space="preserve"><value>Задача не найдена или нет прав на отмену.</value></data>
+  <data name="Svc_JobNotFound" xml:space="preserve"><value>Задача не найдена.</value></data>
+  <data name="Svc_ScheduleNotFound" xml:space="preserve"><value>Расписание не найдено.</value></data>
+  <data name="Svc_ScheduleOwnedByAnother" xml:space="preserve"><value>Это расписание создано другим пользователем.</value></data>
+  <data name="Svc_EncryptedScheduleOwnerOnly" xml:space="preserve"><value>Зашифрованное расписание может запустить только его владелец.</value></data>
+  <data name="Svc_SchedulePassphraseDecryptFailed" xml:space="preserve"><value>Не удалось расшифровать парольную фразу расписания (машинный ключ недоступен или фраза повреждена).</value></data>
+  <data name="Svc_PassphraseEmpty" xml:space="preserve"><value>Пустая парольная фраза.</value></data>
+  <data name="Svc_OnlyDeclarativeModuleSupported" xml:space="preserve"><value>Поддерживается только установка декларативного модуля (DeclarativeJson).</value></data>
+  <data name="Svc_ModuleParseFailed" xml:space="preserve"><value>Не удалось разобрать модуль.</value></data>
+  <data name="Svc_ModuleInvalidIdOrFormat" xml:space="preserve"><value>Некорректный id или формат модуля.</value></data>
+  <data name="Svc_FolderPathEmpty" xml:space="preserve"><value>Пустой путь папки.</value></data>
+  <data name="Svc_StorageNotFound" xml:space="preserve"><value>Хранилище не найдено.</value></data>
+  <data name="Svc_StorageIdEmpty" xml:space="preserve"><value>Пустой id хранилища.</value></data>
+  <data name="Svc_StorageToTestMissing" xml:space="preserve"><value>Не указано хранилище для проверки.</value></data>
+  <data name="Svc_ScheduleIdEmpty" xml:space="preserve"><value>Пустой id расписания.</value></data>
+  <data name="Svc_ScheduleNameEmpty" xml:space="preserve"><value>Пустое имя расписания.</value></data>
+  <data name="Svc_ArchiveReadSessionNotFound" xml:space="preserve"><value>Сессия чтения архива не найдена.</value></data>
+  <data name="Svc_BackupCancelledEncryptionNoPassphrase" xml:space="preserve"><value>Бэкап отменён: затребовано шифрование, но парольная фраза недоступна.</value></data>
+  <data name="Svc_EncryptionRequestedNoPassphrase" xml:space="preserve"><value>Шифрование затребовано, но парольная фраза недоступна.</value></data>
+  <data name="Svc_BackupCancelledNothingSelected" xml:space="preserve"><value>Бэкап отменён: не выбрано ни модулей, ни папок.</value></data>
+  <data name="Svc_NothingSelected" xml:space="preserve"><value>Не выбрано ни модулей, ни папок.</value></data>
+  <data name="Svc_RunStart" xml:space="preserve"><value>Запуск: {0}</value></data>
+  <data name="Svc_BackupContents" xml:space="preserve"><value>В бэкапе: {0}</value></data>
+  <data name="Svc_ArchiveBuilt" xml:space="preserve"><value>Архив собран: {0} — {1} МБ, пропущено файлов: {2}</value></data>
+  <data name="Svc_NoStoragesSavedLocally" xml:space="preserve"><value>Хранилища не выбраны — архив сохранён локально.</value></data>
+  <data name="Svc_StoragesMissingInConfig" xml:space="preserve"><value>⚠ Пропущено хранилищ (не найдены в конфиге службы): {0}</value></data>
+  <data name="Svc_TargetUploading" xml:space="preserve"><value>«{0}»: заливаю…</value></data>
+  <data name="Svc_NotEnoughSpace" xml:space="preserve"><value>недостаточно места: нужно {0} МБ, свободно {1} МБ</value></data>
+  <data name="Svc_VerifyFileNotListed" xml:space="preserve"><value>верификация: файл не появился в листинге после заливки</value></data>
+  <data name="Svc_VerifySizeMismatch" xml:space="preserve"><value>верификация: размер не совпал (локально {0} Б, в хранилище {1} Б)</value></data>
+  <data name="Svc_VerifyShaMismatch" xml:space="preserve"><value>верификация: SHA-256 копии не совпал с архивом</value></data>
+  <data name="Svc_VerifyShaOk" xml:space="preserve"><value>«{0}»: верификация ✓ SHA-256 копии совпадает</value></data>
+  <data name="Svc_VerifySizeOk" xml:space="preserve"><value>«{0}»: верификация ✓ размер совпадает ({1} МБ)</value></data>
+  <data name="Svc_VerifySizeUnknown" xml:space="preserve"><value>«{0}»: верификация — хранилище не сообщает размер, сверка пропущена</value></data>
+  <data name="Svc_RetentionDeleted" xml:space="preserve"><value>«{0}»: retention (группа {1}) — удалил {2}</value></data>
+  <data name="Svc_TargetFailed" xml:space="preserve"><value>«{0}»: ✕ {1}</value></data>
+  <data name="Svc_DoneTargets" xml:space="preserve"><value>Готово → {0}</value></data>
+  <data name="Svc_FinishedWithErrors" xml:space="preserve"><value>Завершено с ошибками: {0}</value></data>
+  <data name="Svc_BackupCancelledCleanup" xml:space="preserve"><value>⏹ Отменено — временные файлы сборки убраны.</value></data>
+  <data name="Svc_RestoreCancelledDecryptNoPassphrase" xml:space="preserve"><value>Восстановление отменено: затребована расшифровка, но парольная фраза недоступна.</value></data>
+  <data name="Svc_OriginalLocations" xml:space="preserve"><value>исходные места</value></data>
+  <data name="Svc_RestoreLine" xml:space="preserve"><value>Восстановление: {0} → {1} · режим конфликтов: {2}</value></data>
+  <data name="Svc_SourceStorageNotFound" xml:space="preserve"><value>Хранилище-источник не найдено.</value></data>
+  <data name="Svc_ArchiveProbeFailed" xml:space="preserve"><value>Проба архива не удалась: {0} — продолжаю полным путём.</value></data>
+  <data name="Svc_WrongPassphraseNoDownload" xml:space="preserve"><value>✕ Неверная парольная фраза — архив не скачивался.</value></data>
+  <data name="Svc_WrongPassphrase" xml:space="preserve"><value>Неверная парольная фраза.</value></data>
+  <data name="Svc_ArchiveFetched" xml:space="preserve"><value>Архив получен: {0:0.#} МБ</value></data>
+  <data name="Svc_RestoreSkippedFiles" xml:space="preserve"><value>⚠ Пропущено занятых/недоступных файлов: {0}. Закрой использующие их программы и повтори при необходимости.</value></data>
+  <data name="Svc_Done" xml:space="preserve"><value>Готово.</value></data>
+  <data name="Svc_JobKindUnavailable" xml:space="preserve"><value>Этот тип задачи в службе недоступен.</value></data>
+  <data name="Svc_TriggerManual" xml:space="preserve"><value>вручную</value></data>
+  <data name="Svc_TriggerSchedule" xml:space="preserve"><value>по расписанию «{0}»</value></data>
+  <data name="Svc_InterruptedServiceRestarted" xml:space="preserve"><value>Прервано: служба была перезапущена.</value></data>
+  <data name="Stg_FolderWritable" xml:space="preserve"><value>Папка доступна для записи: {0}</value></data>
+  <data name="Stg_S3BucketOk" xml:space="preserve"><value>Бакет «{0}» доступен.</value></data>
+  <data name="Stg_WebDavOk" xml:space="preserve"><value>WebDAV доступен: {0}</value></data>
+  <data name="Stg_GDriveReady" xml:space="preserve"><value>Google Drive: папка «{0}» готова.</value></data>
+  <data name="Stg_DropboxOk" xml:space="preserve"><value>Dropbox: папка приложения доступна.</value></data>
+  <data name="Stg_MegaOk" xml:space="preserve"><value>MEGA доступна, папка «{0}».</value></data>
+  <data name="Stg_FtpOk" xml:space="preserve"><value>Подключение успешно ({0}).</value></data>
+  <data name="Stg_SftpOk" xml:space="preserve"><value>Подключение успешно. Рабочая папка: {0}</value></data>
+  <data name="Stg_GoogleNotSignedIn" xml:space="preserve"><value>Не выполнен вход в Google — открой хранилище и войди.</value></data>
+  <data name="Stg_GoogleNoRefreshToken" xml:space="preserve"><value>Google не вернул refresh-токен. Отзови доступ eBackup на myaccount.google.com/permissions и войди заново.</value></data>
+  <data name="Stg_DropboxNotSignedIn" xml:space="preserve"><value>Не выполнен вход в Dropbox — открой хранилище и войди.</value></data>
+  <data name="Stg_MegaNotConnected" xml:space="preserve"><value>MEGA не подключена — войди в аккаунт в настройках хранилища.</value></data>
+  <data name="Stg_SftpNeedAuth" xml:space="preserve"><value>Для SFTP нужно указать пароль или приватный ключ.</value></data>
+  <data name="Stg_OAuthPortBusy" xml:space="preserve"><value>Порт {0} уже занят (возможно, ждёт ответа предыдущая попытка входа или запущена вторая копия eBackup). Попробуй ещё раз через минуту.</value></data>
+  <data name="Stg_OAuthTimeout" xml:space="preserve"><value>Вход не подтверждён в браузере (таймаут 3 минуты).</value></data>
+  <data name="Stg_OAuthStaleTabTitle" xml:space="preserve"><value>Устаревшая вкладка входа</value></data>
+  <data name="Stg_OAuthStaleTabBody" xml:space="preserve"><value>Закрой её и подтверди вход в последней открытой вкладке.</value></data>
+  <data name="Stg_OAuthGenericAccount" xml:space="preserve"><value>Аккаунт</value></data>
+  <data name="Stg_OAuthProviderAccount" xml:space="preserve"><value>{0}-аккаунт</value></data>
+  <data name="Stg_OAuthFailedTitle" xml:space="preserve"><value>Вход не выполнен</value></data>
+  <data name="Stg_OAuthFailedBody" xml:space="preserve"><value>Авторизация отклонена — вернись в eBackup и попробуй ещё раз. Вкладку можно закрыть.</value></data>
+  <data name="Stg_OAuthDoneTitle" xml:space="preserve"><value>Готово!</value></data>
+  <data name="Stg_OAuthDoneBody" xml:space="preserve"><value>{0} подключён к eBackup. Вкладку можно закрыть.</value></data>
+  <data name="Stg_OAuthRejected" xml:space="preserve"><value>Авторизация отклонена: {0}</value></data>
+  <data name="Stg_OAuthNoCode" xml:space="preserve"><value>код не получен</value></data>
+  <data name="Stg_OAuthPageTitle" xml:space="preserve"><value>eBackup — вход</value></data>
+  <data name="Stg_OAuthTagline" xml:space="preserve"><value>бэкапы, которые переезжают с тобой</value></data>
 </root>

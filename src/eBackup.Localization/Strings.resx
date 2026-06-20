@@ -26,4 +26,138 @@
   <data name="Phase_Uploading" xml:space="preserve"><value>Uploading…</value></data>
   <data name="Phase_VerifyingPassphrase" xml:space="preserve"><value>Verifying passphrase…</value></data>
   <data name="Phase_Downloading" xml:space="preserve"><value>Fetching {0} from “{1}”…</value></data>
+  <data name="Core_BuildingZip" xml:space="preserve"><value>Building ZIP: {0} · compression: {1}</value></data>
+  <data name="Core_ModuleSkippedDiscovery" xml:space="preserve"><value>✕ Module “{0}” skipped (discovery error): {1}</value></data>
+  <data name="Core_ModuleEntriesToCollect" xml:space="preserve"><value>Module “{0}” ({1}): {2} entries to collect</value></data>
+  <data name="Core_AddedFileSha" xml:space="preserve"><value>  + {0} ({1}) · sha256 {2}…</value></data>
+  <data name="Core_FileSkippedAccess" xml:space="preserve"><value>  ✕ skipped (access denied/in use): {0} — {1}</value></data>
+  <data name="Core_FolderToSource" xml:space="preserve"><value>  Folder {0} → {1}</value></data>
+  <data name="Core_ExcludeMasksSuffix" xml:space="preserve"><value> · exclude masks: {0}</value></data>
+  <data name="Core_AddedFile" xml:space="preserve"><value>  + {0} ({1})</value></data>
+  <data name="Core_FolderFileCount" xml:space="preserve"><value>  Folder {0}: {1} files</value></data>
+  <data name="Core_SkipEntry" xml:space="preserve"><value>  – Skip: {0} ({1})</value></data>
+  <data name="Core_ReasonFileMissing" xml:space="preserve"><value>file missing</value></data>
+  <data name="Core_ReasonFolderMissing" xml:space="preserve"><value>folder missing</value></data>
+  <data name="Core_ReasonTypeUnsupported" xml:space="preserve"><value>type not supported yet</value></data>
+  <data name="Core_ModuleTotal" xml:space="preserve"><value>Module “{0}”: total {1} files · {2} · {3} ms</value></data>
+  <data name="Core_ManifestSummary" xml:space="preserve"><value>Manifest: {0} modules, {1} entries</value></data>
+  <data name="Core_ZipReady" xml:space="preserve"><value>ZIP ready: {0}</value></data>
+  <data name="Core_FilesSkippedBackup" xml:space="preserve"><value>⚠ Files skipped (access denied/in use): {0} — not included in the archive.</value></data>
+  <data name="Core_EncryptedVerified" xml:space="preserve"><value>Encrypted (Argon2id + AES-256-GCM) + verified in {0} ms → {1}</value></data>
+  <data name="Core_VerificationOk" xml:space="preserve"><value>Verification ✓: {0} entries · {1} unpacked (CRC32 ok) · SHA-256 checked: {2} · {3} ms</value></data>
+  <data name="Core_UnitGb" xml:space="preserve"><value>{0} GB</value></data>
+  <data name="Core_UnitMb" xml:space="preserve"><value>{0} MB</value></data>
+  <data name="Core_UnitKb" xml:space="preserve"><value>{0} KB</value></data>
+  <data name="Core_CompressionFastest" xml:space="preserve"><value>fast</value></data>
+  <data name="Core_CompressionMax" xml:space="preserve"><value>maximum</value></data>
+  <data name="Core_CompressionNone" xml:space="preserve"><value>no compression</value></data>
+  <data name="Core_CompressionNormal" xml:space="preserve"><value>normal</value></data>
+  <data name="Core_EncryptedNeedsPassphrase" xml:space="preserve"><value>Archive is encrypted — a passphrase is required.</value></data>
+  <data name="Core_Decrypted" xml:space="preserve"><value>Decrypted (Argon2id + AES-256-GCM) in {0} ms</value></data>
+  <data name="Core_EncryptedNoChunkedRead" xml:space="preserve"><value>Archive is encrypted — chunked selective reading is unavailable; restore it in full (via the service).</value></data>
+  <data name="Core_ManifestSummaryRestore" xml:space="preserve"><value>Manifest: {0} modules, {1} entries · created {2:dd.MM.yyyy HH:mm}</value></data>
+  <data name="Core_OnMachineSuffix" xml:space="preserve"><value> on {0}</value></data>
+  <data name="Core_DestinationOriginal" xml:space="preserve"><value>Destination: original paths (conflict policy: {0})</value></data>
+  <data name="Core_DestinationFolder" xml:space="preserve"><value>Destination: {0}</value></data>
+  <data name="Core_RestoreModuleEntries" xml:space="preserve"><value>Module “{0}” ({1}): {2} entries</value></data>
+  <data name="Core_RestoreIncomplete" xml:space="preserve"><value>Restore incomplete: files skipped — {0}. </value></data>
+  <data name="Core_FilesSkippedRestore" xml:space="preserve"><value>⚠ Files skipped during restore (in use/access denied): {0} · </value></data>
+  <data name="Core_RestoreHookPlacingAssets" xml:space="preserve"><value>Restore hook for module “{0}”: placing assets…</value></data>
+  <data name="Core_RestoredFile" xml:space="preserve"><value>  → {0} ({1})</value></data>
+  <data name="Core_RestoreFileFailed" xml:space="preserve"><value>  ✕ {0}: {1}</value></data>
+  <data name="Core_LogReadFailed" xml:space="preserve"><value>could not read log: {0}</value></data>
+  <data name="Core_SourceLoadFailed" xml:space="preserve"><value>Source failed to load: {0}</value></data>
+  <data name="Core_IdTakenByHigherPriority" xml:space="preserve"><value>id '{0}' is already taken by a higher-priority module</value></data>
+  <data name="Core_ModuleJsonUnreadable" xml:space="preserve"><value>cannot read JSON: {0}</value></data>
+  <data name="Core_ModuleNoId" xml:space="preserve"><value>no id</value></data>
+  <data name="Core_ModuleInvalidId" xml:space="preserve"><value>invalid id (allowed: a-z 0-9 . _ -, up to 64 characters)</value></data>
+  <data name="Core_ModuleBadMinApiVersion" xml:space="preserve"><value>invalid minApiVersion: {0}</value></data>
+  <data name="Core_ModuleNeedsNewerEBackup" xml:space="preserve"><value>a newer eBackup is required (contract {0} &gt; {1})</value></data>
+  <data name="Core_ModuleBadPath" xml:space="preserve"><value>invalid path (empty or contains “..”): {0}</value></data>
+  <data name="Core_ModuleBadArchivePath" xml:space="preserve"><value>invalid archivePath: {0}</value></data>
+  <data name="Core_ModuleNoValidEntries" xml:space="preserve"><value>no valid entries</value></data>
+  <data name="Svc_RestoreSourceMissing" xml:space="preserve"><value>No restore source specified.</value></data>
+  <data name="Svc_PassphraseTicketEmpty" xml:space="preserve"><value>Empty passphrase ticket.</value></data>
+  <data name="Svc_PassphraseTicketExpired" xml:space="preserve"><value>Passphrase expired — please try again.</value></data>
+  <data name="Svc_PassphraseTicketInvalid" xml:space="preserve"><value>Passphrase ticket is invalid.</value></data>
+  <data name="Svc_JobNotFoundOrNoCancelRights" xml:space="preserve"><value>Job not found, or you have no rights to cancel it.</value></data>
+  <data name="Svc_JobNotFound" xml:space="preserve"><value>Job not found.</value></data>
+  <data name="Svc_ScheduleNotFound" xml:space="preserve"><value>Schedule not found.</value></data>
+  <data name="Svc_ScheduleOwnedByAnother" xml:space="preserve"><value>This schedule was created by another user.</value></data>
+  <data name="Svc_EncryptedScheduleOwnerOnly" xml:space="preserve"><value>Only the owner can run an encrypted schedule.</value></data>
+  <data name="Svc_SchedulePassphraseDecryptFailed" xml:space="preserve"><value>Could not decrypt the schedule passphrase (machine key unavailable or passphrase corrupted).</value></data>
+  <data name="Svc_PassphraseEmpty" xml:space="preserve"><value>Empty passphrase.</value></data>
+  <data name="Svc_OnlyDeclarativeModuleSupported" xml:space="preserve"><value>Only declarative module installation is supported (DeclarativeJson).</value></data>
+  <data name="Svc_ModuleParseFailed" xml:space="preserve"><value>Could not parse the module.</value></data>
+  <data name="Svc_ModuleInvalidIdOrFormat" xml:space="preserve"><value>Invalid module id or format.</value></data>
+  <data name="Svc_FolderPathEmpty" xml:space="preserve"><value>Empty folder path.</value></data>
+  <data name="Svc_StorageNotFound" xml:space="preserve"><value>Storage not found.</value></data>
+  <data name="Svc_StorageIdEmpty" xml:space="preserve"><value>Empty storage id.</value></data>
+  <data name="Svc_StorageToTestMissing" xml:space="preserve"><value>No storage specified to test.</value></data>
+  <data name="Svc_ScheduleIdEmpty" xml:space="preserve"><value>Empty schedule id.</value></data>
+  <data name="Svc_ScheduleNameEmpty" xml:space="preserve"><value>Empty schedule name.</value></data>
+  <data name="Svc_ArchiveReadSessionNotFound" xml:space="preserve"><value>Archive read session not found.</value></data>
+  <data name="Svc_BackupCancelledEncryptionNoPassphrase" xml:space="preserve"><value>Backup cancelled: encryption was requested, but no passphrase is available.</value></data>
+  <data name="Svc_EncryptionRequestedNoPassphrase" xml:space="preserve"><value>Encryption was requested, but no passphrase is available.</value></data>
+  <data name="Svc_BackupCancelledNothingSelected" xml:space="preserve"><value>Backup cancelled: no modules or folders selected.</value></data>
+  <data name="Svc_NothingSelected" xml:space="preserve"><value>No modules or folders selected.</value></data>
+  <data name="Svc_RunStart" xml:space="preserve"><value>Started: {0}</value></data>
+  <data name="Svc_BackupContents" xml:space="preserve"><value>In backup: {0}</value></data>
+  <data name="Svc_ArchiveBuilt" xml:space="preserve"><value>Archive built: {0} — {1} MB, files skipped: {2}</value></data>
+  <data name="Svc_NoStoragesSavedLocally" xml:space="preserve"><value>No storages selected — archive saved locally.</value></data>
+  <data name="Svc_StoragesMissingInConfig" xml:space="preserve"><value>⚠ Storages skipped (not found in service config): {0}</value></data>
+  <data name="Svc_TargetUploading" xml:space="preserve"><value>“{0}”: uploading…</value></data>
+  <data name="Svc_NotEnoughSpace" xml:space="preserve"><value>not enough space: need {0} MB, free {1} MB</value></data>
+  <data name="Svc_VerifyFileNotListed" xml:space="preserve"><value>verification: file did not appear in the listing after upload</value></data>
+  <data name="Svc_VerifySizeMismatch" xml:space="preserve"><value>verification: size mismatch (local {0} B, storage {1} B)</value></data>
+  <data name="Svc_VerifyShaMismatch" xml:space="preserve"><value>verification: copy SHA-256 does not match the archive</value></data>
+  <data name="Svc_VerifyShaOk" xml:space="preserve"><value>“{0}”: verification ✓ copy SHA-256 matches</value></data>
+  <data name="Svc_VerifySizeOk" xml:space="preserve"><value>“{0}”: verification ✓ size matches ({1} MB)</value></data>
+  <data name="Svc_VerifySizeUnknown" xml:space="preserve"><value>“{0}”: verification — storage does not report size, check skipped</value></data>
+  <data name="Svc_RetentionDeleted" xml:space="preserve"><value>“{0}”: retention (group {1}) — deleted {2}</value></data>
+  <data name="Svc_TargetFailed" xml:space="preserve"><value>“{0}”: ✕ {1}</value></data>
+  <data name="Svc_DoneTargets" xml:space="preserve"><value>Done → {0}</value></data>
+  <data name="Svc_FinishedWithErrors" xml:space="preserve"><value>Finished with errors: {0}</value></data>
+  <data name="Svc_BackupCancelledCleanup" xml:space="preserve"><value>⏹ Cancelled — temporary build files removed.</value></data>
+  <data name="Svc_RestoreCancelledDecryptNoPassphrase" xml:space="preserve"><value>Restore cancelled: decryption was requested, but no passphrase is available.</value></data>
+  <data name="Svc_OriginalLocations" xml:space="preserve"><value>original locations</value></data>
+  <data name="Svc_RestoreLine" xml:space="preserve"><value>Restore: {0} → {1} · conflict mode: {2}</value></data>
+  <data name="Svc_SourceStorageNotFound" xml:space="preserve"><value>Source storage not found.</value></data>
+  <data name="Svc_ArchiveProbeFailed" xml:space="preserve"><value>Archive probe failed: {0} — continuing the full way.</value></data>
+  <data name="Svc_WrongPassphraseNoDownload" xml:space="preserve"><value>✕ Wrong passphrase — archive was not downloaded.</value></data>
+  <data name="Svc_WrongPassphrase" xml:space="preserve"><value>Wrong passphrase.</value></data>
+  <data name="Svc_ArchiveFetched" xml:space="preserve"><value>Archive fetched: {0:0.#} MB</value></data>
+  <data name="Svc_RestoreSkippedFiles" xml:space="preserve"><value>⚠ Skipped files in use / inaccessible: {0}. Close the programs using them and retry if needed.</value></data>
+  <data name="Svc_Done" xml:space="preserve"><value>Done.</value></data>
+  <data name="Svc_JobKindUnavailable" xml:space="preserve"><value>This job type is not available in the service.</value></data>
+  <data name="Svc_TriggerManual" xml:space="preserve"><value>manual</value></data>
+  <data name="Svc_TriggerSchedule" xml:space="preserve"><value>by schedule “{0}”</value></data>
+  <data name="Svc_InterruptedServiceRestarted" xml:space="preserve"><value>Interrupted: the service was restarted.</value></data>
+  <data name="Stg_FolderWritable" xml:space="preserve"><value>Folder is writable: {0}</value></data>
+  <data name="Stg_S3BucketOk" xml:space="preserve"><value>Bucket “{0}” is available.</value></data>
+  <data name="Stg_WebDavOk" xml:space="preserve"><value>WebDAV is available: {0}</value></data>
+  <data name="Stg_GDriveReady" xml:space="preserve"><value>Google Drive: folder “{0}” is ready.</value></data>
+  <data name="Stg_DropboxOk" xml:space="preserve"><value>Dropbox: app folder is available.</value></data>
+  <data name="Stg_MegaOk" xml:space="preserve"><value>MEGA is available, folder “{0}”.</value></data>
+  <data name="Stg_FtpOk" xml:space="preserve"><value>Connected successfully ({0}).</value></data>
+  <data name="Stg_SftpOk" xml:space="preserve"><value>Connected successfully. Working directory: {0}</value></data>
+  <data name="Stg_GoogleNotSignedIn" xml:space="preserve"><value>Not signed in to Google — open the storage and sign in.</value></data>
+  <data name="Stg_GoogleNoRefreshToken" xml:space="preserve"><value>Google did not return a refresh token. Revoke eBackup access at myaccount.google.com/permissions and sign in again.</value></data>
+  <data name="Stg_DropboxNotSignedIn" xml:space="preserve"><value>Not signed in to Dropbox — open the storage and sign in.</value></data>
+  <data name="Stg_MegaNotConnected" xml:space="preserve"><value>MEGA is not connected — sign in to your account in the storage settings.</value></data>
+  <data name="Stg_SftpNeedAuth" xml:space="preserve"><value>SFTP requires a password or a private key.</value></data>
+  <data name="Stg_OAuthPortBusy" xml:space="preserve"><value>Port {0} is already in use (a previous sign-in attempt may still be waiting, or a second copy of eBackup is running). Try again in a minute.</value></data>
+  <data name="Stg_OAuthTimeout" xml:space="preserve"><value>Sign-in was not confirmed in the browser (3-minute timeout).</value></data>
+  <data name="Stg_OAuthStaleTabTitle" xml:space="preserve"><value>Outdated sign-in tab</value></data>
+  <data name="Stg_OAuthStaleTabBody" xml:space="preserve"><value>Close it and confirm sign-in in the most recently opened tab.</value></data>
+  <data name="Stg_OAuthGenericAccount" xml:space="preserve"><value>Account</value></data>
+  <data name="Stg_OAuthProviderAccount" xml:space="preserve"><value>{0} account</value></data>
+  <data name="Stg_OAuthFailedTitle" xml:space="preserve"><value>Sign-in failed</value></data>
+  <data name="Stg_OAuthFailedBody" xml:space="preserve"><value>Authorization was rejected — return to eBackup and try again. You can close this tab.</value></data>
+  <data name="Stg_OAuthDoneTitle" xml:space="preserve"><value>Done!</value></data>
+  <data name="Stg_OAuthDoneBody" xml:space="preserve"><value>{0} is connected to eBackup. You can close this tab.</value></data>
+  <data name="Stg_OAuthRejected" xml:space="preserve"><value>Authorization rejected: {0}</value></data>
+  <data name="Stg_OAuthNoCode" xml:space="preserve"><value>no code received</value></data>
+  <data name="Stg_OAuthPageTitle" xml:space="preserve"><value>eBackup — sign-in</value></data>
+  <data name="Stg_OAuthTagline" xml:space="preserve"><value>backups that move with you</value></data>
 </root>

@@ -2,6 +2,7 @@ using Amazon.Runtime;
 using Amazon.S3;
 using Amazon.S3.Model;
 using eBackup.Core.Security;
+using eBackup.Localization;
 using eBackup.Storage.Sftp;
 
 namespace eBackup.Storage;
@@ -152,7 +153,7 @@ public sealed class S3Storage(SavedStorage config, ISecretProtector protector)
                 Prefix = Prefix,
                 MaxKeys = 1
             }, ct).ConfigureAwait(false);
-            return ConnectionTestResult.Ok($"Бакет «{Bucket}» доступен.");
+            return ConnectionTestResult.Ok(L.Get("Stg_S3BucketOk", Bucket));
         }
         catch (Exception ex)
         {

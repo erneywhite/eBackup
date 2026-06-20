@@ -1,4 +1,5 @@
 using System.Text.Json;
+using eBackup.Localization;
 using eBackup.Platform;
 
 namespace eBackup.Core.History;
@@ -92,7 +93,7 @@ public sealed class HistoryStore
         }
         catch (Exception ex)
         {
-            return "не удалось прочитать лог: " + ex.Message;
+            return L.Get("Core_LogReadFailed", ex.Message);
         }
     }
 

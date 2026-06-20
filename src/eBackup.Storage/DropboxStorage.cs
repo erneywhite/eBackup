@@ -3,6 +3,7 @@ using System.Net.Http.Headers;
 using System.Text;
 using System.Text.Json;
 using eBackup.Core.Security;
+using eBackup.Localization;
 using eBackup.Storage.Cloud;
 using eBackup.Storage.Sftp;
 
@@ -207,7 +208,7 @@ public sealed class DropboxStorage(SavedStorage config, ISecretProtector protect
 
             await RpcAsync("https://api.dropboxapi.com/2/files/list_folder",
                 new { path = Prefix, limit = 1 }, ct).ConfigureAwait(false);
-            return ConnectionTestResult.Ok("Dropbox: папка приложения доступна.");
+            return ConnectionTestResult.Ok(L.Get("Stg_DropboxOk"));
         }
         catch (Exception ex)
         {
@@ -222,7 +223,7 @@ public sealed class DropboxStorage(SavedStorage config, ISecretProtector protect
         if (_accessToken is null)
         {
             var refreshToken = protector.Unprotect(config.ProtectedOAuthToken
-                ?? throw new InvalidOperationException("Не выполнен вход в Dropbox — открой хранилище и войди."));
+                ?? throw new InvalidOperationException(L.Get("Stg_DropboxNotSignedIn")));
 
             using var response = await Http.PostAsync(TokenEndpoint, new FormUrlEncodedContent(
                 new Dictionary<string, string>

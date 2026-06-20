@@ -2,6 +2,7 @@ using System.Collections.Concurrent;
 using System.Security.Cryptography;
 using System.Threading.Channels;
 using eBackup.Ipc.Contracts;
+using eBackup.Localization;
 
 namespace eBackup.Service.Jobs;
 
@@ -43,7 +44,7 @@ public sealed class JobManager : IAsyncDisposable
             JobId = "job-" + Guid.NewGuid().ToString("N"),
             RunId = runId,
             OwnerSid = ownerSid,
-            Trigger = string.IsNullOrEmpty(req.Trigger) ? "вручную" : req.Trigger,
+            Trigger = string.IsNullOrEmpty(req.Trigger) ? L.Get("Svc_TriggerManual") : req.Trigger,
             Origin = origin,
             Kind = JobKind.Backup,
             Request = req,
@@ -64,7 +65,7 @@ public sealed class JobManager : IAsyncDisposable
             JobId = "job-" + Guid.NewGuid().ToString("N"),
             RunId = runId,
             OwnerSid = ownerSid,
-            Trigger = string.IsNullOrEmpty(req.Trigger) ? "вручную" : req.Trigger,
+            Trigger = string.IsNullOrEmpty(req.Trigger) ? L.Get("Svc_TriggerManual") : req.Trigger,
             Origin = origin,
             Kind = JobKind.Restore,
             Restore = req,
@@ -127,7 +128,7 @@ public sealed class JobManager : IAsyncDisposable
                 var runner = job.Kind == JobKind.Restore ? _restoreRunner : _runner;
                 if (runner is null)
                 {
-                    Finish(job, JobState.Failed, new JobOutcome(false, 0, 0, null, "Этот тип задачи в службе недоступен."));
+                    Finish(job, JobState.Failed, new JobOutcome(false, 0, 0, null, L.Get("Svc_JobKindUnavailable")));
                     continue;
                 }
 

@@ -1,5 +1,6 @@
 using System.Text.Json;
 using eBackup.Core.Abstractions;
+using eBackup.Localization;
 
 namespace eBackup.Core.Modules;
 
@@ -91,7 +92,7 @@ public sealed class ModuleRegistry(IReadOnlyList<IModuleSource> sources, string?
                     DisplayName = source.Kind.ToString(),
                     Source = source.Kind,
                     Trust = ModuleTrust.Blocked,
-                    Problem = $"Источник не загрузился: {ex.Message}"
+                    Problem = L.Get("Core_SourceLoadFailed", ex.Message)
                 });
                 continue;
             }
@@ -101,7 +102,7 @@ public sealed class ModuleRegistry(IReadOnlyList<IModuleSource> sources, string?
                 var withEnabled = d with { Enabled = !disabled.Contains(d.Id) };
                 result.Add(seen.Add(d.Id)
                     ? withEnabled
-                    : withEnabled with { Trust = ModuleTrust.Blocked, Problem = $"id '{d.Id}' уже занят модулем с более высоким приоритетом" });
+                    : withEnabled with { Trust = ModuleTrust.Blocked, Problem = L.Get("Core_IdTakenByHigherPriority", d.Id) });
             }
         }
 

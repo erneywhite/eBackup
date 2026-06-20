@@ -59,16 +59,16 @@ public sealed class RestoreRunner : IJobRunner
         // Fail-closed: затребована расшифровка, но фразы нет → не запускаем restore без неё.
         if (job.RequiresEncryption && (job.ResolvedPassphrase is null || job.ResolvedPassphrase.Length == 0))
         {
-            Log("Восстановление отменено: затребована расшифровка, но парольная фраза недоступна.");
-            return new JobOutcome(false, 0, 0, r.RemoteName, "Шифрование затребовано, но парольная фраза недоступна.");
+            Log(L.Get("Svc_RestoreCancelledDecryptNoPassphrase"));
+            return new JobOutcome(false, 0, 0, r.RemoteName, L.Get("Svc_EncryptionRequestedNoPassphrase"));
         }
 
-        var targetLabel = r.TargetDir ?? "исходные места";
-        Log($"Запуск: {job.Trigger}");
-        Log($"Восстановление: {r.RemoteName} → {targetLabel} · режим конфликтов: {r.Policy}");
+        var targetLabel = r.TargetDir ?? L.Get("Svc_OriginalLocations");
+        Log(L.Get("Svc_RunStart", job.Trigger));
+        Log(L.Get("Svc_RestoreLine", r.RemoteName, targetLabel, r.Policy));
 
         var saved = (await _storages.LoadAsync(ct).ConfigureAwait(false)).FirstOrDefault(s => s.Id == r.SourceStorageId)
-            ?? throw new InvalidOperationException("Хранилище-источник не найдено.");
+            ?? throw new InvalidOperationException(L.Get("Svc_SourceStorageNotFound"));
         var storage = StorageFactory.Create(saved, _storages.Protector);
 
         // Своя папка на прогон: и скачанный архив, и расшифрованный plaintext лежат тут и зачищаются целиком.
@@ -89,19 +89,19 @@ public sealed class RestoreRunner : IJobRunner
                     head = await seekable.OpenSeekableReadAsync(r.RemoteName, ct).ConfigureAwait(false);
                     ok = await ArchiveCipher.VerifyPassphraseAsync(head, passphrase, ct).ConfigureAwait(false);
                 }
-                catch (InvalidDataException ex) { Log("Проба архива не удалась: " + ex.Message + " — продолжаю полным путём."); }
+                catch (InvalidDataException ex) { Log(L.Get("Svc_ArchiveProbeFailed", ex.Message)); }
                 finally { if (head is not null) await head.DisposeAsync().ConfigureAwait(false); }
 
                 if (!ok)
                 {
-                    Log("✕ Неверная парольная фраза — архив не скачивался.");
-                    return new JobOutcome(false, 0, 0, r.RemoteName, "Неверная парольная фраза.");
+                    Log(L.Get("Svc_WrongPassphraseNoDownload"));
+                    return new JobOutcome(false, 0, 0, r.RemoteName, L.Get("Svc_WrongPassphrase"));
                 }
             }
 
             sink.Phase(L.Get("Phase_Downloading", r.RemoteName, saved.Name), 0);
             await storage.DownloadAsync(r.RemoteName, temp, ct).ConfigureAwait(false);
-            Log($"Архив получен: {new FileInfo(temp).Length / 1024.0 / 1024.0:0.#} МБ");
+            Log(L.Get("Svc_ArchiveFetched", new FileInfo(temp).Length / 1024.0 / 1024.0));
 
             var policy = Enum.TryParse<ConflictPolicy>(r.Policy, out var p) ? p : ConflictPolicy.BackupExisting;
             var resolveDest = new UserProfilePaths(job.OwnerSid).Resolve; // запись в профиль ВЫЗВАВШЕГО (per-SID)
@@ -123,8 +123,8 @@ public sealed class RestoreRunner : IJobRunner
 
             var skipped = engine.LastRestoreSkippedCount; // занятые/недоступные файлы → «с ошибками», не провал
             if (skipped > 0)
-                Log($"⚠ Пропущено занятых/недоступных файлов: {skipped}. Закрой использующие их программы и повтори при необходимости.");
-            Log("Готово.");
+                Log(L.Get("Svc_RestoreSkippedFiles", skipped));
+            Log(L.Get("Svc_Done"));
             return new JobOutcome(true, skipped, 0, r.RemoteName, null);
         }
         finally

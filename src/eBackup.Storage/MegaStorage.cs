@@ -1,5 +1,6 @@
 using CG.Web.MegaApiClient;
 using eBackup.Core.Security;
+using eBackup.Localization;
 using eBackup.Storage.Sftp; // RemoteFileInfo, ConnectionTestResult
 
 namespace eBackup.Storage;
@@ -24,7 +25,7 @@ public sealed class MegaStorage(SavedStorage config, ISecretProtector protector)
     private async Task<MegaApiClient> LoginAsync()
     {
         if (config.ProtectedOAuthToken is null)
-            throw new InvalidOperationException("MEGA не подключена — войди в аккаунт в настройках хранилища.");
+            throw new InvalidOperationException(L.Get("Stg_MegaNotConnected"));
         var token = MegaSession.Deserialize(protector.Unprotect(config.ProtectedOAuthToken));
         var client = new MegaApiClient();
         await client.LoginAsync(token).ConfigureAwait(false);
@@ -88,7 +89,7 @@ public sealed class MegaStorage(SavedStorage config, ISecretProtector protector)
         {
             var client = await LoginAsync().ConfigureAwait(false);
             await EnsureFolderAsync(client, create: true).ConfigureAwait(false);
-            return ConnectionTestResult.Ok($"MEGA доступна, папка «{FolderName}».");
+            return ConnectionTestResult.Ok(L.Get("Stg_MegaOk", FolderName));
         }
         catch (Exception ex)
         {

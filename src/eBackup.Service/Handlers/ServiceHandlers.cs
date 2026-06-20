@@ -6,6 +6,7 @@ using eBackup.Core.Modules;
 using eBackup.Core.Scheduling;
 using eBackup.Ipc.Contracts;
 using eBackup.Ipc.Server;
+using eBackup.Localization;
 using eBackup.Platform;
 using eBackup.Service.Jobs;
 using eBackup.Storage;
@@ -79,7 +80,7 @@ public sealed class ServiceHandlers : IIpcHandlers
     public Task<StartBackupResponse> StartRestoreAsync(StartRestoreRequest req, CallerContext caller, CancellationToken ct)
     {
         if (string.IsNullOrWhiteSpace(req.SourceStorageId) || string.IsNullOrWhiteSpace(req.RemoteName))
-            throw new IpcFaultException(IpcErrorCodes.BadRequest, "Не указан источник восстановления.");
+            throw new IpcFaultException(IpcErrorCodes.BadRequest, L.Get("Svc_RestoreSourceMissing"));
         var (passphrase, requires) = ResolvePassphrase(req.Passphrase, caller);
         if (requires) req = req with { Passphrase = null };
         var job = _jobs.EnqueueRestore(req, caller.OwnerSid, resolvedPassphrase: passphrase, requiresEncryption: requires);
@@ -95,22 +96,22 @@ public sealed class ServiceHandlers : IIpcHandlers
         if (reference is null || reference.Kind != "ticket")
             return (null, false);
         if (string.IsNullOrEmpty(reference.Ticket))
-            throw new IpcFaultException(IpcErrorCodes.PassphraseTicketInvalid, "Пустой тикет парольной фразы.");
+            throw new IpcFaultException(IpcErrorCodes.PassphraseTicketInvalid, L.Get("Svc_PassphraseTicketEmpty"));
 
         var (result, bytes) = _vault.Consume(reference.Ticket, caller.OwnerSid, DateTimeOffset.Now);
         return result switch
         {
             PassphraseVault.TicketResult.Ok => (bytes, true),
             PassphraseVault.TicketResult.Expired =>
-                throw new IpcFaultException(IpcErrorCodes.PassphraseTicketExpired, "Срок действия парольной фразы истёк — повторите."),
-            _ => throw new IpcFaultException(IpcErrorCodes.PassphraseTicketInvalid, "Тикет парольной фразы недействителен."),
+                throw new IpcFaultException(IpcErrorCodes.PassphraseTicketExpired, L.Get("Svc_PassphraseTicketExpired")),
+            _ => throw new IpcFaultException(IpcErrorCodes.PassphraseTicketInvalid, L.Get("Svc_PassphraseTicketInvalid")),
         };
     }
 
     public Task<Ack> CancelJobAsync(CancelJobRequest req, CallerContext caller, CancellationToken ct)
     {
         if (!_jobs.Cancel(req.JobId, caller.OwnerSid, caller.IsAdmin))
-            throw new IpcFaultException(IpcErrorCodes.NotFound, "Задача не найдена или нет прав на отмену.");
+            throw new IpcFaultException(IpcErrorCodes.NotFound, L.Get("Svc_JobNotFoundOrNoCancelRights"));
         return Task.FromResult(new Ack());
     }
 
@@ -118,7 +119,7 @@ public sealed class ServiceHandlers : IIpcHandlers
     {
         var job = _jobs.Get(req.JobId);
         if (job is null || (!caller.IsAdmin && job.OwnerSid != caller.OwnerSid))
-            throw new IpcFaultException(IpcErrorCodes.NotFound, "Задача не найдена.");
+            throw new IpcFaultException(IpcErrorCodes.NotFound, L.Get("Svc_JobNotFound"));
         return Task.FromResult(JobMapping.ToStatus(job));
     }
 
@@ -129,13 +130,13 @@ public sealed class ServiceHandlers : IIpcHandlers
     public async Task<StartBackupResponse> RunScheduleNowAsync(RunScheduleNowRequest req, CallerContext caller, CancellationToken ct)
     {
         var s = (await _schedules.LoadAsync(ct).ConfigureAwait(false)).FirstOrDefault(x => x.Id == req.ScheduleId)
-            ?? throw new IpcFaultException(IpcErrorCodes.NotFound, "Расписание не найдено.");
+            ?? throw new IpcFaultException(IpcErrorCodes.NotFound, L.Get("Svc_ScheduleNotFound"));
         if (!CanManage(s, caller))
-            throw new IpcFaultException(IpcErrorCodes.NotOwner, "Это расписание создано другим пользователем.");
+            throw new IpcFaultException(IpcErrorCodes.NotOwner, L.Get("Svc_ScheduleOwnedByAnother"));
 
         // ЗАШИФРОВАННОЕ run-now — строго владелец (фраза принадлежит ему; CanManage пускает и бесхозные/админа).
         if (s.ProtectedPassphrase is not null && (string.IsNullOrEmpty(s.OwnerSid) || s.OwnerSid != caller.OwnerSid))
-            throw new IpcFaultException(IpcErrorCodes.NotOwner, "Зашифрованное расписание может запустить только его владелец.");
+            throw new IpcFaultException(IpcErrorCodes.NotOwner, L.Get("Svc_EncryptedScheduleOwnerOnly"));
 
         // Запускаем под профилем ВЛАДЕЛЬЦА (per-SID резолв; для бесхозного незашифрованного — вызывающий),
         // тем же путём, что и таймер (без дрейфа). Зашифрованную фразу служба расшифрует машинным ключом.
@@ -148,7 +149,7 @@ public sealed class ServiceHandlers : IIpcHandlers
         {
             // Машинный ключ недоступен/сменился ИЛИ повреждён блоб фразы — оба фейл-клоузед, внятный код вместо Internal.
             throw new IpcFaultException(IpcErrorCodes.SecretUnavailable,
-                "Не удалось расшифровать парольную фразу расписания (машинный ключ недоступен или фраза повреждена).");
+                L.Get("Svc_SchedulePassphraseDecryptFailed"));
         }
         return new StartBackupResponse { JobId = job.JobId, RunId = job.RunId, Position = _jobs.Position(job) };
     }
@@ -156,7 +157,7 @@ public sealed class ServiceHandlers : IIpcHandlers
     public Task<StashPassphraseResponse> StashPassphraseAsync(StashPassphraseRequest req, CallerContext caller, CancellationToken ct)
     {
         if (string.IsNullOrEmpty(req.Plaintext))
-            throw new IpcFaultException(IpcErrorCodes.BadRequest, "Пустая парольная фраза.");
+            throw new IpcFaultException(IpcErrorCodes.BadRequest, L.Get("Svc_PassphraseEmpty"));
 
         var bytes = Encoding.UTF8.GetBytes(req.Plaintext); // string→byte[]; string-копию занулить нельзя (остаточный риск)
         try
@@ -224,13 +225,13 @@ public sealed class ServiceHandlers : IIpcHandlers
         // Декларативный модуль: GUI присылает уже скачанный JSON (каталог/импорт), служба валидирует
         // и пишет в свою папку модулей (ProgramData). CatalogRef-скачивание службой — не делаем (у GUI сеть).
         if (string.IsNullOrWhiteSpace(req.DeclarativeJson))
-            throw new IpcFaultException(IpcErrorCodes.Unsupported, "Поддерживается только установка декларативного модуля (DeclarativeJson).");
+            throw new IpcFaultException(IpcErrorCodes.Unsupported, L.Get("Svc_OnlyDeclarativeModuleSupported"));
 
         DeclarativeModuleJson? parsed;
         try { parsed = JsonSerializer.Deserialize<DeclarativeModuleJson>(req.DeclarativeJson, ManifestJson.Options); }
-        catch { throw new IpcFaultException(IpcErrorCodes.BadRequest, "Не удалось разобрать модуль."); }
+        catch { throw new IpcFaultException(IpcErrorCodes.BadRequest, L.Get("Svc_ModuleParseFailed")); }
         if (parsed is null || !ModuleValidation.IsValidId(parsed.Id))
-            throw new IpcFaultException(IpcErrorCodes.BadRequest, "Некорректный id или формат модуля.");
+            throw new IpcFaultException(IpcErrorCodes.BadRequest, L.Get("Svc_ModuleInvalidIdOrFormat"));
 
         Directory.CreateDirectory(_modulesDir);
         File.WriteAllText(Path.Combine(_modulesDir, parsed.Id + ".module.json"), req.DeclarativeJson);
@@ -255,7 +256,7 @@ public sealed class ServiceHandlers : IIpcHandlers
     public Task<Ack> UpsertCustomFolderAsync(UpsertCustomFolderRequest req, CallerContext caller, CancellationToken ct)
     {
         if (string.IsNullOrWhiteSpace(req.Path))
-            throw new IpcFaultException(IpcErrorCodes.BadRequest, "Пустой путь папки.");
+            throw new IpcFaultException(IpcErrorCodes.BadRequest, L.Get("Svc_FolderPathEmpty"));
         _folders.Upsert(req.Path);
         return Task.FromResult(new Ack());
     }
@@ -277,14 +278,14 @@ public sealed class ServiceHandlers : IIpcHandlers
     public async Task<StorageDetail> GetStorageAsync(GetStorageRequest req, CallerContext caller, CancellationToken ct)
     {
         var s = (await _storages.LoadAsync(ct).ConfigureAwait(false)).FirstOrDefault(x => x.Id == req.Id)
-            ?? throw new IpcFaultException(IpcErrorCodes.NotFound, "Хранилище не найдено.");
+            ?? throw new IpcFaultException(IpcErrorCodes.NotFound, L.Get("Svc_StorageNotFound"));
         return StorageInputMapper.ToDetail(s); // только несекретные поля + имена присутствующих секретов
     }
 
     public async Task<Ack> UpsertStorageAsync(StorageInput req, CallerContext caller, CancellationToken ct)
     {
         if (string.IsNullOrWhiteSpace(req.Id))
-            throw new IpcFaultException(IpcErrorCodes.BadRequest, "Пустой id хранилища.");
+            throw new IpcFaultException(IpcErrorCodes.BadRequest, L.Get("Svc_StorageIdEmpty"));
 
         var list = (await _storages.LoadAsync(ct).ConfigureAwait(false)).ToList();
         var existing = list.FirstOrDefault(s => s.Id == req.Id); // не теряем секрет при правке без его ввода
@@ -309,12 +310,12 @@ public sealed class ServiceHandlers : IIpcHandlers
         SavedStorage saved;
         if (!string.IsNullOrEmpty(req.StorageId))
             saved = list.FirstOrDefault(s => s.Id == req.StorageId)
-                ?? throw new IpcFaultException(IpcErrorCodes.NotFound, "Хранилище не найдено.");
+                ?? throw new IpcFaultException(IpcErrorCodes.NotFound, L.Get("Svc_StorageNotFound"));
         else if (req.Inline is { } inline)
             // тест ещё несохранённого: «оставленные» секреты берём из уже сохранённого с тем же id
             saved = StorageInputMapper.ToSavedStorage(inline, _storages, list.FirstOrDefault(s => s.Id == inline.Id));
         else
-            throw new IpcFaultException(IpcErrorCodes.BadRequest, "Не указано хранилище для проверки.");
+            throw new IpcFaultException(IpcErrorCodes.BadRequest, L.Get("Svc_StorageToTestMissing"));
 
         var result = await StorageFactory.Create(saved, _storages.Protector).TestAsync(ct).ConfigureAwait(false);
         long? free = null;
@@ -327,7 +328,7 @@ public sealed class ServiceHandlers : IIpcHandlers
     {
         // Листинг архивов ИЗ СЛУЖБЫ: у GUI нет секрета хранилища (он под машинным ключом).
         var saved = (await _storages.LoadAsync(ct).ConfigureAwait(false)).FirstOrDefault(s => s.Id == req.StorageId)
-            ?? throw new IpcFaultException(IpcErrorCodes.NotFound, "Хранилище не найдено.");
+            ?? throw new IpcFaultException(IpcErrorCodes.NotFound, L.Get("Svc_StorageNotFound"));
         var storage = StorageFactory.Create(saved, _storages.Protector);
         var files = await storage.ListDetailedAsync(ct).ConfigureAwait(false);
 
@@ -353,7 +354,7 @@ public sealed class ServiceHandlers : IIpcHandlers
     public async Task<Ack> DeleteArchiveAsync(DeleteArchiveRequest req, CallerContext caller, CancellationToken ct)
     {
         var saved = (await _storages.LoadAsync(ct).ConfigureAwait(false)).FirstOrDefault(s => s.Id == req.StorageId)
-            ?? throw new IpcFaultException(IpcErrorCodes.NotFound, "Хранилище не найдено.");
+            ?? throw new IpcFaultException(IpcErrorCodes.NotFound, L.Get("Svc_StorageNotFound"));
         await StorageFactory.Create(saved, _storages.Protector).DeleteAsync(req.RemoteName, ct).ConfigureAwait(false);
         return new Ack();
     }
@@ -389,14 +390,14 @@ public sealed class ServiceHandlers : IIpcHandlers
     public async Task<Ack> UpsertScheduleAsync(ScheduleInput req, CallerContext caller, CancellationToken ct)
     {
         if (string.IsNullOrWhiteSpace(req.Id))
-            throw new IpcFaultException(IpcErrorCodes.BadRequest, "Пустой id расписания.");
+            throw new IpcFaultException(IpcErrorCodes.BadRequest, L.Get("Svc_ScheduleIdEmpty"));
         if (string.IsNullOrWhiteSpace(req.Name))
-            throw new IpcFaultException(IpcErrorCodes.BadRequest, "Пустое имя расписания.");
+            throw new IpcFaultException(IpcErrorCodes.BadRequest, L.Get("Svc_ScheduleNameEmpty"));
 
         var list = (await _schedules.LoadAsync(ct).ConfigureAwait(false)).ToList();
         var existing = list.FirstOrDefault(s => s.Id == req.Id);
         if (existing is not null && !CanManage(existing, caller))
-            throw new IpcFaultException(IpcErrorCodes.NotOwner, "Это расписание создано другим пользователем.");
+            throw new IpcFaultException(IpcErrorCodes.NotOwner, L.Get("Svc_ScheduleOwnedByAnother"));
 
         var mapped = ScheduleInputMapper.ToSchedule(req, _schedules, existing, caller.OwnerSid);
         if (existing is null)
@@ -421,7 +422,7 @@ public sealed class ServiceHandlers : IIpcHandlers
         if (existing is null)
             return new Ack(); // нечего удалять — идемпотентно
         if (!CanManage(existing, caller))
-            throw new IpcFaultException(IpcErrorCodes.NotOwner, "Это расписание создано другим пользователем.");
+            throw new IpcFaultException(IpcErrorCodes.NotOwner, L.Get("Svc_ScheduleOwnedByAnother"));
 
         list.RemoveAll(s => s.Id == req.Id);
         await _schedules.SaveAllAsync(list, ct).ConfigureAwait(false);

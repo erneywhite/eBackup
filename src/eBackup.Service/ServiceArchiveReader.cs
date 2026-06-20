@@ -1,6 +1,7 @@
 using System.Collections.Concurrent;
 using eBackup.Ipc.Contracts;
 using eBackup.Ipc.Server;
+using eBackup.Localization;
 using eBackup.Storage;
 
 namespace eBackup.Service;
@@ -27,7 +28,7 @@ public sealed class ServiceArchiveReader(StorageStore storages) : IArchiveReader
     public async Task<OpenArchiveReadResponse> OpenAsync(OpenArchiveReadRequest req, CallerContext caller, CancellationToken ct)
     {
         var saved = (await storages.LoadAsync(ct).ConfigureAwait(false)).FirstOrDefault(s => s.Id == req.StorageId)
-            ?? throw new IpcFaultException(IpcErrorCodes.NotFound, "Хранилище не найдено.");
+            ?? throw new IpcFaultException(IpcErrorCodes.NotFound, L.Get("Svc_StorageNotFound"));
         var storage = StorageFactory.Create(saved, storages.Protector);
 
         Stream stream;
@@ -57,7 +58,7 @@ public sealed class ServiceArchiveReader(StorageStore storages) : IArchiveReader
     public async Task<byte[]> ReadAsync(string handle, long offset, int count, CancellationToken ct)
     {
         if (!_open.TryGetValue(handle, out var s))
-            throw new IpcFaultException(IpcErrorCodes.NotFound, "Сессия чтения архива не найдена.");
+            throw new IpcFaultException(IpcErrorCodes.NotFound, L.Get("Svc_ArchiveReadSessionNotFound"));
 
         count = Math.Clamp(count, 0, MaxChunk);
         if (count == 0) return [];

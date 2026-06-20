@@ -4,6 +4,7 @@ using System.Net.Http.Headers;
 using System.Text;
 using System.Xml.Linq;
 using eBackup.Core.Security;
+using eBackup.Localization;
 using eBackup.Storage.Sftp;
 
 namespace eBackup.Storage;
@@ -168,7 +169,7 @@ public sealed class WebDavStorage(SavedStorage config, ISecretProtector protecto
             request.Headers.Add("Depth", "0");
             using var response = await Http.SendAsync(request, ct).ConfigureAwait(false);
             response.EnsureSuccessStatusCode();
-            return ConnectionTestResult.Ok($"WebDAV доступен: {FolderUri}");
+            return ConnectionTestResult.Ok(L.Get("Stg_WebDavOk", FolderUri));
         }
         catch (Exception ex)
         {

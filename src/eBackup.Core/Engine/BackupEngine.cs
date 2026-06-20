@@ -67,7 +67,7 @@ public sealed class BackupEngine
             }
         };
 
-        log?.Invoke($"Сборка ZIP: {buildPath} · сжатие: {DescribeCompression(compression)}");
+        log?.Invoke(L.Get("Core_BuildingZip", buildPath, DescribeCompression(compression)));
 
         var skippedFiles = 0;   // нечитаемые/занятые файлы пропускаем, не валя весь бэкап
         using (var zip = ZipFile.Open(buildPath, ZipArchiveMode.Create))
@@ -95,11 +95,11 @@ public sealed class BackupEngine
                 catch (Exception ex)
                 {
                     Console.Error.WriteLine($"[eBackup] модуль '{module.Id}' пропущен (ошибка обнаружения): {ex.Message}");
-                    log?.Invoke($"✕ Модуль «{module.Id}» пропущен (ошибка обнаружения): {ex.Message}");
+                    log?.Invoke(L.Get("Core_ModuleSkippedDiscovery", module.Id, ex.Message));
                     continue;
                 }
 
-                log?.Invoke($"Модуль «{module.DisplayName}» ({module.Id}): {entries.Count} записей для сбора");
+                log?.Invoke(L.Get("Core_ModuleEntriesToCollect", module.DisplayName, module.Id, entries.Count));
                 var moduleWatch = Stopwatch.StartNew();
                 long moduleBytes = 0;
 
@@ -125,13 +125,13 @@ public sealed class BackupEngine
                             moduleBytes += length;
                             fileCount++;
                             var sha = await Sha256OfFileAsync(source, ct).ConfigureAwait(false);
-                            log?.Invoke($"  + {archiveEntryPath} ({FormatSize(length)}) · sha256 {sha[..12]}…");
+                            log?.Invoke(L.Get("Core_AddedFileSha", archiveEntryPath, FormatSize(length), sha[..12]));
                             moduleEntry.Entries.Add(entry with { Sha256 = sha });
                         }
                         catch (Exception ex) when (ex is UnauthorizedAccessException or IOException)
                         {
                             skippedFiles++;
-                            log?.Invoke($"  ✕ пропущен (нет доступа/занят): {source} — {ex.Message}");
+                            log?.Invoke(L.Get("Core_FileSkippedAccess", source, ex.Message));
                         }
                     }
                     else if (entry.Type == PathEntryType.Directory && Directory.Exists(source))
@@ -144,8 +144,8 @@ public sealed class BackupEngine
                         foreach (var glob in entry.ExcludeGlobs)
                             matcher.AddExclude(glob);
 
-                        log?.Invoke($"  Папка {entry.TokenPath} → {source}"
-                            + (entry.ExcludeGlobs.Count > 0 ? $" · масок-исключений: {entry.ExcludeGlobs.Count}" : ""));
+                        log?.Invoke(L.Get("Core_FolderToSource", entry.TokenPath, source)
+                            + (entry.ExcludeGlobs.Count > 0 ? L.Get("Core_ExcludeMasksSuffix", entry.ExcludeGlobs.Count) : ""));
 
                         var dirFiles = 0;
                         foreach (var file in matcher.GetResultsInFullPath(source))
@@ -159,49 +159,49 @@ public sealed class BackupEngine
                                 try { length = new FileInfo(file).Length; } catch { }
                                 moduleBytes += length;
                                 dirFiles++;
-                                log?.Invoke($"  + {basePrefix}/{rel} ({FormatSize(length)})");
+                                log?.Invoke(L.Get("Core_AddedFile", $"{basePrefix}/{rel}", FormatSize(length)));
                                 if (++fileCount % 250 == 0)
                                     progress?.Report(L.Get("Phase_ModuleFiles", module.DisplayName, fileCount));
                             }
                             catch (Exception ex) when (ex is UnauthorizedAccessException or IOException)
                             {
                                 skippedFiles++;
-                                log?.Invoke($"  ✕ пропущен (нет доступа/занят): {file} — {ex.Message}");
+                                log?.Invoke(L.Get("Core_FileSkippedAccess", file, ex.Message));
                             }
                         }
-                        log?.Invoke($"  Папка {entry.TokenPath}: {dirFiles} файлов");
+                        log?.Invoke(L.Get("Core_FolderFileCount", entry.TokenPath, dirFiles));
                         moduleEntry.Entries.Add(entry);
                     }
                     else
                     {
                         // TODO(v1+): RegistryKey — экспорт/импорт ветки реестра.
-                        log?.Invoke($"  – Пропуск: {entry.TokenPath} ({entry.Type switch
+                        log?.Invoke(L.Get("Core_SkipEntry", entry.TokenPath, entry.Type switch
                         {
-                            PathEntryType.File => "файла нет",
-                            PathEntryType.Directory => "папки нет",
-                            _ => "тип пока не поддерживается"
-                        }})");
+                            PathEntryType.File => L.Get("Core_ReasonFileMissing"),
+                            PathEntryType.Directory => L.Get("Core_ReasonFolderMissing"),
+                            _ => L.Get("Core_ReasonTypeUnsupported")
+                        }));
                     }
                 }
 
-                log?.Invoke($"Модуль «{module.DisplayName}»: итого {fileCount} файлов · "
-                    + $"{FormatSize(moduleBytes)} · {moduleWatch.ElapsedMilliseconds} мс");
+                log?.Invoke(L.Get("Core_ModuleTotal", module.DisplayName, fileCount,
+                    FormatSize(moduleBytes), moduleWatch.ElapsedMilliseconds));
                 manifest.Modules.Add(moduleEntry);
             }
 
             // Манифест в корень архива.
             progress?.Report(L.Get("Phase_WritingManifest"));
-            log?.Invoke($"Манифест: {manifest.Modules.Count} модулей, "
-                + $"{manifest.Modules.Sum(m => m.Entries.Count)} записей");
+            log?.Invoke(L.Get("Core_ManifestSummary", manifest.Modules.Count,
+                manifest.Modules.Sum(m => m.Entries.Count)));
             var manifestEntry = zip.CreateEntry("manifest.json");
             using var ms = manifestEntry.Open();
             await JsonSerializer.SerializeAsync(ms, manifest, ManifestJson.Options, ct).ConfigureAwait(false);
         }
 
-        log?.Invoke($"ZIP готов: {FormatSize(new FileInfo(buildPath).Length)}");
+        log?.Invoke(L.Get("Core_ZipReady", FormatSize(new FileInfo(buildPath).Length)));
         LastSkippedCount = skippedFiles;
         if (skippedFiles > 0)
-            log?.Invoke($"⚠ Пропущено файлов (нет доступа/заняты): {skippedFiles} — не вошли в архив.");
+            log?.Invoke(L.Get("Core_FilesSkippedBackup", skippedFiles));
 
         // Верификация до того, как архив уйдёт из временной папки: битые данные
         // не должны добраться ни до одного хранилища.
@@ -223,8 +223,8 @@ public sealed class BackupEngine
                 if (decrypted != plainSize)
                     throw new InvalidDataException($"Пост-проверка шифрования: размер расшифровки {decrypted} != ZIP {plainSize}.");
 
-                log?.Invoke($"Зашифровано (Argon2id + AES-256-GCM) + проверено за {encryptWatch.ElapsedMilliseconds} мс → "
-                    + FormatSize(new FileInfo(archivePath).Length));
+                log?.Invoke(L.Get("Core_EncryptedVerified", encryptWatch.ElapsedMilliseconds,
+                    FormatSize(new FileInfo(archivePath).Length)));
             }
             finally
             {
@@ -280,23 +280,23 @@ public sealed class BackupEngine
             bytes += entry.Length;
         }
 
-        log?.Invoke($"Верификация ✓: {entriesCount} записей · {FormatSize(bytes)} распаковано (CRC32 ок) · "
-            + $"SHA-256 сверено: {hashesChecked} · {watch.ElapsedMilliseconds} мс");
+        log?.Invoke(L.Get("Core_VerificationOk", entriesCount, FormatSize(bytes),
+            hashesChecked, watch.ElapsedMilliseconds));
     }
 
     private static string FormatSize(long bytes) => bytes switch
     {
-        >= 1L << 30 => $"{bytes / 1024.0 / 1024 / 1024:0.##} ГБ",
-        >= 1L << 20 => $"{bytes / 1024.0 / 1024:0.##} МБ",
-        _ => $"{Math.Max(1, bytes / 1024)} КБ"
+        >= 1L << 30 => L.Get("Core_UnitGb", $"{bytes / 1024.0 / 1024 / 1024:0.##}"),
+        >= 1L << 20 => L.Get("Core_UnitMb", $"{bytes / 1024.0 / 1024:0.##}"),
+        _ => L.Get("Core_UnitKb", Math.Max(1, bytes / 1024))
     };
 
     private static string DescribeCompression(CompressionLevel level) => level switch
     {
-        CompressionLevel.Fastest => "быстрое",
-        CompressionLevel.SmallestSize => "максимальное",
-        CompressionLevel.NoCompression => "без сжатия",
-        _ => "обычное"
+        CompressionLevel.Fastest => L.Get("Core_CompressionFastest"),
+        CompressionLevel.SmallestSize => L.Get("Core_CompressionMax"),
+        CompressionLevel.NoCompression => L.Get("Core_CompressionNone"),
+        _ => L.Get("Core_CompressionNormal")
     };
 
     /// <summary>
@@ -341,7 +341,7 @@ public sealed class BackupEngine
         if (ArchiveCipher.IsEncrypted(archivePath))
         {
             if (string.IsNullOrEmpty(passphrase))
-                throw new InvalidOperationException("Архив зашифрован — требуется парольная фраза.");
+                throw new InvalidOperationException(L.Get("Core_EncryptedNeedsPassphrase"));
             progress?.Report(L.Get("Phase_Decrypting"));
             var decryptWatch = Stopwatch.StartNew();
             var tempRoot = tempDirectory ?? Path.GetTempPath();
@@ -349,7 +349,7 @@ public sealed class BackupEngine
             tempPlain = Path.Combine(tempRoot, $"ebk-dec-{Guid.NewGuid():N}.ebk");
             await ArchiveCipher.DecryptAsync(archivePath, tempPlain, passphrase, ct).ConfigureAwait(false);
             workingPath = tempPlain;
-            log?.Invoke($"Расшифрован (Argon2id + AES-256-GCM) за {decryptWatch.ElapsedMilliseconds} мс");
+            log?.Invoke(L.Get("Core_Decrypted", decryptWatch.ElapsedMilliseconds));
         }
 
         try
@@ -384,8 +384,7 @@ public sealed class BackupEngine
     {
         // Этот путь (seek-чтение кусками) НЕ умеет расшифровывать — внятный отказ вместо мутной ZIP-ошибки.
         if (ArchiveCipher.IsEncrypted(zipStream))
-            throw new InvalidOperationException(
-                "Архив зашифрован — выборочное чтение по кускам недоступно; восстановите его целиком (через службу).");
+            throw new InvalidOperationException(L.Get("Core_EncryptedNoChunkedRead"));
 
         using var zip = new ZipArchive(zipStream, ZipArchiveMode.Read, leaveOpen: true);
         await RestoreFromArchiveAsync(zip, modules, conflictPolicy, destinationRootOverride,
@@ -428,12 +427,12 @@ public sealed class BackupEngine
                     throw new InvalidDataException($"Небезопасный archivePath в манифесте: '{e.ArchivePath}'.");
         }
 
-        log?.Invoke($"Манифест: {manifest.Modules.Count} модулей, "
-            + $"{manifest.Modules.Sum(m => m.Entries.Count)} записей · создан {manifest.CreatedAt:dd.MM.yyyy HH:mm}"
-            + (manifest.Source is { } src ? $" на {src.MachineName}" : ""));
+        log?.Invoke(L.Get("Core_ManifestSummaryRestore", manifest.Modules.Count,
+                manifest.Modules.Sum(m => m.Entries.Count), manifest.CreatedAt)
+            + (manifest.Source is { } src ? L.Get("Core_OnMachineSuffix", src.MachineName) : ""));
         log?.Invoke(destinationRootOverride is null
-            ? "Назначение: исходные пути (режим конфликтов: " + conflictPolicy + ")"
-            : $"Назначение: {destinationRootOverride}");
+            ? L.Get("Core_DestinationOriginal", conflictPolicy)
+            : L.Get("Core_DestinationFolder", destinationRootOverride));
 
         // Сбой записи одного файла (занят/нет доступа — напр. obs-virtualcam DLL загружена)
         // не должен ронять всё восстановление: копим и отчитываемся. Выборочный режим в конце
@@ -444,7 +443,7 @@ public sealed class BackupEngine
         foreach (var module in manifest.Modules)
         {
             progress?.Report(L.Get("Phase_Restoring", module.DisplayName));
-            log?.Invoke($"Модуль «{module.DisplayName}» ({module.ModuleId}): {module.Entries.Count} записей");
+            log?.Invoke(L.Get("Core_RestoreModuleEntries", module.DisplayName, module.ModuleId, module.Entries.Count));
             foreach (var entry in module.Entries)
             {
                 ct.ThrowIfCancellationRequested();
@@ -528,13 +527,13 @@ public sealed class BackupEngine
         // идёт дальше (задача станет «завершено с ошибками»). Нарушения безопасности уже отброшены выше.
         if (entryFilter is not null && failures.Count > 0)
             throw new IOException(
-                $"Восстановлено не всё: пропущено файлов — {failures.Count}. "
+                L.Get("Core_RestoreIncomplete", failures.Count)
                 + string.Join("; ", failures.Take(3))
                 + (failures.Count > 3 ? " …" : ""));
 
         LastRestoreSkippedCount = failures.Count;
         if (failures.Count > 0)
-            log?.Invoke($"⚠ Пропущено файлов при восстановлении (заняты/нет доступа): {failures.Count} · "
+            log?.Invoke(L.Get("Core_FilesSkippedRestore", failures.Count)
                 + string.Join("; ", failures.Take(3)) + (failures.Count > 3 ? " …" : ""));
 
         // Модульные restore-хуки: размещение ассетов и пост-обработка.
@@ -552,7 +551,7 @@ public sealed class BackupEngine
                         continue;
 
                     progress?.Report(L.Get("Phase_PlacingAssets", moduleEntry.DisplayName));
-                    log?.Invoke($"Restore-хук модуля «{moduleEntry.DisplayName}»: раскладываю ассеты…");
+                    log?.Invoke(L.Get("Core_RestoreHookPlacingAssets", moduleEntry.DisplayName));
 
                     // Хуку, читающему/пишущему профиль (OBS правит сцены), отдаём тот же резолвер:
                     // под службой это профиль ВЫЗВАВШЕГО, а не systemprofile.
@@ -611,12 +610,12 @@ public sealed class BackupEngine
         try
         {
             ExtractFile(entry, destinationPath, policy);
-            log?.Invoke($"  → {destinationPath} ({FormatSize(entry.Length)})");
+            log?.Invoke(L.Get("Core_RestoredFile", destinationPath, FormatSize(entry.Length)));
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
         {
             failures.Add($"{entry.FullName}: {ex.Message}");
-            log?.Invoke($"  ✕ {entry.FullName}: {ex.Message}");
+            log?.Invoke(L.Get("Core_RestoreFileFailed", entry.FullName, ex.Message));
         }
     }
 

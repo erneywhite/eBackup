@@ -3,6 +3,7 @@ using System.Net.Http.Headers;
 using System.Text;
 using System.Text.Json;
 using eBackup.Core.Security;
+using eBackup.Localization;
 using eBackup.Storage.Cloud;
 using eBackup.Storage.Sftp;
 
@@ -60,8 +61,7 @@ public sealed class GoogleDriveStorage(SavedStorage config, ISecretProtector pro
 
         var json = await ReadJsonAsync(response, ct).ConfigureAwait(false);
         if (!json.RootElement.TryGetProperty("refresh_token", out var refresh))
-            throw new InvalidOperationException(
-                "Google не вернул refresh-токен. Отзови доступ eBackup на myaccount.google.com/permissions и войди заново.");
+            throw new InvalidOperationException(L.Get("Stg_GoogleNoRefreshToken"));
         return refresh.GetString()!;
     }
 
@@ -196,7 +196,7 @@ public sealed class GoogleDriveStorage(SavedStorage config, ISecretProtector pro
         try
         {
             await FolderIdAsync(createIfMissing: true, ct).ConfigureAwait(false);
-            return ConnectionTestResult.Ok($"Google Drive: папка «{FolderName}» готова.");
+            return ConnectionTestResult.Ok(L.Get("Stg_GDriveReady", FolderName));
         }
         catch (Exception ex)
         {
@@ -211,7 +211,7 @@ public sealed class GoogleDriveStorage(SavedStorage config, ISecretProtector pro
         if (_accessToken is null)
         {
             var refreshToken = protector.Unprotect(config.ProtectedOAuthToken
-                ?? throw new InvalidOperationException("Не выполнен вход в Google — открой хранилище и войди."));
+                ?? throw new InvalidOperationException(L.Get("Stg_GoogleNotSignedIn")));
 
             using var response = await Http.PostAsync(TokenEndpoint, new FormUrlEncodedContent(
                 new Dictionary<string, string>

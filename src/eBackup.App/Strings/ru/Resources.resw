@@ -562,4 +562,6 @@
   <data name="Main_DefaultStorageName" xml:space="preserve"><value>Локальная папка</value></data>
   <data name="Main_TriggerManual" xml:space="preserve"><value>вручную</value></data>
   <data name="Main_TriggerSchedule" xml:space="preserve"><value>вручную · расписание «{0}»</value></data>
+  <data name="Settings_UpdCheckBtnReset" xml:space="preserve"><value>Проверить обновления</value></data>
+  <data name="Main_BackupBtnReset" xml:space="preserve"><value>Сделать бэкап</value></data>
 </root>

@@ -1,5 +1,6 @@
 using eBackup.Core.History;
 using eBackup.Ipc.Contracts;
+using eBackup.Localization;
 
 namespace eBackup.Service.Jobs;
 
@@ -23,7 +24,7 @@ public static class JobMapping
         Error = j.Outcome?.Error,
         Modules = j.Kind == JobKind.Restore ? [] : j.Request!.ModuleIds,
         Targets = j.Kind == JobKind.Restore
-            ? [j.Restore!.TargetDir ?? "исходные места"]
+            ? [j.Restore!.TargetDir ?? L.Get("Svc_OriginalLocations")]
             : j.Request!.TargetStorageIds,
         ProgressFraction = Fraction(j.State), // грубая доля по фазе; точный прогресс идёт note-фреймами (AttachToJob)
     };
@@ -39,7 +40,7 @@ public static class JobMapping
         OwnerSid = j.OwnerSid,
         Modules = j.Kind == JobKind.Restore ? [] : [.. j.Request!.ModuleIds],
         Targets = j.Kind == JobKind.Restore
-            ? [j.Restore!.TargetDir ?? "исходные места"]
+            ? [j.Restore!.TargetDir ?? L.Get("Svc_OriginalLocations")]
             : [.. j.Request!.TargetStorageIds],
         ArchiveName = j.Outcome?.ArchiveName,
         SizeBytes = j.Outcome?.SizeBytes ?? 0,

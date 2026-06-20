@@ -68,17 +68,17 @@ public sealed partial class SettingsPage : Page
                     break;
                 case UpdateStage.Failed:
                     UpdStatusText.Text = "✕ " + (s.Error ?? Loc.Get("Settings_UpdCheckError"));
-                    UpdActionBtn.Content = Loc.Get("Settings_UpdCheckBtn");
+                    UpdActionBtn.Content = Loc.Get("Settings_UpdCheckBtnReset");
                     UpdActionBtn.IsEnabled = true;
                     break;
                 case UpdateStage.UpToDate:
                     UpdStatusText.Text = Loc.Get("Settings_UpdUpToDate");
-                    UpdActionBtn.Content = Loc.Get("Settings_UpdCheckBtn");
+                    UpdActionBtn.Content = Loc.Get("Settings_UpdCheckBtnReset");
                     UpdActionBtn.IsEnabled = true;
                     break;
                 default:
                     UpdStatusText.Text = string.Empty;
-                    UpdActionBtn.Content = Loc.Get("Settings_UpdCheckBtn");
+                    UpdActionBtn.Content = Loc.Get("Settings_UpdCheckBtnReset");
                     UpdActionBtn.IsEnabled = true;
                     break;
             }
