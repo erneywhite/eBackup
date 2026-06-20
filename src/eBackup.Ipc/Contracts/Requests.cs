@@ -94,7 +94,12 @@ public sealed record DeleteByIdRequest { public string Id { get; init; } = ""; }
 
 public sealed record GetStorageRequest { public string Id { get; init; } = ""; }
 
-public sealed record ListArchivesRequest { public string StorageId { get; init; } = ""; }
+public sealed record ListArchivesRequest
+{
+    public string StorageId { get; init; } = "";
+    /// <summary>Подглядывать ли шифрование (метка 🔒). Дорого для облаков — «Обзор» (только счётчик) не просит.</summary>
+    public bool IncludeEncryption { get; init; }
+}
 
 // --- seek-чтение архива в хранилище службы (браузер/восстановление без полной закачки) ---
 public sealed record OpenArchiveReadRequest { public string StorageId { get; init; } = ""; public string RemoteName { get; init; } = ""; }

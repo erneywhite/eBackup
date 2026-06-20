@@ -325,18 +325,23 @@ public sealed class ServiceHandlers : IIpcHandlers
         var storage = StorageFactory.Create(saved, _storages.Protector);
         var files = await storage.ListDetailedAsync(ct).ConfigureAwait(false);
 
-        // Метка 🔒: подглядываем сигнатуру EBKE в голове каждого архива (для seek-хранилищ дёшево;
-        // папка/MEGA/FTP читают только голову). Сбой подглядывания не срывает листинг.
-        var result = new RemoteFileDto[files.Count];
-        for (var i = 0; i < files.Count; i++)
+        // Метки 🔒 — только когда просят (вкладка «Архивы»). «Обзор» (ему нужен лишь счётчик) не платит
+        // за подглядывание. Пик батчем (один сеанс на весь список — MEGA рейт-лимитит логины); сбой не
+        // срывает листинг — просто без меток.
+        IReadOnlySet<string> encrypted = new HashSet<string>();
+        if (req.IncludeEncryption && files.Count > 0)
         {
-            var f = files[i];
-            bool encrypted;
-            try { encrypted = await storage.IsArchiveEncryptedAsync(f.Name, ct).ConfigureAwait(false); }
-            catch { encrypted = false; }
-            result[i] = new RemoteFileDto { Name = f.Name, Length = f.Length, LastWriteTime = f.LastWriteTime, Encrypted = encrypted };
+            try { encrypted = await storage.ListEncryptedAsync(files.Select(f => f.Name).ToArray(), ct).ConfigureAwait(false); }
+            catch { /* без меток */ }
         }
-        return result;
+
+        return files
+            .Select(f => new RemoteFileDto
+            {
+                Name = f.Name, Length = f.Length, LastWriteTime = f.LastWriteTime,
+                Encrypted = encrypted.Contains(f.Name),
+            })
+            .ToArray();
     }
 
     public async Task<Ack> DeleteArchiveAsync(DeleteArchiveRequest req, CallerContext caller, CancellationToken ct)

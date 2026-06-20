@@ -83,7 +83,8 @@ public sealed partial class ArchivesPage : Page
                 try
                 {
                     // Листинг и удаление — через службу (секрет хранилища у неё, под машинным ключом).
-                    var files = await client.ListArchivesAsync(s.Id);
+                    // includeEncryption: подглядеть 🔒 (вкладка «Архивы»; «Обзор» этого не просит — экономим).
+                    var files = await client.ListArchivesAsync(s.Id, includeEncryption: true);
                     if (files.Length == 0)
                     {
                         AddDim("архивов нет");

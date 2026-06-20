@@ -204,7 +204,8 @@ public sealed class StorageAdminTests : IDisposable
             Id = "e", Name = "E", Kind = "LocalFolder", Settings = new() { ["path"] = dir },
         }, Caller, default);
 
-        var files = await handlers.ListArchivesAsync(new ListArchivesRequest { StorageId = "e" }, Caller, default);
+        var files = await handlers.ListArchivesAsync(
+            new ListArchivesRequest { StorageId = "e", IncludeEncryption = true }, Caller, default);
         Assert.True(files.Single(f => f.Name == "enc.ebk").Encrypted, "EBKE-архив должен быть помечен зашифрованным");
         Assert.False(files.Single(f => f.Name == "plain.ebk").Encrypted, "обычный .ebk не должен быть помечен");
     }

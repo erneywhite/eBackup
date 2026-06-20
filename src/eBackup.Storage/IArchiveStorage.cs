@@ -31,4 +31,24 @@ public interface IArchiveStorage
         }
         return false;
     }
+
+    /// <summary>
+    /// Какие из перечисленных архивов зашифрованы (для меток 🔒 на весь список разом). Дефолт перебирает
+    /// <see cref="IsArchiveEncryptedAsync"/> поштучно; хранилища с дорогим входом (MEGA) переопределяют
+    /// батчем — один сеанс на весь список, чтобы не логиниться на каждый файл (MEGA рейт-лимитит логины).
+    /// </summary>
+    async Task<IReadOnlySet<string>> ListEncryptedAsync(IReadOnlyCollection<string> names, CancellationToken ct = default)
+    {
+        var set = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var name in names)
+        {
+            try
+            {
+                if (await IsArchiveEncryptedAsync(name, ct).ConfigureAwait(false))
+                    set.Add(name);
+            }
+            catch { /* пик не критичен — без метки */ }
+        }
+        return set;
+    }
 }

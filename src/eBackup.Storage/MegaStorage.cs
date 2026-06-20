@@ -107,6 +107,34 @@ public sealed class MegaStorage(SavedStorage config, ISecretProtector protector)
         return await ArchiveHead.IsEbkeAsync(s, ct).ConfigureAwait(false);
     }
 
+    /// <summary>Батч: ОДИН логин + уже выгруженный список узлов на весь список (вместо логина на каждый
+    /// архив — MEGA рейт-лимитит логины). Голову каждого узла читаем дёшево, тем же клиентом.</summary>
+    public async Task<IReadOnlySet<string>> ListEncryptedAsync(IReadOnlyCollection<string> names, CancellationToken ct = default)
+    {
+        var set = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        if (names.Count == 0)
+            return set;
+
+        var client = await LoginAsync().ConfigureAwait(false);
+        var (folder, nodes) = await EnsureFolderAsync(client, create: false).ConfigureAwait(false);
+        if (folder is null)
+            return set;
+
+        var wanted = new HashSet<string>(names, StringComparer.OrdinalIgnoreCase);
+        foreach (var node in nodes.Where(n => n.Type == NodeType.File && n.ParentId == folder.Id && wanted.Contains(n.Name)))
+        {
+            ct.ThrowIfCancellationRequested();
+            try
+            {
+                await using var s = await client.DownloadAsync(node, progress: null, cancellationToken: ct).ConfigureAwait(false);
+                if (await ArchiveHead.IsEbkeAsync(s, ct).ConfigureAwait(false))
+                    set.Add(node.Name);
+            }
+            catch { /* один битый узел не срывает весь список */ }
+        }
+        return set;
+    }
+
     /// <summary>Найти узел-файл по имени в папке приложения (или null).</summary>
     private async Task<INode?> FindFileAsync(IMegaApiClient client, string remoteName)
     {
