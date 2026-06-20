@@ -52,7 +52,7 @@
 
 Главный экран — «Обзор»: последний бэкап, хранилища с их статусом и запуск в один клик.
 
-![eBackup — экран «Обзор»](docs/screenshots/overview.png)
+![eBackup — экран «Обзор»](docs/screenshots/overview_ru.png)
 
 ## Хранилища
 
