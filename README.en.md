@@ -24,7 +24,7 @@ puts everything back, even on another computer or after an OS reinstall. A bilin
 (English / Russian) branded dark UI, a background service and a full CLI.
 
 Free, open source, no subscriptions or paywalls. If eBackup came in handy, you can
-[buy the author a coffee ☕](https://dalink.to/toristarm).
+[buy the author a coffee ☕](https://ko-fi.com/erneywhite).
 
 ## Why eBackup
 
