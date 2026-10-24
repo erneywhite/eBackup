@@ -9,6 +9,7 @@ using eBackup.Platform;
 using eBackup.Security;
 using eBackup.Service.Handlers;
 using eBackup.Service.Jobs;
+using eBackup.Service.Security;
 using eBackup.Storage;
 
 namespace eBackup.Service;
@@ -21,6 +22,9 @@ namespace eBackup.Service;
 /// </summary>
 public sealed class ServicePipeline : IAsyncDisposable
 {
+    /// <summary>Проверка прав владельца задачи (Authz по SID; откат — только его профиль).</summary>
+    private static IPathAccess AccessFor(string sid) => new AuthzPathAccess(sid, UserProfilePaths.ProfileRoot(sid));
+
     public HistoryStore History { get; }
     public ModuleRegistry Registry { get; }
     public StorageStore Storages { get; }
@@ -56,10 +60,12 @@ public sealed class ServicePipeline : IAsyncDisposable
             // рабочих модулей. Выключатель — это фильтр того, что ПРЕДЛАГАЕТСЯ, а не запрет на исполнение.
             ids => Registry.LoadForRestore().Where(m => ids.Contains(m.Id)).ToList(),
             resolveFolders: ids => ids.Where(Folders.Contains).ToList(),
-            storages: Storages);
+            storages: Storages,
+            accessFor: AccessFor);
         var restoreRunner = new RestoreRunner(
             Storages,
-            () => Registry.Discover().Where(d => d.Problem is null && d.Instance is not null).Select(d => d.Instance!).ToList());
+            () => Registry.Discover().Where(d => d.Problem is null && d.Instance is not null).Select(d => d.Instance!).ToList(),
+            accessFor: AccessFor);
 
         var historyWriter = new JobHistoryWriter(History);
         Jobs = new JobManager(

@@ -4,6 +4,7 @@ using eBackup.Core.Abstractions;
 using eBackup.Core.Crypto;
 using eBackup.Core.Engine;
 using eBackup.Localization;
+using eBackup.Service.Security;
 using eBackup.Storage;
 
 namespace eBackup.Service.Jobs;
@@ -23,14 +24,17 @@ public sealed class RestoreRunner : IJobRunner
     private readonly StorageStore _storages;
     private readonly Func<IReadOnlyList<IBackupModule>> _resolveRestoreModules; // все рабочие модули (для хуков)
     private readonly string _buildDir;
+    private readonly Func<string, IPathAccess>? _accessFor; // права ВЛАДЕЛЬЦА задачи на цели (null — без проверки, тесты)
 
     public static string DefaultBuildDir => Path.Combine(Path.GetTempPath(), "eBackup", "restore");
 
     public RestoreRunner(
         StorageStore storages,
         Func<IReadOnlyList<IBackupModule>> resolveRestoreModules,
-        string? buildDir = null)
+        string? buildDir = null,
+        Func<string, IPathAccess>? accessFor = null)
     {
+        _accessFor = accessFor;
         _storages = storages;
         _resolveRestoreModules = resolveRestoreModules;
         _buildDir = buildDir ?? DefaultBuildDir;
@@ -66,6 +70,33 @@ public sealed class RestoreRunner : IJobRunner
         var targetLabel = r.TargetDir ?? L.Get("Svc_OriginalLocations");
         Log(L.Get("Svc_RunStart", job.Trigger));
         Log(L.Get("Svc_RestoreLine", r.RemoteName, targetLabel, r.Policy));
+
+        // Служба пишет под SYSTEM, но только туда, куда владелец задачи мог бы записать сам (см. RestoreWritePolicy).
+        var resolveDest = new UserProfilePaths(job.OwnerSid).Resolve; // запись в профиль ВЫЗВАВШЕГО (per-SID)
+        var restoreModules = _resolveRestoreModules();
+        using var access = _accessFor?.Invoke(job.OwnerSid);
+        RestoreWritePolicy? policy = null;
+        if (access is not null)
+        {
+            policy = new RestoreWritePolicy(access,
+                await RestoreWritePolicy.CollectDeclaredMachinePathsAsync(restoreModules, resolveDest, ct).ConfigureAwait(false));
+            // Явные папки проверяем сразу — понятный отказ вместо пачки пропусков в конце.
+            if (r.TargetDir is { Length: > 0 } td && !policy.CanWriteIntoFolder(td))
+            {
+                WipePassphrase();
+                Log(L.Get("Svc_TargetDirAccessDenied", td));
+                return new JobOutcome(false, 0, 0, r.RemoteName, L.Get("Svc_TargetDirAccessDenied", td));
+            }
+            if (r.AssetsDir is { Length: > 0 } ad && !policy.CanWriteIntoFolder(ad))
+            {
+                WipePassphrase();
+                Log(L.Get("Svc_AssetsDirAccessDenied", ad));
+                return new JobOutcome(false, 0, 0, r.RemoteName, L.Get("Svc_AssetsDirAccessDenied", ad));
+            }
+        }
+        Func<string, string, string, bool>? canWrite = policy is null ? null
+            : r.TargetDir is null ? policy.CanWrite
+            : (_, _, dest) => policy.CanWriteIntoFolder(dest);
 
         var saved = (await _storages.LoadAsync(ct).ConfigureAwait(false)).FirstOrDefault(s => s.Id == r.SourceStorageId)
             ?? throw new InvalidOperationException(L.Get("Svc_SourceStorageNotFound"));
@@ -103,15 +134,14 @@ public sealed class RestoreRunner : IJobRunner
             await storage.DownloadAsync(r.RemoteName, temp, ct).ConfigureAwait(false);
             Log(L.Get("Svc_ArchiveFetched", new FileInfo(temp).Length / 1024.0 / 1024.0));
 
-            var policy = Enum.TryParse<ConflictPolicy>(r.Policy, out var p) ? p : ConflictPolicy.BackupExisting;
-            var resolveDest = new UserProfilePaths(job.OwnerSid).Resolve; // запись в профиль ВЫЗВАВШЕГО (per-SID)
+            var conflict = Enum.TryParse<ConflictPolicy>(r.Policy, out var p) ? p : ConflictPolicy.BackupExisting;
             var progress = new Progress<string>(s => sink.Phase(s, 0));
 
             var engine = new BackupEngine();
             await engine.RestoreAsync(
                 temp,
-                _resolveRestoreModules(),
-                policy,
+                restoreModules,
+                conflict,
                 destinationRootOverride: r.TargetDir,
                 assetsDirectory: r.AssetsDir,
                 passphrase: passphrase,           // фраза (если есть) разрешена службой; null — незашифрованный
@@ -119,7 +149,8 @@ public sealed class RestoreRunner : IJobRunner
                 log: Log,
                 resolveDestination: resolveDest,
                 tempDirectory: runDir,            // расшифрованный plaintext — в нашу run-папку (зачистится целиком)
-                ct: ct).ConfigureAwait(false);
+                ct: ct,
+                canWriteTarget: canWrite).ConfigureAwait(false);
 
             var skipped = engine.LastRestoreSkippedCount; // занятые/недоступные файлы → «с ошибками», не провал
             if (skipped > 0)

@@ -15,6 +15,9 @@ public sealed class UserProfilePaths
 
     public UserProfilePaths(string sid) => _profile = ReadProfileImagePath(sid);
 
+    /// <summary>Корень профиля пользователя по SID (ProfileList); null — SID не сопоставлен.</summary>
+    public static string? ProfileRoot(string sid) => ReadProfileImagePath(sid);
+
     public string Resolve(string tokenPath)
     {
         if (_profile is null) return PathTokens.Resolve(tokenPath); // SID не сопоставлен — как раньше

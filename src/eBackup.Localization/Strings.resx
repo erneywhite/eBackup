@@ -64,6 +64,11 @@
   <data name="Core_FilesSkippedRestore" xml:space="preserve"><value>⚠ Files skipped during restore (in use/access denied): {0} · </value></data>
   <data name="Core_RestoreHookPlacingAssets" xml:space="preserve"><value>Restore hook for module “{0}”: placing assets…</value></data>
   <data name="Core_RestoreHookFailed" xml:space="preserve"><value>✕ Restore hook for module “{0}” failed: {1}</value></data>
+  <data name="Core_FileSkippedNoReadAccess" xml:space="preserve"><value>  ✕ skipped — the user has no read access: {0}</value></data>
+  <data name="Core_RestoreNoWriteAccess" xml:space="preserve"><value>  ✕ skipped — the user has no write access: {0}</value></data>
+  <data name="Core_ReasonNoWriteAccess" xml:space="preserve"><value>the user has no write access</value></data>
+  <data name="Svc_TargetDirAccessDenied" xml:space="preserve"><value>You have no write access to the target folder: {0}</value></data>
+  <data name="Svc_AssetsDirAccessDenied" xml:space="preserve"><value>You have no write access to the assets folder: {0}</value></data>
   <data name="Core_RestoredFile" xml:space="preserve"><value>  → {0} ({1})</value></data>
   <data name="Core_RestoreFileFailed" xml:space="preserve"><value>  ✕ {0}: {1}</value></data>
   <data name="Core_LogReadFailed" xml:space="preserve"><value>could not read log: {0}</value></data>
