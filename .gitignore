@@ -38,5 +38,6 @@ Thumbs.db
 desktop.ini
 *.log
 
-# Локальный handoff-файл для ассистента (в репу не нужен)
+# Локальные handoff-файлы для ассистентов (в репу не нужны)
 CLAUDE.md
+AGENTS.md
