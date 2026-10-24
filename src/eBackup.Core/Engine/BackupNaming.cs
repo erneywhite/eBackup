@@ -30,7 +30,37 @@ public static class BackupNaming
     }
 
     private static readonly Regex TimestampSuffix =
-        new(@"_\d{4}-\d{2}-\d{2}_\d{2}-\d{2}-\d{2}(\.ebk)?$", RegexOptions.IgnoreCase | RegexOptions.Compiled);
+        new(@"_(?<ts>\d{4}-\d{2}-\d{2}_\d{2}-\d{2}-\d{2})(\.ebk)?$", RegexOptions.IgnoreCase | RegexOptions.Compiled);
+
+    /// <summary>
+    /// Метка времени из хвоста имени («_2026-06-14_22-01-33[.ebk]»). Для retention она надёжнее
+    /// LastWriteTime из листинга: FTP/WebDAV/облака нередко отдают время заливки или пустую дату.
+    /// </summary>
+    public static bool TryParseTimestamp(string archiveName, out DateTime timestamp)
+    {
+        timestamp = default;
+        var m = TimestampSuffix.Match(archiveName);
+        return m.Success && DateTime.TryParseExact(m.Groups["ts"].Value, "yyyy-MM-dd_HH-mm-ss",
+            System.Globalization.CultureInfo.InvariantCulture, System.Globalization.DateTimeStyles.None, out timestamp);
+    }
+
+    /// <summary>
+    /// Какие архивы удалить, чтобы в группе <paramref name="archiveName"/> осталось <paramref name="keep"/>
+    /// последних. Порядок — по метке времени в имени (откат на <paramref name="lastWriteTime"/>, если
+    /// метки нет); остальные группы не трогаются. keep ≤ 0 — ничего не удаляем.
+    /// </summary>
+    public static IReadOnlyList<T> SelectForRetention<T>(
+        IEnumerable<T> files, Func<T, string> name, Func<T, DateTime> lastWriteTime, string archiveName, int keep)
+    {
+        if (keep <= 0) return [];
+        var groupKey = RetentionGroupKey(archiveName);
+        return files
+            .Where(f => RetentionGroupKey(name(f)) == groupKey)
+            .OrderByDescending(f => TryParseTimestamp(name(f), out var ts) ? ts : lastWriteTime(f))
+            .ThenByDescending(lastWriteTime)
+            .Skip(keep)
+            .ToList();
+    }
 
     /// <summary>
     /// Ключ группы для retention: имя архива без хвоста «_дата_время[.ebk]». Архивы одного

@@ -3,6 +3,7 @@ using System.Security.Cryptography;
 using eBackup.Core.Abstractions;
 using eBackup.Core.Engine;
 using eBackup.Localization;
+using eBackup.Service.Security;
 using eBackup.Storage;
 
 namespace eBackup.Service.Jobs;
@@ -24,6 +25,7 @@ public sealed class BackupRunner : IJobRunner
     private readonly Func<IReadOnlyList<string>, IReadOnlyList<string>>? _resolveFolders;
     private readonly StorageStore? _storages;   // машинный конфиг хранилищ (null в тестах сборки = локальный режим)
     private readonly string _buildDir;
+    private readonly Func<string, IPathAccess>? _accessFor; // права ВЛАДЕЛЬЦА задачи на источники (null — без проверки, тесты)
 
     public static string DefaultBuildDir => Path.Combine(Path.GetTempPath(), "eBackup", "build");
 
@@ -31,8 +33,10 @@ public sealed class BackupRunner : IJobRunner
         Func<IReadOnlyList<string>, IReadOnlyList<IBackupModule>> resolveModules,
         string? buildDir = null,
         Func<IReadOnlyList<string>, IReadOnlyList<string>>? resolveFolders = null,
-        StorageStore? storages = null)
+        StorageStore? storages = null,
+        Func<string, IPathAccess>? accessFor = null)
     {
+        _accessFor = accessFor;
         _resolveModules = resolveModules;
         _buildDir = buildDir ?? DefaultBuildDir;
         _resolveFolders = resolveFolders;
@@ -79,6 +83,8 @@ public sealed class BackupRunner : IJobRunner
         // Своя папка на каждый прогон → изоляция и гарантированная зачистка (вся run-папка удаляется в finally).
         var runDir = Path.Combine(_buildDir, "run-" + Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(runDir);
+        // Служба читает под SYSTEM, но берёт только то, что владелец задачи может прочитать сам.
+        using var access = _accessFor?.Invoke(job.OwnerSid);
 
         var name = BackupNaming.DefaultName(allModules,
             machineTag: job.Request!.IncludeMachineName ? Environment.MachineName : null);
@@ -107,7 +113,8 @@ public sealed class BackupRunner : IJobRunner
         {
             var archive = await engine.CreateBackupAsync(
                 allModules, runDir, name, passphrase: passphrase,
-                progress: progress, compression: compression, log: Log, resolveSource: resolveSource, ct: ct)
+                progress: progress, compression: compression, log: Log, resolveSource: resolveSource, ct: ct,
+                canReadSource: access is null ? null : access.CanRead)
                 .ConfigureAwait(false);
 
             var size = new FileInfo(archive).Length;
@@ -182,11 +189,9 @@ public sealed class BackupRunner : IJobRunner
                     if (retention > 0)
                     {
                         var groupKey = BackupNaming.RetentionGroupKey(archiveName);
-                        var sameGroup = files
-                            .Where(f => BackupNaming.RetentionGroupKey(f.Name) == groupKey)
-                            .OrderByDescending(f => f.LastWriteTime)
-                            .ToList();
-                        foreach (var old in sameGroup.Skip(retention))
+                        var toDelete = BackupNaming.SelectForRetention(
+                            files, f => f.Name, f => f.LastWriteTime, archiveName, retention);
+                        foreach (var old in toDelete)
                         {
                             await storage.DeleteAsync(old.Name, ct).ConfigureAwait(false);
                             Log(L.Get("Svc_RetentionDeleted", target.Name, groupKey, old.Name));

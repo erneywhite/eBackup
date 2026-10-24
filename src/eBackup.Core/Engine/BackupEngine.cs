@@ -39,6 +39,11 @@ public sealed class BackupEngine
     /// резолвер по профилю вызвавшего пользователя (per-SID), чтобы {APPDATA} и т.п. указывали
     /// в его профиль, а не в системный. В манифест по-прежнему пишется ТОКЕН (переносимость цела).
     /// </param>
+    /// <param name="canReadSource">
+    /// Может ли ВЛАДЕЛЕЦ задачи сам читать этот путь (служба под SYSTEM читает всё — без проверки
+    /// пользователь утащил бы чужие файлы). Отказ — файл/папка пропускаются с записью в лог.
+    /// null — без проверки (CLI/GUI и так работают с правами пользователя).
+    /// </param>
     public async Task<string> CreateBackupAsync(
         IEnumerable<IBackupModule> modules,
         string outputDirectory,
@@ -48,7 +53,8 @@ public sealed class BackupEngine
         CompressionLevel compression = CompressionLevel.Optimal,
         Action<string>? log = null,
         Func<string, string>? resolveSource = null,
-        CancellationToken ct = default)
+        CancellationToken ct = default,
+        Func<string, bool>? canReadSource = null)
     {
         var resolve = resolveSource ?? PathTokens.Resolve;
         Directory.CreateDirectory(outputDirectory);
@@ -115,7 +121,19 @@ public sealed class BackupEngine
                     ct.ThrowIfCancellationRequested();
                     var source = resolve(entry.TokenPath); // per-SID под службой; иначе профиль процесса
 
-                    if (entry.Type == PathEntryType.File && File.Exists(source))
+                    if (entry.Type == PathEntryType.File && File.Exists(source)
+                        && canReadSource is not null && !canReadSource(source))
+                    {
+                        skippedFiles++;
+                        log?.Invoke(L.Get("Core_FileSkippedNoReadAccess", source));
+                    }
+                    else if (entry.Type == PathEntryType.Directory && Directory.Exists(source)
+                        && canReadSource is not null && !canReadSource(source))
+                    {
+                        skippedFiles++;
+                        log?.Invoke(L.Get("Core_FileSkippedNoReadAccess", source));
+                    }
+                    else if (entry.Type == PathEntryType.File && File.Exists(source))
                     {
                         var archiveEntryPath = "data/" + entry.ArchivePath.Replace('\\', '/');
                         try
@@ -152,6 +170,12 @@ public sealed class BackupEngine
                         {
                             ct.ThrowIfCancellationRequested();
                             var rel = Path.GetRelativePath(source, file).Replace('\\', '/');
+                            if (canReadSource is not null && !canReadSource(file))
+                            {
+                                skippedFiles++;
+                                log?.Invoke(L.Get("Core_FileSkippedNoReadAccess", file));
+                                continue;
+                            }
                             try
                             {
                                 zip.CreateEntryFromFile(file, basePrefix + "/" + rel, compression);
@@ -332,7 +356,8 @@ public sealed class BackupEngine
         Func<string, bool>? entryFilter = null,
         Func<string, string>? resolveDestination = null,
         string? tempDirectory = null,
-        CancellationToken ct = default)
+        CancellationToken ct = default,
+        Func<string, string, string, bool>? canWriteTarget = null)
     {
         // Зашифрованный архив сначала расшифровываем во временный файл (по умолчанию в системный temp;
         // служба передаёт СВОЮ per-run папку, чтобы открытый plaintext лежал в контролируемом и зачищаемом месте).
@@ -356,7 +381,7 @@ public sealed class BackupEngine
         {
             using var zip = ZipFile.OpenRead(workingPath);
             await RestoreFromArchiveAsync(zip, modules, conflictPolicy, destinationRootOverride,
-                assetsDirectory, progress, log, entryFilter, resolveDestination, ct).ConfigureAwait(false);
+                assetsDirectory, progress, log, entryFilter, resolveDestination, canWriteTarget, ct).ConfigureAwait(false);
         }
         finally
         {
@@ -380,7 +405,8 @@ public sealed class BackupEngine
         Action<string>? log = null,
         Func<string, bool>? entryFilter = null,
         Func<string, string>? resolveDestination = null,
-        CancellationToken ct = default)
+        CancellationToken ct = default,
+        Func<string, string, string, bool>? canWriteTarget = null)
     {
         // Этот путь (seek-чтение кусками) НЕ умеет расшифровывать — внятный отказ вместо мутной ZIP-ошибки.
         if (ArchiveCipher.IsEncrypted(zipStream))
@@ -388,7 +414,7 @@ public sealed class BackupEngine
 
         using var zip = new ZipArchive(zipStream, ZipArchiveMode.Read, leaveOpen: true);
         await RestoreFromArchiveAsync(zip, modules, conflictPolicy, destinationRootOverride,
-            assetsDirectory, progress, log, entryFilter, resolveDestination, ct).ConfigureAwait(false);
+            assetsDirectory, progress, log, entryFilter, resolveDestination, canWriteTarget, ct).ConfigureAwait(false);
     }
 
     private async Task RestoreFromArchiveAsync(
@@ -401,6 +427,7 @@ public sealed class BackupEngine
         Action<string>? log,
         Func<string, bool>? entryFilter,
         Func<string, string>? resolveDestination,
+        Func<string, string, string, bool>? canWriteTarget,
         CancellationToken ct)
     {
         // Куда писать токенизированные пути «в исходные места»: по умолчанию профиль процесса;
@@ -501,7 +528,12 @@ public sealed class BackupEngine
                 {
                     var ze = zip.GetEntry(prefix);
                     if (ze is not null && (entryFilter is null || entryFilter(ze.FullName)))
-                        ExtractTolerant(ze, target, conflictPolicy, failures, log);
+                    {
+                        if (canWriteTarget is not null && !canWriteTarget(module.ModuleId, entry.TokenPath, target))
+                            DenyWrite(ze, target, failures, log);
+                        else
+                            ExtractTolerant(ze, target, conflictPolicy, failures, log);
+                    }
                 }
                 else if (entry.Type == PathEntryType.Directory)
                 {
@@ -515,7 +547,10 @@ public sealed class BackupEngine
                         var dest = Path.Combine(target, rel.Replace('/', Path.DirectorySeparatorChar));
                         if (!PathSafety.IsWithin(target, dest))
                             throw new InvalidDataException($"Запись выходит за пределы целевой папки (zip-slip): {ze.FullName}");
-                        ExtractTolerant(ze, dest, conflictPolicy, failures, log);
+                        if (canWriteTarget is not null && !canWriteTarget(module.ModuleId, entry.TokenPath, dest))
+                            DenyWrite(ze, dest, failures, log);
+                        else
+                            ExtractTolerant(ze, dest, conflictPolicy, failures, log);
                     }
                 }
                 // TODO(v1+): RegistryKey — импорт ветки реестра.
@@ -589,7 +624,11 @@ public sealed class BackupEngine
                     }
                     catch (Exception ex)
                     {
+                        // Сбой хука (напр. OBS не разложил ассеты) — не роняем restore, но и не теряем молча:
+                        // в журнал задачи + в счётчик пропусков (задача станет «завершено с ошибками»).
                         Console.Error.WriteLine($"[eBackup] restore-хук модуля '{moduleEntry.ModuleId}' завершился с ошибкой: {ex.Message}");
+                        log?.Invoke(L.Get("Core_RestoreHookFailed", moduleEntry.DisplayName, ex.Message));
+                        LastRestoreSkippedCount++;
                     }
                 }
             }
@@ -617,6 +656,13 @@ public sealed class BackupEngine
             failures.Add($"{entry.FullName}: {ex.Message}");
             log?.Invoke(L.Get("Core_RestoreFileFailed", entry.FullName, ex.Message));
         }
+    }
+
+    /// <summary>Пользователь не вправе писать сюда сам — служба за него тоже не пишет (пропуск, как занятый файл).</summary>
+    private static void DenyWrite(ZipArchiveEntry entry, string destinationPath, List<string> failures, Action<string>? log)
+    {
+        failures.Add($"{entry.FullName}: {L.Get("Core_ReasonNoWriteAccess")}");
+        log?.Invoke(L.Get("Core_RestoreNoWriteAccess", destinationPath));
     }
 
     private static void ExtractFile(ZipArchiveEntry entry, string destinationPath, ConflictPolicy policy)

@@ -229,8 +229,20 @@ public static class ArchiveCipher
         return total;
     }
 
+    // Потолки параметров KDF из ЗАГОЛОВКА (он не аутентифицирован): поддельный архив с memKb=2 ТБ или
+    // iterations=int.MaxValue иначе съел бы память/CPU службы ещё до проверки тега. Наши архивы пишутся
+    // с 64 МиБ / 3 / 4 — запас на будущее усиление параметров большой.
+    internal const int MaxArgon2MemoryKb = 1 << 20;   // 1 ГиБ
+    internal const int MaxArgon2Iterations = 64;
+    internal const int MaxArgon2Parallelism = 64;
+
     internal static byte[] DeriveKey(string passphrase, byte[] salt, int memKb, int iterations, int parallelism)
     {
+        if (memKb is < 8 or > MaxArgon2MemoryKb
+            || iterations is < 1 or > MaxArgon2Iterations
+            || parallelism is < 1 or > MaxArgon2Parallelism)
+            throw new InvalidDataException("Повреждён заголовок зашифрованного архива (параметры KDF).");
+
         using var argon2 = new Argon2id(Encoding.UTF8.GetBytes(passphrase))
         {
             Salt = salt,

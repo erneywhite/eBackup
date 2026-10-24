@@ -13,6 +13,8 @@ public sealed class UpdateState
     public string? Version { get; init; }
     public string? AssetUrl { get; init; }
     public long AssetSize { get; init; }
+    /// <summary>Ожидаемый SHA-256 установщика (hex) из поля «digest» ассета GitHub; null — GitHub его не отдал.</summary>
+    public string? AssetSha256 { get; init; }
     public string? InstallerPath { get; init; }
     public double Progress { get; init; }   // 0..1 при скачивании
     public string? Error { get; init; }
@@ -96,6 +98,7 @@ public static class UpdateService
             // Ассет-установщик: eBackup-setup-*.exe.
             string? assetUrl = null;
             long assetSize = 0;
+            string? assetSha256 = null;
             if (root.TryGetProperty("assets", out var assets) && assets.ValueKind == JsonValueKind.Array)
             {
                 foreach (var a in assets.EnumerateArray())
@@ -107,6 +110,8 @@ public static class UpdateService
                         continue;
                     assetUrl = a.TryGetProperty("browser_download_url", out var u) ? u.GetString() : null;
                     assetSize = a.TryGetProperty("size", out var s) ? s.GetInt64() : 0;
+                    assetSha256 = ParseSha256Digest(
+                        a.TryGetProperty("digest", out var dg) && dg.ValueKind == JsonValueKind.String ? dg.GetString() : null);
                     break;
                 }
             }
@@ -116,7 +121,8 @@ public static class UpdateService
                 Stage = UpdateStage.Available,
                 Version = latest.ToString(),
                 AssetUrl = assetUrl,
-                AssetSize = assetSize
+                AssetSize = assetSize,
+                AssetSha256 = assetSha256
             });
         }
         catch
@@ -166,6 +172,7 @@ public static class UpdateService
                             Version = available.Version,
                             AssetUrl = available.AssetUrl,
                             AssetSize = total,
+                            AssetSha256 = available.AssetSha256,
                             Progress = Math.Clamp((double)done / total, 0, 1)
                         });
                 }
@@ -174,6 +181,21 @@ public static class UpdateService
             // Базовая проверка целостности: размер должен совпасть с заявленным.
             if (total > 0 && new FileInfo(path).Length != total)
                 throw new IOException(Loc.Get("Svc_DownloadIncomplete"));
+
+            // Установщик запускается с правами администратора — сверяем SHA-256 с «digest» ассета GitHub
+            // (если GitHub его отдал). Несовпадение = подмена/порча: файл удаляем и НЕ запускаем.
+            if (available.AssetSha256 is { } expected)
+            {
+                string actual;
+                await using (var fs = File.OpenRead(path))
+                    actual = Convert.ToHexString(
+                        await System.Security.Cryptography.SHA256.HashDataAsync(fs).ConfigureAwait(false));
+                if (!actual.Equals(expected, StringComparison.OrdinalIgnoreCase))
+                {
+                    try { File.Delete(path); } catch { }
+                    throw new IOException(Loc.Get("Svc_DownloadHashMismatch"));
+                }
+            }
 
             Set(new UpdateState
             {
@@ -191,6 +213,7 @@ public static class UpdateService
                 Version = available.Version,
                 AssetUrl = available.AssetUrl,
                 AssetSize = available.AssetSize,
+                AssetSha256 = available.AssetSha256,
                 Error = Loc.Get("Svc_DownloadFailed", ex.Message)
             });
             return null;
@@ -223,6 +246,16 @@ public static class UpdateService
         {
             return false;
         }
+    }
+
+    /// <summary>«sha256:&lt;64 hex&gt;» (формат поля digest у ассетов GitHub) → hex; иное → null.</summary>
+    internal static string? ParseSha256Digest(string? digest)
+    {
+        const string prefix = "sha256:";
+        if (digest is null || !digest.StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
+            return null;
+        var hex = digest[prefix.Length..].Trim();
+        return hex.Length == 64 && hex.All(Uri.IsHexDigit) ? hex : null;
     }
 
     /// <summary>«v0.1.2» / «0.1» → Version; мусор → null.</summary>
