@@ -63,6 +63,7 @@
   <data name="Core_RestoreIncomplete" xml:space="preserve"><value>Восстановлено не всё: пропущено файлов — {0}. </value></data>
   <data name="Core_FilesSkippedRestore" xml:space="preserve"><value>⚠ Пропущено файлов при восстановлении (заняты/нет доступа): {0} · </value></data>
   <data name="Core_RestoreHookPlacingAssets" xml:space="preserve"><value>Restore-хук модуля «{0}»: раскладываю ассеты…</value></data>
+  <data name="Core_RestoreHookFailed" xml:space="preserve"><value>✕ Restore-хук модуля «{0}» завершился с ошибкой: {1}</value></data>
   <data name="Core_RestoredFile" xml:space="preserve"><value>  → {0} ({1})</value></data>
   <data name="Core_RestoreFileFailed" xml:space="preserve"><value>  ✕ {0}: {1}</value></data>
   <data name="Core_LogReadFailed" xml:space="preserve"><value>не удалось прочитать лог: {0}</value></data>

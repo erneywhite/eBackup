@@ -63,6 +63,7 @@
   <data name="Core_RestoreIncomplete" xml:space="preserve"><value>Restore incomplete: files skipped — {0}. </value></data>
   <data name="Core_FilesSkippedRestore" xml:space="preserve"><value>⚠ Files skipped during restore (in use/access denied): {0} · </value></data>
   <data name="Core_RestoreHookPlacingAssets" xml:space="preserve"><value>Restore hook for module “{0}”: placing assets…</value></data>
+  <data name="Core_RestoreHookFailed" xml:space="preserve"><value>✕ Restore hook for module “{0}” failed: {1}</value></data>
   <data name="Core_RestoredFile" xml:space="preserve"><value>  → {0} ({1})</value></data>
   <data name="Core_RestoreFileFailed" xml:space="preserve"><value>  ✕ {0}: {1}</value></data>
   <data name="Core_LogReadFailed" xml:space="preserve"><value>could not read log: {0}</value></data>

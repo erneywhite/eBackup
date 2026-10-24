@@ -352,6 +352,7 @@
   <data name="Schedule_DeleteFailed" xml:space="preserve"><value>✕ Couldn’t delete: {0}</value></data>
   <data name="Svc_UpdateCheckFailed" xml:space="preserve"><value>couldn't check for updates (no connection?)</value></data>
   <data name="Svc_DownloadIncomplete" xml:space="preserve"><value>the downloaded installer is incomplete (size mismatch)</value></data>
+  <data name="Svc_DownloadHashMismatch" xml:space="preserve"><value>the downloaded installer failed the SHA-256 check (it does not match the release) — it was deleted and will not be run</value></data>
   <data name="Svc_DownloadFailed" xml:space="preserve"><value>couldn't download the update: {0}</value></data>
   <data name="Svc_CatalogLoadFailed" xml:space="preserve"><value>couldn't load the catalog (no connection and no cache)</value></data>
   <data name="Svc_CatalogBadFilePath" xml:space="preserve"><value>invalid module file path in the catalog</value></data>

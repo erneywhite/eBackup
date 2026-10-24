@@ -86,6 +86,50 @@ public class BackupEngineTests
         }
     }
 
+    /// <summary>Модуль с restore-хуком, который всегда падает (как OBS, не сумевший разложить ассеты).</summary>
+    private sealed class FailingHookModule(string tokenPath) : IBackupModule, IModuleRestoreHook
+    {
+        public string Id => "test";
+        public string DisplayName => "Test";
+
+        public Task<IReadOnlyList<PathEntry>> DiscoverAsync(CancellationToken ct = default)
+            => new DirModule(tokenPath).DiscoverAsync(ct);
+
+        public Task RestoreAsync(ModuleRestoreContext context, CancellationToken ct = default)
+            => throw new IOException("hook boom");
+    }
+
+    [Fact]
+    public async Task Full_Restore_Logs_Failed_Hook_And_Counts_It()
+    {
+        // Сбой restore-хука не роняет восстановление, но и не теряется молча:
+        // строка в журнале задачи + счётчик пропусков (→ «завершено с ошибками»).
+        var root = Path.Combine(Path.GetTempPath(), $"ebk-hookfail-{Guid.NewGuid():N}");
+        try
+        {
+            var src = Path.Combine(root, "src");
+            Directory.CreateDirectory(src);
+            await File.WriteAllTextAsync(Path.Combine(src, "a.txt"), "AAA");
+
+            var module = new FailingHookModule(src);
+            var archive = await new BackupEngine().CreateBackupAsync(
+                [module], Path.Combine(root, "build"), "t", passphrase: null);
+
+            var log = new List<string>();
+            var engine = new BackupEngine();
+            await engine.RestoreAsync(archive, modules: [module], conflictPolicy: ConflictPolicy.Overwrite,
+                destinationRootOverride: Path.Combine(root, "dst"), log: log.Add); // НЕ должно бросить
+
+            Assert.Equal(1, engine.LastRestoreSkippedCount);
+            Assert.Contains(log, l => l.Contains("hook boom"));
+            Assert.True(File.Exists(Path.Combine(root, "dst", "test", "data", "a.txt"))); // обычные файлы — на месте
+        }
+        finally
+        {
+            if (Directory.Exists(root)) Directory.Delete(root, recursive: true);
+        }
+    }
+
     [Fact]
     public async Task Restore_To_Original_Uses_ResolveDestination_For_Tokens()
     {

@@ -182,11 +182,9 @@ public sealed class BackupRunner : IJobRunner
                     if (retention > 0)
                     {
                         var groupKey = BackupNaming.RetentionGroupKey(archiveName);
-                        var sameGroup = files
-                            .Where(f => BackupNaming.RetentionGroupKey(f.Name) == groupKey)
-                            .OrderByDescending(f => f.LastWriteTime)
-                            .ToList();
-                        foreach (var old in sameGroup.Skip(retention))
+                        var toDelete = BackupNaming.SelectForRetention(
+                            files, f => f.Name, f => f.LastWriteTime, archiveName, retention);
+                        foreach (var old in toDelete)
                         {
                             await storage.DeleteAsync(old.Name, ct).ConfigureAwait(false);
                             Log(L.Get("Svc_RetentionDeleted", target.Name, groupKey, old.Name));

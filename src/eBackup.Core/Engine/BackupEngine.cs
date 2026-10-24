@@ -589,7 +589,11 @@ public sealed class BackupEngine
                     }
                     catch (Exception ex)
                     {
+                        // Сбой хука (напр. OBS не разложил ассеты) — не роняем restore, но и не теряем молча:
+                        // в журнал задачи + в счётчик пропусков (задача станет «завершено с ошибками»).
                         Console.Error.WriteLine($"[eBackup] restore-хук модуля '{moduleEntry.ModuleId}' завершился с ошибкой: {ex.Message}");
+                        log?.Invoke(L.Get("Core_RestoreHookFailed", moduleEntry.DisplayName, ex.Message));
+                        LastRestoreSkippedCount++;
                     }
                 }
             }

@@ -352,6 +352,7 @@
   <data name="Schedule_DeleteFailed" xml:space="preserve"><value>✕ Не удалось удалить: {0}</value></data>
   <data name="Svc_UpdateCheckFailed" xml:space="preserve"><value>не удалось проверить обновления (нет сети?)</value></data>
   <data name="Svc_DownloadIncomplete" xml:space="preserve"><value>скачанный установщик неполный (размер не совпал)</value></data>
+  <data name="Svc_DownloadHashMismatch" xml:space="preserve"><value>скачанный установщик не прошёл проверку SHA-256 (не совпал с релизом) — он удалён и запущен не будет</value></data>
   <data name="Svc_DownloadFailed" xml:space="preserve"><value>не удалось скачать обновление: {0}</value></data>
   <data name="Svc_CatalogLoadFailed" xml:space="preserve"><value>не удалось загрузить каталог (нет сети и кэша)</value></data>
   <data name="Svc_CatalogBadFilePath" xml:space="preserve"><value>недопустимый путь файла модуля в каталоге</value></data>

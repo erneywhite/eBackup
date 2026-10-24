@@ -1,6 +1,7 @@
 using Amazon.Runtime;
 using Amazon.S3;
 using Amazon.S3.Model;
+using Amazon.S3.Transfer;
 using eBackup.Core.Security;
 using eBackup.Localization;
 using eBackup.Storage.Sftp;
@@ -56,14 +57,35 @@ public sealed class S3Storage(SavedStorage config, ISecretProtector protector)
             });
     }
 
+    /// <summary>
+    /// Порог multipart-заливки. Один PutObject на AWS ограничен 5 ГБ (у части S3-совместимых — меньше),
+    /// поэтому крупнее порога заливаем частями. Ниже порога — прежний одиночный PutObject без изменений
+    /// (проверен на MEGA S4, B2 и др.).
+    /// </summary>
+    internal const long MultipartThreshold = 4L << 30;   // 4 ГиБ
+    internal const long MultipartPartSize = 64L << 20;   // 64 МиБ (≤ 10 000 частей → архивы до ~640 ГБ)
+
     public async Task UploadAsync(string localFilePath, string remoteName, CancellationToken ct = default)
     {
         using var client = CreateClient();
-        await client.PutObjectAsync(new PutObjectRequest
+        if (new FileInfo(localFilePath).Length < MultipartThreshold)
+        {
+            await client.PutObjectAsync(new PutObjectRequest
+            {
+                BucketName = Bucket,
+                Key = Prefix + remoteName,
+                FilePath = localFilePath
+            }, ct).ConfigureAwait(false);
+            return;
+        }
+
+        using var transfer = new TransferUtility(client);
+        await transfer.UploadAsync(new TransferUtilityUploadRequest
         {
             BucketName = Bucket,
             Key = Prefix + remoteName,
-            FilePath = localFilePath
+            FilePath = localFilePath,
+            PartSize = MultipartPartSize
         }, ct).ConfigureAwait(false);
     }
 

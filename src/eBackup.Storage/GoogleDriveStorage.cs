@@ -72,10 +72,9 @@ public sealed class GoogleDriveStorage(SavedStorage config, ISecretProtector pro
         var folderId = await FolderIdAsync(createIfMissing: true, ct).ConfigureAwait(false)
             ?? throw new IOException("Не удалось создать папку на Google Drive.");
 
-        // Перезапись: Drive разрешает дубликаты имён — старый файл удаляем.
+        // Перезапись: Drive разрешает дубликаты имён — старый файл удаляем, но только ПОСЛЕ успешной
+        // заливки нового (иначе оборванная заливка оставила бы хранилище вовсе без этого архива).
         var existing = await FindFileIdAsync(folderId, remoteName, ct).ConfigureAwait(false);
-        if (existing is not null)
-            await SendAsync(HttpMethod.Delete, $"{ApiBase}/files/{existing}", null, ct).ConfigureAwait(false);
 
         // Resumable-загрузка: init с метаданными → PUT содержимого по выданному URL.
         var initRequest = new HttpRequestMessage(HttpMethod.Post,
@@ -99,6 +98,11 @@ public sealed class GoogleDriveStorage(SavedStorage config, ISecretProtector pro
         putRequest.Content.Headers.ContentType = new MediaTypeHeaderValue("application/octet-stream");
         using var putResponse = await Http.SendAsync(putRequest, ct).ConfigureAwait(false);
         await ThrowIfErrorAsync(putResponse, ct).ConfigureAwait(false);
+
+        // Новый файл уже на Диске — сбой удаления старого дубля не делает заливку неудачной.
+        if (existing is not null)
+            try { await SendAsync(HttpMethod.Delete, $"{ApiBase}/files/{existing}", null, ct).ConfigureAwait(false); }
+            catch (Exception ex) when (ex is not OperationCanceledException) { /* останется дубль имени — не критично */ }
     }
 
     public async Task DownloadAsync(string remoteName, string localFilePath, CancellationToken ct = default)
