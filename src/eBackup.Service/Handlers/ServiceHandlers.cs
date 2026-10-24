@@ -185,12 +185,35 @@ public sealed class ServiceHandlers : IIpcHandlers
             .ToArray();
     }
 
+    // Страница лога ограничена не только числом строк, но и ОБЪЁМОМ: фрейм IPC ≤ 1 МиБ, а JSON экранирует
+    // кириллицу в \uXXXX (6 байт на букву). 5000 строк журнала OBS с длинными путями и sha уже не влезали —
+    // служба по протоколу рвала соединение, GUI видел «соединение со службой закрыто».
+    private const int RunLogPageBudgetBytes = 768 * 1024;  // запас под конверт фрейма до лимита 1 МиБ
+    private const int RunLogLineOverheadBytes = 32;        // {"seq":…,"text":""}, на каждую строку
+    private const int RunLogMaxLineChars = 16_000;         // одна огромная строка (ex.Message) не займёт всю страницу
+
     public Task<GetRunLogResponse> GetRunLogAsync(GetRunLogRequest req, CallerContext caller, CancellationToken ct)
     {
-        var lines = _history.ReadLogFromSeq(req.RunId, req.FromSeq, Math.Clamp(req.MaxLines, 1, 5000));
-        var dto = lines.Select(l => new LogLine { Seq = l.Seq, Text = l.Text }).ToArray();
-        var next = dto.Length > 0 ? dto[^1].Seq : req.FromSeq;
-        return Task.FromResult(new GetRunLogResponse { Lines = dto, NextSeq = next, HasMore = dto.Length == Math.Clamp(req.MaxLines, 1, 5000) });
+        var maxLines = Math.Clamp(req.MaxLines, 1, 5000);
+        var lines = _history.ReadLogFromSeq(req.RunId, req.FromSeq, maxLines);
+
+        var page = new List<LogLine>(lines.Count);
+        long bytes = 0;
+        foreach (var (seq, raw) in lines)
+        {
+            var text = raw.Length > RunLogMaxLineChars ? raw[..RunLogMaxLineChars] + "…" : raw;
+            // Ровно столько байт займёт строка после сериализации (тот же энкодер по умолчанию).
+            var size = JsonEncodedText.Encode(text).EncodedUtf8Bytes.Length + RunLogLineOverheadBytes;
+            if (page.Count > 0 && bytes + size > RunLogPageBudgetBytes)
+                break;
+            page.Add(new LogLine { Seq = seq, Text = text });
+            bytes += size;
+        }
+
+        var next = page.Count > 0 ? page[^1].Seq : req.FromSeq;
+        // Продолжение есть, если обрезали по объёму или упёрлись в лимит строк.
+        var hasMore = page.Count < lines.Count || lines.Count == maxLines;
+        return Task.FromResult(new GetRunLogResponse { Lines = [.. page], NextSeq = next, HasMore = hasMore });
     }
 
     // ---- модули ----

@@ -193,8 +193,15 @@ public sealed class JobManager : IAsyncDisposable
         _ => 0.0,
     };
 
+    private int _disposed;
+
     public async ValueTask DisposeAsync()
     {
+        // Идемпотентно: JobManager освобождают ДВАЖДЫ — DI-контейнер (синглтон из фабрики в Program.cs
+        // принадлежит ему) и ServicePipeline.DisposeAsync. Повторный Cancel() на освобождённом CTS ронял
+        // службу необработанным ObjectDisposedException при каждой остановке (в т.ч. при обновлении).
+        if (Interlocked.Exchange(ref _disposed, 1) != 0)
+            return;
         _shutdown.Cancel();
         _queue.Writer.TryComplete();
         try { await _worker.ConfigureAwait(false); } catch { }

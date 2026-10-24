@@ -45,6 +45,15 @@ public class JobManagerTests : IDisposable
     private static StartBackupRequest Req(string trigger = "t") => new() { Trigger = trigger, ModuleIds = ["m"] };
 
     [Fact]
+    public async Task DisposeAsync_Twice_Does_Not_Throw()
+    {
+        // Служба освобождает JobManager дважды (DI-контейнер + ServicePipeline) — второй вызов не должен падать.
+        var jm = new JobManager(new BlockingRunner(), Channel);
+        await jm.DisposeAsync();
+        await jm.DisposeAsync();
+    }
+
+    [Fact]
     public async Task Job_Runs_To_Completion()
     {
         var runner = new BlockingRunner();

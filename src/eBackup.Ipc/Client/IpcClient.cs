@@ -28,6 +28,13 @@ public sealed class IpcClient : IDisposable
     private int _idCounter;
     private Task? _readLoop;
     private bool _disposed;
+    private volatile bool _closed;
+
+    /// <summary>
+    /// Соединение оборвано (цикл чтения завершился, напр. служба перезапустилась или закрыла pipe).
+    /// Такой клиент больше не годен: новые запросы сразу падают, владелец должен подключиться заново.
+    /// </summary>
+    public bool IsClosed => _closed;
 
     private IpcClient(Stream stream)
     {
@@ -73,6 +80,7 @@ public sealed class IpcClient : IDisposable
         }
         finally
         {
+            _closed = true; // сначала флаг, потом разбор очереди — см. повторную проверку в CallAsync
             foreach (var kv in _pending)
                 kv.Value.TrySetException(new IpcConnectionClosedException());
             _pending.Clear();
@@ -89,9 +97,16 @@ public sealed class IpcClient : IDisposable
 
     private async Task<TResp> CallAsync<TResp>(string op, JsonElement? body, JsonTypeInfo<TResp> respTi, CancellationToken ct)
     {
+        // Мёртвый клиент: ответ ждать некому (цикл чтения завершился) — без этой проверки запрос висел бы вечно.
+        if (_closed)
+            throw new IpcConnectionClosedException();
+
         var id = Interlocked.Increment(ref _idCounter).ToString();
         var tcs = new TaskCompletionSource<Frame>(TaskCreationOptions.RunContinuationsAsynchronously);
         _pending[id] = tcs;
+        // Гонка: соединение закрылось между проверкой и регистрацией, а finally цикла чтения нашу запись не увидел.
+        if (_closed && _pending.TryRemove(id, out _))
+            throw new IpcConnectionClosedException();
 
         var frame = new Frame { Kind = FrameKinds.Req, Id = id, Op = op, Body = body };
 

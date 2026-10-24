@@ -27,12 +27,14 @@ public sealed class ServiceConnection
     /// <summary>Гарантировать живое подключение к службе. true — подключены.</summary>
     public async Task<bool> EnsureConnectedAsync(CancellationToken ct = default)
     {
-        if (State == ServiceState.Connected && Client is not null) return true;
+        // Клиент, чьё соединение оборвалось (служба перезапустилась или закрыла pipe), считаем отключённым
+        // и подключаемся заново — иначе после одного обрыва все страницы ломались до перезапуска GUI.
+        if (State == ServiceState.Connected && Client is { IsClosed: false }) return true;
 
         await _gate.WaitAsync(ct).ConfigureAwait(false);
         try
         {
-            if (State == ServiceState.Connected && Client is not null) return true;
+            if (State == ServiceState.Connected && Client is { IsClosed: false }) return true;
 
             // 1) Уже работающая служба.
             if (await TryConnectAsync(ct).ConfigureAwait(false)) return true;
