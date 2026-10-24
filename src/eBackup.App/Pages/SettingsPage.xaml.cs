@@ -142,7 +142,7 @@ public sealed partial class SettingsPage : Page
     // ---------- ссылки и быстрые папки ----------
 
     private async void Coffee_Click(object sender, RoutedEventArgs e)
-        => await Windows.System.Launcher.LaunchUriAsync(new Uri("https://dalink.to/toristarm"));
+        => await Windows.System.Launcher.LaunchUriAsync(new Uri("https://ko-fi.com/erneywhite"));
 
     private async void GitHub_Click(object sender, RoutedEventArgs e)
         => await Windows.System.Launcher.LaunchUriAsync(new Uri("https://github.com/erneywhite/eBackup"));
