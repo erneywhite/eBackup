@@ -3,6 +3,7 @@ using System.Runtime.InteropServices;
 using System.Security.AccessControl;
 using System.Security.Principal;
 using eBackup.Core.Paths;
+using eBackup.Platform;
 
 namespace eBackup.Service.Security;
 
@@ -24,8 +25,14 @@ public interface IPathAccess : IDisposable
 /// Проверка через Windows Authz API по SID (без токена: работает и для расписаний, когда пользователь
 /// не вошёл). Группы пользователя (в т.ч. «Администраторы» — без UAC-фильтра) вычисляет сама Authz,
 /// поэтому для админа поведение не меняется. Дескриптор берётся по имени пути — junction/symlink в пути
-/// разворачиваются, т.е. проверяется РЕАЛЬНАЯ цель. Если Authz-контекст построить не удалось (напр.
-/// доменный SID без связи с DC) — откат: разрешено только внутри профиля пользователя.
+/// разворачиваются, т.е. проверяется РЕАЛЬНАЯ цель.
+/// <para>
+/// Откат, если Authz-контекст построить не удалось (напр. доменный/Entra-ID SID без связи с DC):
+/// ЗАПИСЬ — только внутри профиля пользователя; ЧТЕНИЕ — всё, кроме явных запретов
+/// (<c>fallbackReadDenied</c>: чужие профили, системные секреты). Иначе такой пользователь
+/// молча терял бы в бэкапах плагины из Program Files, игры из Steam-библиотек и свои папки на других дисках.
+/// Без списка запретов чтение в откате тоже ограничено профилем (безопасное умолчание).
+/// </para>
 /// </summary>
 public sealed class AuthzPathAccess : IPathAccess
 {
@@ -35,10 +42,11 @@ public sealed class AuthzPathAccess : IPathAccess
 
     private readonly IntPtr _rm;
     private readonly IntPtr _ctx;
-    private readonly string? _profileRoot; // для отката без Authz
+    private readonly string? _profileRoot;                // для отката без Authz
+    private readonly IReadOnlyList<string>? _readDenied;  // запреты чтения в откате (null — только профиль)
     private bool _disposed;
 
-    public AuthzPathAccess(string sid, string? profileRoot)
+    public AuthzPathAccess(string sid, string? profileRoot, Func<IReadOnlyList<string>>? fallbackReadDenied = null)
     {
         _profileRoot = profileRoot;
         try
@@ -58,16 +66,40 @@ public sealed class AuthzPathAccess : IPathAccess
             _rm = IntPtr.Zero;
             _ctx = IntPtr.Zero;
         }
+
+        // Список запретов нужен только в откате — реестр профилей читаем лишь тогда.
+        if (!UsesAuthz)
+            _readDenied = fallbackReadDenied?.Invoke();
     }
 
-    /// <summary>Authz доступен (иначе работает откат «только профиль»).</summary>
+    /// <summary>Authz доступен (иначе работает откат, см. описание класса).</summary>
     public bool UsesAuthz => _ctx != IntPtr.Zero;
 
     public bool CanRead(string path)
     {
         var full = Path.GetFullPath(path);
-        if (!UsesAuthz) return WithinProfile(full);
-        return Check(full, FileReadData);
+        if (UsesAuthz) return Check(full, FileReadData);
+        if (_readDenied is null) return WithinProfile(full);
+        // Свой профиль читаем всегда — даже если он лежит внутри запрещённого корня.
+        return WithinProfile(full)
+            || !_readDenied.Any(d => !string.IsNullOrEmpty(d) && PathSafety.IsWithin(d, full));
+    }
+
+    /// <summary>
+    /// Запреты чтения для отката: чужие профили (из ProfileList) + места с системными секретами —
+    /// %SystemRoot% (кусты реестра, systemprofile), %ProgramData%\Microsoft (машинные ключи),
+    /// %ProgramData%\eBackup (ключ и конфиг самой службы). Бэкапить оттуда нечего, а утечь есть что.
+    /// </summary>
+    public static IReadOnlyList<string> DefaultFallbackReadDenied(IEnumerable<string> otherProfileRoots)
+    {
+        var commonData = Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData);
+        return
+        [
+            .. otherProfileRoots,
+            Environment.GetFolderPath(Environment.SpecialFolder.Windows),
+            Path.Combine(commonData, "Microsoft"),
+            AppPaths.ProgramData,
+        ];
     }
 
     public bool CanWrite(string path)

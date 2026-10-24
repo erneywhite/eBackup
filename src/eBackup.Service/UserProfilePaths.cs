@@ -18,6 +18,33 @@ public sealed class UserProfilePaths
     /// <summary>Корень профиля пользователя по SID (ProfileList); null — SID не сопоставлен.</summary>
     public static string? ProfileRoot(string sid) => ReadProfileImagePath(sid);
 
+    /// <summary>
+    /// Профили ВСЕХ остальных учёток из ProfileList (включая systemprofile и служебные) — для отката
+    /// проверки прав: чужие профили читать нельзя. Берём из реестра, а не «соседей» по C:\Users,
+    /// потому что профиль может быть перенесён на другой диск.
+    /// </summary>
+    public static IReadOnlyList<string> OtherProfileRoots(string sid)
+    {
+        var result = new List<string>();
+        try
+        {
+            using var list = Registry.LocalMachine.OpenSubKey(@"SOFTWARE\Microsoft\Windows NT\CurrentVersion\ProfileList");
+            if (list is null) return result;
+            foreach (var name in list.GetSubKeyNames())
+            {
+                if (string.Equals(name, sid, StringComparison.OrdinalIgnoreCase)) continue;
+                using var key = list.OpenSubKey(name);
+                if (key?.GetValue("ProfileImagePath") is string path && path.Length > 0)
+                    result.Add(path);
+            }
+        }
+        catch
+        {
+            // нет доступа к реестру — пустой список; вызывающий добавляет свои запреты сверху
+        }
+        return result;
+    }
+
     public string Resolve(string tokenPath)
     {
         if (_profile is null) return PathTokens.Resolve(tokenPath); // SID не сопоставлен — как раньше

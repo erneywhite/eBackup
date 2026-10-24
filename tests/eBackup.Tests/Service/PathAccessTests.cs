@@ -236,4 +236,61 @@ public class PathAccessTests
         Assert.True(access.CanWrite(Path.Combine(profile, "AppData", "x")));
         Assert.False(access.CanWrite(Path.Combine(Temp("elsewhere"), "x")));
     }
+
+    [Fact]
+    public void Authz_Fallback_Reads_Everything_Except_Denied_But_Writes_Only_Profile()
+    {
+        // Откат со списком запретов: чтение вне профиля разрешено (Program Files, Steam на D: и т.п.),
+        // кроме чужих профилей и системных мест; запись — по-прежнему только свой профиль.
+        var profile = Temp("prof");
+        var otherProfile = Temp("otherprof");
+        var system = Temp("sysroot");
+        using var access = new AuthzPathAccess("not-a-sid", profileRoot: profile,
+            fallbackReadDenied: () => [otherProfile, system]);
+        Assert.False(access.UsesAuthz);
+
+        var elsewhere = Path.Combine(Temp("elsewhere"), "plugin.dll");
+        Assert.True(access.CanRead(elsewhere));
+        Assert.True(access.CanRead(Path.Combine(profile, "AppData", "x")));
+        Assert.False(access.CanRead(Path.Combine(otherProfile, "AppData", "secret")));
+        Assert.False(access.CanRead(Path.Combine(system, "config", "SAM")));
+
+        Assert.False(access.CanWrite(elsewhere));
+        Assert.True(access.CanWrite(Path.Combine(profile, "AppData", "x")));
+    }
+
+    [Fact]
+    public void Authz_Fallback_Own_Profile_Inside_Denied_Root_Stays_Readable()
+    {
+        var users = Temp("users");
+        var profile = Path.Combine(users, "me");
+        using var access = new AuthzPathAccess("not-a-sid", profileRoot: profile, fallbackReadDenied: () => [users]);
+
+        Assert.True(access.CanRead(Path.Combine(profile, "x")));
+        Assert.False(access.CanRead(Path.Combine(users, "someone", "x")));
+    }
+
+    [Fact]
+    public void Default_Fallback_Denies_System_Secrets_And_Other_Profiles()
+    {
+        var list = AuthzPathAccess.DefaultFallbackReadDenied([@"D:\Profiles\other"]);
+
+        Assert.Contains(@"D:\Profiles\other", list);
+        Assert.Contains(Environment.GetFolderPath(Environment.SpecialFolder.Windows), list);
+        Assert.Contains(eBackup.Platform.AppPaths.ProgramData, list);
+        Assert.Contains(list, p => p.EndsWith(@"\Microsoft", StringComparison.OrdinalIgnoreCase));
+    }
+
+    [Fact]
+    public void Other_Profile_Roots_Exclude_Own_And_Include_System_Profile()
+    {
+        var me = WindowsIdentity.GetCurrent().User!.Value;
+        var own = eBackup.Service.UserProfilePaths.ProfileRoot(me);
+        var others = eBackup.Service.UserProfilePaths.OtherProfileRoots(me);
+
+        if (own is not null)
+            Assert.DoesNotContain(others, p => string.Equals(p, own, StringComparison.OrdinalIgnoreCase));
+        // S-1-5-18 (LocalSystem) есть в ProfileList на любой Windows.
+        Assert.Contains(others, p => p.EndsWith("systemprofile", StringComparison.OrdinalIgnoreCase));
+    }
 }

@@ -22,8 +22,14 @@ namespace eBackup.Service;
 /// </summary>
 public sealed class ServicePipeline : IAsyncDisposable
 {
-    /// <summary>Проверка прав владельца задачи (Authz по SID; откат — только его профиль).</summary>
-    private static IPathAccess AccessFor(string sid) => new AuthzPathAccess(sid, UserProfilePaths.ProfileRoot(sid));
+    /// <summary>
+    /// Проверка прав владельца задачи (Authz по SID). Откат без Authz: запись — только его профиль,
+    /// чтение — всё, кроме чужих профилей и системных секретов (список считается лишь в откате).
+    /// </summary>
+    private static IPathAccess AccessFor(string sid) => new AuthzPathAccess(
+        sid,
+        UserProfilePaths.ProfileRoot(sid),
+        () => AuthzPathAccess.DefaultFallbackReadDenied(UserProfilePaths.OtherProfileRoots(sid)));
 
     public HistoryStore History { get; }
     public ModuleRegistry Registry { get; }
