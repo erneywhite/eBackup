@@ -211,6 +211,61 @@ public sealed class StorageAdminTests : IDisposable
     }
 
     [Fact]
+    public async Task ListArchives_Caches_Encryption_Flags_And_Peeks_Only_New_Archives()
+    {
+        var (handlers, _, jobs) = Build();
+        await using var __ = jobs;
+
+        var dir = Path.Combine(_root, "arch-cache");
+        Directory.CreateDirectory(dir);
+        var src = Path.Combine(_root, "src-cache.bin");
+        await File.WriteAllTextAsync(src, "secret payload");
+        var enc = Path.Combine(dir, "enc.ebk");
+        await ArchiveCipher.EncryptAsync(src, enc, "pass");
+        await handlers.UpsertStorageAsync(new StorageInput
+        {
+            Id = "c", Name = "C", Kind = "LocalFolder", Settings = new() { ["path"] = dir },
+        }, Caller, default);
+
+        var req = new ListArchivesRequest { StorageId = "c", IncludeEncryption = true };
+        Assert.True((await handlers.ListArchivesAsync(req, Caller, default)).Single().Encrypted);
+
+        // Подменяем сигнатуру при том же размере: метка берётся из кэша, заголовок повторно не читается.
+        await using (var fs = new FileStream(enc, FileMode.Open, FileAccess.Write))
+            await fs.WriteAsync("PK\u0003\u0004"u8.ToArray());
+        Assert.True((await handlers.ListArchivesAsync(req, Caller, default)).Single(f => f.Name == "enc.ebk").Encrypted);
+
+        // Новый архив — подглядывается.
+        await ArchiveCipher.EncryptAsync(src, Path.Combine(dir, "enc2.ebk"), "pass");
+        Assert.True((await handlers.ListArchivesAsync(req, Caller, default)).Single(f => f.Name == "enc2.ebk").Encrypted);
+    }
+
+    [Fact]
+    public async Task ListArchives_Does_Not_Cache_Failed_Encryption_Peek()
+    {
+        var (handlers, _, jobs) = Build();
+        await using var __ = jobs;
+
+        var dir = Path.Combine(_root, "arch-fail");
+        Directory.CreateDirectory(dir);
+        var src = Path.Combine(_root, "src-fail.bin");
+        await File.WriteAllTextAsync(src, "secret payload");
+        var enc = Path.Combine(dir, "enc.ebk");
+        await ArchiveCipher.EncryptAsync(src, enc, "pass");
+        await handlers.UpsertStorageAsync(new StorageInput
+        {
+            Id = "f", Name = "F", Kind = "LocalFolder", Settings = new() { ["path"] = dir },
+        }, Caller, default);
+        var req = new ListArchivesRequest { StorageId = "f", IncludeEncryption = true };
+
+        // Файл занят — подглядеть нельзя: метки нет, но и в кэш «не зашифрован» не записалось.
+        using (new FileStream(enc, FileMode.Open, FileAccess.Read, FileShare.None))
+            Assert.False((await handlers.ListArchivesAsync(req, Caller, default)).Single().Encrypted);
+
+        Assert.True((await handlers.ListArchivesAsync(req, Caller, default)).Single().Encrypted);
+    }
+
+    [Fact]
     public async Task DeleteArchive_Removes_File_In_Storage()
     {
         var (handlers, _, jobs) = Build();

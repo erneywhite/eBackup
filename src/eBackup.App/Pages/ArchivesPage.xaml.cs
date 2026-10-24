@@ -1,4 +1,5 @@
 using eBackup.Ipc.Client;
+using eBackup.Ipc.Contracts;
 using eBackup.Storage;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
@@ -9,6 +10,7 @@ namespace eBackup.App.Pages;
 public sealed partial class ArchivesPage : Page
 {
     private bool _refreshing;
+    private int _generation; // номер текущего обновления: ответы прошлых обновлений в новый список не попадают
 
     public ArchivesPage()
     {
@@ -26,22 +28,26 @@ public sealed partial class ArchivesPage : Page
 
     private async void RefreshBtn_Click(object sender, RoutedEventArgs e) => await RefreshAsync();
 
+    /// <summary>
+    /// Каждое хранилище — своя секция: опрашиваем ПАРАЛЛЕЛЬНО и рисуем по готовности, чтобы быстрая
+    /// локальная папка не ждала MEGA/облака. Метки 🔒 — вторым заходом, когда строки уже на экране.
+    /// </summary>
     private async Task RefreshAsync()
     {
         if (_refreshing)
             return;
         _refreshing = true;
         RefreshBtn.IsEnabled = false;
+        var gen = ++_generation;
 
         try
         {
             Sections.Children.Clear();
-            Sections.Opacity = 0; // прячем на время асинхронной загрузки — покажем разом со «стаггером», без двойного мелькания
 
             var client = await ServiceConnection.GetClientAsync();
             if (client is null)
             {
-                AddDim(Loc.Get("Archives_ServiceUnavailable", ServiceConnection.Shared.Error ?? ""));
+                AddDim(Sections, Loc.Get("Archives_ServiceUnavailable", ServiceConnection.Shared.Error ?? ""));
                 return;
             }
 
@@ -52,90 +58,119 @@ public sealed partial class ArchivesPage : Page
             }
             catch (Exception ex)
             {
-                AddDim(Loc.Get("Archives_StoragesReadFailed", ex.Message));
+                AddDim(Sections, Loc.Get("Archives_StoragesReadFailed", ex.Message));
                 return;
             }
 
             if (storages.Count == 0)
             {
-                AddDim(Loc.Get("Archives_NoStorages"));
+                AddDim(Sections, Loc.Get("Archives_NoStorages"));
                 return;
             }
 
-            // Единый код для папок, SFTP и будущих облаков.
+            var loads = new List<Task>();
             foreach (var s in storages)
             {
-                AddHeader(s.Kind switch
-                {
-                    StorageKind.LocalFolder => $"{s.Name} — {s.Path}",
-                    StorageKind.Sftp => Loc.Get("Archives_HeaderSftp", s.Name, s.Username, s.Host, s.Port, s.RemoteDirectory),
-                    StorageKind.Ftp => Loc.Get("Archives_HeaderFtp", s.Name, s.UseFtps ? "ftps" : "ftp", s.Username, s.Host, s.Port, s.RemoteDirectory),
-                    StorageKind.S3 => $"{s.Name} — s3 · {s.Bucket}"
-                        + (string.IsNullOrWhiteSpace(s.RemoteDirectory) ? "" : $"/{s.RemoteDirectory!.Trim('/')}"),
-                    StorageKind.WebDav => $"{s.Name} — webdav · {s.ServiceUrl}"
-                        + (string.IsNullOrWhiteSpace(s.RemoteDirectory) ? "" : $"/{s.RemoteDirectory!.Trim('/')}"),
-                    StorageKind.GoogleDrive =>
-                        Loc.Get("Archives_HeaderGoogleDrive", s.Name, string.IsNullOrWhiteSpace(s.RemoteDirectory) ? "eBackup" : s.RemoteDirectory),
-                    StorageKind.Dropbox => Loc.Get("Archives_HeaderDropbox", s.Name)
-                        + (string.IsNullOrWhiteSpace(s.RemoteDirectory) ? "" : $"/{s.RemoteDirectory!.Trim('/')}"),
-                    _ => s.Name
-                });
-
-                try
-                {
-                    // Листинг и удаление — через службу (секрет хранилища у неё, под машинным ключом).
-                    // includeEncryption: подглядеть 🔒 (вкладка «Архивы»; «Обзор» этого не просит — экономим).
-                    var files = await client.ListArchivesAsync(s.Id, includeEncryption: true);
-                    if (files.Length == 0)
-                    {
-                        AddDim(Loc.Get("Archives_NoArchives"));
-                        continue;
-                    }
-
-                    foreach (var f in files)
-                    {
-                        var source = new RestoreSource(null, s.Id, f.Name); // всё единообразно через службу
-                        AddRow(f.Name,
-                            Loc.Get("Archives_RowSubtitle", f.Length / 1024.0 / 1024.0, f.LastWriteTime),
-                            () => OpenRestore(source),
-                            async () =>
-                            {
-                                if (!await ConfirmDeleteAsync(f.Name, Loc.Get("Archives_DeleteFrom", s.Name)))
-                                    return;
-                                try
-                                {
-                                    await client.DeleteArchiveAsync(s.Id, f.Name);
-                                }
-                                catch (Exception ex)
-                                {
-                                    await ShowErrorAsync(Loc.Get("Archives_DeleteFailed", ex.Message));
-                                }
-                                await RefreshAsync();
-                            },
-                            () => OpenBrowse(source),
-                            encrypted: f.Encrypted);
-                    }
-                }
-                catch (Exception ex)
-                {
-                    AddDim(Loc.Get("Archives_Unavailable", ex.Message));
-                }
+                var section = new StackPanel { Spacing = 6 };
+                AddHeader(section, HeaderFor(s));
+                var rows = new StackPanel { Spacing = 6 };
+                AddDim(rows, Loc.Get("Archives_Loading"));
+                section.Children.Add(rows);
+                Sections.Children.Add(section);
+                loads.Add(LoadStorageAsync(client, s, rows, gen));
             }
+            Entrance.Play(Sections); // заголовки хранилищ мягко всплывают сразу, архивы подтянутся по готовности
 
-            Entrance.Play(Sections); // заголовки и карточки мягко всплывают по очереди
+            await Task.WhenAll(loads);
         }
         finally
         {
-            Sections.Opacity = 1; // показываем (Entrance уже выставил детям opacity 0 и анимирует их)
             _refreshing = false;
             RefreshBtn.IsEnabled = true;
         }
     }
 
+    private async Task LoadStorageAsync(IpcClient client, SavedStorage s, StackPanel rows, int gen)
+    {
+        RemoteFileDto[] files;
+        try
+        {
+            // Листинг и удаление — через службу (секрет хранилища у неё, под машинным ключом).
+            files = await client.ListArchivesAsync(s.Id);
+        }
+        catch (Exception ex)
+        {
+            if (gen != _generation) return;
+            rows.Children.Clear();
+            AddDim(rows, Loc.Get("Archives_Unavailable", ex.Message));
+            return;
+        }
+        if (gen != _generation) return;
+
+        rows.Children.Clear();
+        if (files.Length == 0)
+        {
+            AddDim(rows, Loc.Get("Archives_NoArchives"));
+            return;
+        }
+
+        var titles = new Dictionary<string, TextBlock>(StringComparer.OrdinalIgnoreCase);
+        foreach (var f in files)
+        {
+            var source = new RestoreSource(null, s.Id, f.Name); // всё единообразно через службу
+            titles[f.Name] = AddRow(rows, f.Name,
+                Loc.Get("Archives_RowSubtitle", f.Length / 1024.0 / 1024.0, f.LastWriteTime),
+                () => OpenRestore(source),
+                async () =>
+                {
+                    if (!await ConfirmDeleteAsync(f.Name, Loc.Get("Archives_DeleteFrom", s.Name)))
+                        return;
+                    try
+                    {
+                        await client.DeleteArchiveAsync(s.Id, f.Name);
+                    }
+                    catch (Exception ex)
+                    {
+                        await ShowErrorAsync(Loc.Get("Archives_DeleteFailed", ex.Message));
+                    }
+                    await RefreshAsync();
+                },
+                () => OpenBrowse(source));
+        }
+        Entrance.Play(rows);
+
+        // 🔒 — фоном: служба подглядывает заголовки только новых архивов (остальное из её кэша).
+        try
+        {
+            var withFlags = await client.ListArchivesAsync(s.Id, includeEncryption: true);
+            if (gen != _generation) return;
+            foreach (var f in withFlags.Where(x => x.Encrypted))
+                if (titles.TryGetValue(f.Name, out var title))
+                    MarkEncrypted(title);
+        }
+        catch { /* без меток — список уже на экране */ }
+    }
+
+    private static string HeaderFor(SavedStorage s) => s.Kind switch
+    {
+        StorageKind.LocalFolder => $"{s.Name} — {s.Path}",
+        StorageKind.Sftp => Loc.Get("Archives_HeaderSftp", s.Name, s.Username, s.Host, s.Port, s.RemoteDirectory),
+        StorageKind.Ftp => Loc.Get("Archives_HeaderFtp", s.Name, s.UseFtps ? "ftps" : "ftp", s.Username, s.Host, s.Port, s.RemoteDirectory),
+        StorageKind.S3 => $"{s.Name} — s3 · {s.Bucket}"
+            + (string.IsNullOrWhiteSpace(s.RemoteDirectory) ? "" : $"/{s.RemoteDirectory!.Trim('/')}"),
+        StorageKind.WebDav => $"{s.Name} — webdav · {s.ServiceUrl}"
+            + (string.IsNullOrWhiteSpace(s.RemoteDirectory) ? "" : $"/{s.RemoteDirectory!.Trim('/')}"),
+        StorageKind.GoogleDrive =>
+            Loc.Get("Archives_HeaderGoogleDrive", s.Name, string.IsNullOrWhiteSpace(s.RemoteDirectory) ? "eBackup" : s.RemoteDirectory),
+        StorageKind.Dropbox => Loc.Get("Archives_HeaderDropbox", s.Name)
+            + (string.IsNullOrWhiteSpace(s.RemoteDirectory) ? "" : $"/{s.RemoteDirectory!.Trim('/')}"),
+        _ => s.Name
+    };
+
     // ---------- строительные блоки списка ----------
 
-    private void AddHeader(string text)
-        => Sections.Children.Add(new TextBlock
+    private static void AddHeader(Panel target, string text)
+        => target.Children.Add(new TextBlock
         {
             Text = text,
             FontSize = 12,
@@ -144,8 +179,8 @@ public sealed partial class ArchivesPage : Page
             TextWrapping = TextWrapping.Wrap
         });
 
-    private void AddDim(string text)
-        => Sections.Children.Add(new TextBlock
+    private static void AddDim(Panel target, string text)
+        => target.Children.Add(new TextBlock
         {
             Text = text,
             FontSize = 12,
@@ -153,6 +188,14 @@ public sealed partial class ArchivesPage : Page
             Margin = new Thickness(14, 2, 0, 2),
             TextWrapping = TextWrapping.Wrap
         });
+
+    private static void MarkEncrypted(TextBlock title)
+    {
+        if (title.Text.StartsWith("🔒", StringComparison.Ordinal))
+            return;
+        title.Text = "🔒 " + title.Text;
+        ToolTipService.SetToolTip(title, Loc.Get("Archives_TipEncrypted"));
+    }
 
     private void OpenRestore(RestoreSource source)
         => Frame.Navigate(typeof(RestorePage), source);
@@ -199,19 +242,18 @@ public sealed partial class ArchivesPage : Page
         await dialog.ShowAsync();
     }
 
-    private void AddRow(string title, string subtitle, Action? onRestore = null,
-        Func<Task>? onDelete = null, Action? onBrowse = null, bool encrypted = false)
+    /// <summary>Карточка архива; возвращает заголовок, чтобы потом дорисовать 🔒.</summary>
+    private static TextBlock AddRow(Panel target, string title, string subtitle, Action? onRestore = null,
+        Func<Task>? onDelete = null, Action? onBrowse = null)
     {
         var appRes = Application.Current.Resources;
 
         var textPanel = new StackPanel { Spacing = 2, VerticalAlignment = VerticalAlignment.Center };
         var titleBlock = new TextBlock
         {
-            Text = (encrypted ? "🔒 " : "") + title,
+            Text = title,
             FontWeight = Microsoft.UI.Text.FontWeights.SemiBold
         };
-        if (encrypted)
-            ToolTipService.SetToolTip(titleBlock, Loc.Get("Archives_TipEncrypted"));
         textPanel.Children.Add(titleBlock);
         textPanel.Children.Add(new TextBlock
         {
@@ -273,7 +315,7 @@ public sealed partial class ArchivesPage : Page
             row.Children.Add(deleteBtn);
         }
 
-        Sections.Children.Add(new Border
+        target.Children.Add(new Border
         {
             CornerRadius = new CornerRadius(12),
             Background = (Brush)appRes["EbCardBrush"],
@@ -282,5 +324,6 @@ public sealed partial class ArchivesPage : Page
             Padding = new Thickness(14, 10, 14, 10),
             Child = row
         });
+        return titleBlock;
     }
 }

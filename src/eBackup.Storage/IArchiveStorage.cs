@@ -33,22 +33,21 @@ public interface IArchiveStorage
     }
 
     /// <summary>
-    /// Какие из перечисленных архивов зашифрованы (для меток 🔒 на весь список разом). Дефолт перебирает
-    /// <see cref="IsArchiveEncryptedAsync"/> поштучно; хранилища с дорогим входом (MEGA) переопределяют
-    /// батчем — один сеанс на весь список, чтобы не логиниться на каждый файл (MEGA рейт-лимитит логины).
+    /// Зашифрованы ли перечисленные архивы (метки 🔒 на весь список разом). В ответе — ТОЛЬКО архивы,
+    /// которые удалось проверить: сбой по отдельному архиву = его нет в словаре (а не «не зашифрован»),
+    /// поэтому результат можно кэшировать. Дефолт перебирает <see cref="IsArchiveEncryptedAsync"/> поштучно;
+    /// хранилища с дорогим входом (MEGA) переопределяют батчем — один сеанс на весь список (MEGA рейт-лимитит логины).
     /// </summary>
-    async Task<IReadOnlySet<string>> ListEncryptedAsync(IReadOnlyCollection<string> names, CancellationToken ct = default)
+    async Task<IReadOnlyDictionary<string, bool>> PeekEncryptionAsync(IReadOnlyCollection<string> names, CancellationToken ct = default)
     {
-        var set = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var result = new Dictionary<string, bool>(StringComparer.OrdinalIgnoreCase);
         foreach (var name in names)
         {
-            try
-            {
-                if (await IsArchiveEncryptedAsync(name, ct).ConfigureAwait(false))
-                    set.Add(name);
-            }
-            catch { /* пик не критичен — без метки */ }
+            ct.ThrowIfCancellationRequested();
+            try { result[name] = await IsArchiveEncryptedAsync(name, ct).ConfigureAwait(false); }
+            catch (OperationCanceledException) { throw; }
+            catch { /* не проверили — не отвечаем за этот архив */ }
         }
-        return set;
+        return result;
     }
 }

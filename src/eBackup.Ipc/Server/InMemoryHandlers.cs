@@ -50,7 +50,15 @@ public sealed class InMemoryHandlers : IIpcHandlers
     public Task<Ack> UpsertStorageAsync(StorageInput req, CallerContext caller, CancellationToken ct) => Task.FromResult(new Ack());
     public Task<Ack> DeleteStorageAsync(DeleteByIdRequest req, CallerContext caller, CancellationToken ct) => Task.FromResult(new Ack());
     public Task<TestResult> TestStorageAsync(TestStorageRequest req, CallerContext caller, CancellationToken ct) => Task.FromResult(new TestResult { Ok = true, Message = "ok" });
-    public Task<RemoteFileDto[]> ListArchivesAsync(ListArchivesRequest req, CallerContext caller, CancellationToken ct) => Task.FromResult(Array.Empty<RemoteFileDto>());
+    /// <summary>Для тестов: задержать ListArchives (имитация медленного облака).</summary>
+    public Func<CancellationToken, Task>? OnListArchives { get; set; }
+
+    public async Task<RemoteFileDto[]> ListArchivesAsync(ListArchivesRequest req, CallerContext caller, CancellationToken ct)
+    {
+        if (OnListArchives is not null)
+            await OnListArchives(ct).ConfigureAwait(false);
+        return [];
+    }
     public Task<Ack> DeleteArchiveAsync(DeleteArchiveRequest req, CallerContext caller, CancellationToken ct) => Task.FromResult(new Ack());
     public Task<ScheduleDetail[]> ListSchedulesAsync(CallerContext caller, CancellationToken ct) => Task.FromResult(Array.Empty<ScheduleDetail>());
     public Task<Ack> UpsertScheduleAsync(ScheduleInput req, CallerContext caller, CancellationToken ct) => Task.FromResult(new Ack());

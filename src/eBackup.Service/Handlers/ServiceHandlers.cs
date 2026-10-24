@@ -31,6 +31,10 @@ public sealed class ServiceHandlers : IIpcHandlers
     private readonly string _instanceId;
     private readonly string _build;
 
+    // Метки 🔒 по (хранилище, имя, размер): архив неизменяем, заголовок читаем один раз за жизнь службы.
+    private readonly System.Collections.Concurrent.ConcurrentDictionary<(string Storage, string Name, long Length), bool>
+        _encryptedCache = new();
+
     public ServiceHandlers(JobManager jobs, Core.History.HistoryStore history, ModuleRegistry registry,
         StorageStore storages, string instanceId, string build,
         CustomFolderStore? folders = null, string? modulesDir = null, ScheduleStore? schedules = null,
@@ -356,13 +360,37 @@ public sealed class ServiceHandlers : IIpcHandlers
         var files = await storage.ListDetailedAsync(ct).ConfigureAwait(false);
 
         // Метки 🔒 — только когда просят (вкладка «Архивы»). «Обзор» (ему нужен лишь счётчик) не платит
-        // за подглядывание. Пик батчем (один сеанс на весь список — MEGA рейт-лимитит логины); сбой не
-        // срывает листинг — просто без меток.
-        IReadOnlySet<string> encrypted = new HashSet<string>();
+        // за подглядывание. Архив неизменяем, поэтому метку кэшируем на жизнь службы и подглядываем только
+        // новые архивы — раньше каждое открытие «Архивов» качало заголовок КАЖДОГО архива из облака.
+        // Пик батчем (один сеанс на весь список — MEGA рейт-лимитит логины); сбой не срывает листинг.
+        var encrypted = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         if (req.IncludeEncryption && files.Count > 0)
         {
-            try { encrypted = await storage.ListEncryptedAsync(files.Select(f => f.Name).ToArray(), ct).ConfigureAwait(false); }
-            catch { /* без меток */ }
+            var unknown = new List<eBackup.Storage.Sftp.RemoteFileInfo>();
+            foreach (var f in files)
+            {
+                if (_encryptedCache.TryGetValue((saved.Id, f.Name, f.Length), out var known))
+                {
+                    if (known) encrypted.Add(f.Name);
+                }
+                else unknown.Add(f);
+            }
+
+            if (unknown.Count > 0)
+            {
+                try
+                {
+                    var peeked = await storage.PeekEncryptionAsync(unknown.Select(f => f.Name).ToArray(), ct).ConfigureAwait(false);
+                    foreach (var f in unknown)
+                    {
+                        if (!peeked.TryGetValue(f.Name, out var isEnc)) continue; // не проверили — спросим в следующий раз
+                        _encryptedCache[(saved.Id, f.Name, f.Length)] = isEnc;
+                        if (isEnc) encrypted.Add(f.Name);
+                    }
+                }
+                catch (OperationCanceledException) { throw; }
+                catch { /* без меток для новых архивов */ }
+            }
         }
 
         return files

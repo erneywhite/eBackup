@@ -565,4 +565,5 @@
   <data name="Main_TriggerSchedule" xml:space="preserve"><value>manual · schedule “{0}”</value></data>
   <data name="Settings_UpdCheckBtnReset" xml:space="preserve"><value>Check for updates</value></data>
   <data name="Main_BackupBtnReset" xml:space="preserve"><value>Back up now</value></data>
+  <data name="Archives_Loading" xml:space="preserve"><value>loading…</value></data>
 </root>

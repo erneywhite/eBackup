@@ -5,14 +5,23 @@ using eBackup.Ipc.Transport;
 namespace eBackup.Ipc.Server;
 
 /// <summary>
-/// Обслуживает ОДНО соединение. Дуплекс: цикл чтения обрабатывает запросы (req→resp через
-/// <see cref="IpcDispatcher"/>), а AttachToJob поднимает фоновый «насос», который шлёт клиенту
-/// note-фреймы задачи (бэклог + живые) через тот же сериализованный writer, не блокируя приём
-/// других запросов. Любой сбой/закрытие завершают цикл и гасят все насосы.
+/// Обслуживает ОДНО соединение. Дуплекс: цикл чтения принимает запросы и запускает их ПАРАЛЛЕЛЬНО
+/// (req→resp через <see cref="IpcDispatcher"/>), а AttachToJob поднимает фоновый «насос», который шлёт
+/// клиенту note-фреймы задачи (бэклог + живые). Все ответы идут через один сериализованный writer.
+/// Любой сбой/закрытие завершают цикл и гасят все насосы.
+/// <para>
+/// Почему параллельно: у GUI одно соединение на все вкладки. При последовательной обработке медленный
+/// запрос (листинг облака, чтение архива) держал в очереди всё остальное — вкладки «пустели», пока
+/// не ответит MEGA. Writer (семафор) и состояние соединения (насосы, хэндлы под lock) потокобезопасны,
+/// чтение одного архивного хэндла сериализует сам IArchiveReader.
+/// </para>
 /// </summary>
 public static class IpcConnection
 {
     public const int MaxInboundFrameBytes = 256 * 1024;
+
+    /// <summary>Сколько запросов одного соединения выполняется одновременно (дальше — ждут слот).</summary>
+    public const int MaxConcurrentRequests = 16;
 
     public static async Task ServeAsync(
         Stream stream, IIpcHandlers handlers, Func<CallerContext> resolveCaller,
@@ -29,16 +38,13 @@ public static class IpcConnection
         using var connCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
         var pumps = new Dictionary<string, CancellationTokenSource>();
         var archiveHandles = new HashSet<string>(); // seek-сессии чтения архива этого соединения
+        using var slots = new SemaphoreSlim(MaxConcurrentRequests);
+        var inflight = new List<Task>();
 
-        try
+        async Task RunOneAsync(Frame req)
         {
-            while (!connCts.IsCancellationRequested)
+            try
             {
-                Frame? req;
-                try { req = await reader.ReadFrameAsync(connCts.Token).ConfigureAwait(false); }
-                catch (IpcProtocolException) { break; }
-                if (req is null) break;
-
                 if (req.Kind == FrameKinds.Req && req.Op == IpcOps.AttachToJob)
                     await HandleAttachAsync(req, writer, jobStream, caller, pumps, connCts.Token).ConfigureAwait(false);
                 else if (req.Kind == FrameKinds.Req && req.Op == IpcOps.DetachFromJob)
@@ -50,14 +56,38 @@ public static class IpcConnection
                 else if (req.Kind == FrameKinds.Req && req.Op == IpcOps.CloseArchiveRead)
                     await HandleCloseArchiveAsync(req, writer, archiveReader, archiveHandles, connCts.Token).ConfigureAwait(false);
                 else
-                    await writer.WriteFrameAsync(
+                    await WriteResponseAsync(req, writer,
                         await IpcDispatcher.DispatchAsync(req, handlers, caller, connCts.Token).ConfigureAwait(false),
                         connCts.Token).ConfigureAwait(false);
+            }
+            catch (OperationCanceledException) { /* соединение закрывается */ }
+            catch (Exception) { /* pipe упал — цикл чтения увидит это сам и завершит соединение */ }
+            finally { slots.Release(); }
+        }
+
+        try
+        {
+            while (!connCts.IsCancellationRequested)
+            {
+                Frame? req;
+                try { req = await reader.ReadFrameAsync(connCts.Token).ConfigureAwait(false); }
+                catch (IpcProtocolException) { break; }
+                if (req is null) break;
+
+                await slots.WaitAsync(connCts.Token).ConfigureAwait(false); // обратное давление при перегрузе
+                lock (inflight)
+                {
+                    inflight.RemoveAll(t => t.IsCompleted);
+                    inflight.Add(RunOneAsync(req));
+                }
             }
         }
         finally
         {
-            connCts.Cancel(); // погасить все насосы
+            connCts.Cancel(); // погасить все насосы и незавершённые запросы
+            Task[] pending;
+            lock (inflight) pending = [.. inflight];
+            try { await Task.WhenAll(pending).ConfigureAwait(false); } catch { } // до освобождения writer/slots
             lock (pumps)
             {
                 foreach (var p in pumps.Values) { try { p.Cancel(); p.Dispose(); } catch { } }
@@ -69,6 +99,23 @@ public static class IpcConnection
                     foreach (var h in archiveHandles) { try { archiveReader.Close(h); } catch { } }
                     archiveHandles.Clear();
                 }
+        }
+    }
+
+    /// <summary>
+    /// Ответ на обычный запрос. Слишком большой ответ (выше лимита фрейма) — это ошибка ЭТОГО запроса,
+    /// а не повод рвать соединение: writer проверяет размер до записи, так что в pipe ещё ничего не ушло.
+    /// </summary>
+    private static async Task WriteResponseAsync(Frame req, FrameWriter writer, Frame resp, CancellationToken ct)
+    {
+        try
+        {
+            await writer.WriteFrameAsync(resp, ct).ConfigureAwait(false);
+        }
+        catch (IpcProtocolException)
+        {
+            await writer.WriteFrameAsync(IpcDispatcher.Fault(req.Id, IpcErrorCodes.Internal,
+                "Ответ службы слишком большой — запрос нужно разбить на страницы."), ct).ConfigureAwait(false);
         }
     }
 
