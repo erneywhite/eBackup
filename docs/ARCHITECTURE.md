@@ -6,7 +6,7 @@
 
 | Тема | Решение |
 |---|---|
-| Платформа / стек | .NET 9 + C#; GUI — WinUI 3 (unpackaged, self-contained WindowsAppSDK) |
+| Платформа / стек | .NET 10 + C#; GUI — WinUI 3 (unpackaged, self-contained WindowsAppSDK) |
 | Модули | Декларативный манифест (`*.module.json`) + опциональный код-хук; контракт заморожен в `eBackup.Abstractions` (ApiVersion 1.0, append-only) |
 | Хранилища | Единая модель `SavedStorage`/`IArchiveStorage`: 8 типов одновременно |
 | Шифрование | Опциональное: AES-256-GCM по чанкам + Argon2id (заголовок `EBKE`); через службу — разовый тикет фразы (интерактив) или машинный ключ (расписания), fail-closed |

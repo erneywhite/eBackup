@@ -1,4 +1,4 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
+<Project Sdk="Microsoft.NET.Sdk">
 
   <ItemGroup>
     <ProjectReference Include="..\eBackup.Abstractions\eBackup.Abstractions.csproj" />
@@ -10,7 +10,7 @@
 
   <PropertyGroup>
     <!-- Windows-only: DPAPI (System.Security.Cryptography.ProtectedData) -->
-    <TargetFramework>net9.0-windows</TargetFramework>
+    <TargetFramework>net10.0-windows</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
   </PropertyGroup>

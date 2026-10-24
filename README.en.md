@@ -11,7 +11,7 @@
   <a href="https://github.com/erneywhite/eBackup/releases"><img src="https://img.shields.io/github/downloads/erneywhite/eBackup/total?color=FF6DC8&label=downloads" alt="Downloads"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-green" alt="License"></a>
   <img src="https://img.shields.io/badge/Windows-10%2F11%20x64-0078D6" alt="Windows">
-  <img src="https://img.shields.io/badge/.NET-9-512BD4" alt=".NET 9">
+  <img src="https://img.shields.io/badge/.NET-10-512BD4" alt=".NET 10">
 </p>
 
 <p align="center">🌐 <a href="README.md">Русский</a> · <b>English</b></p>
@@ -145,7 +145,7 @@ Everything is scriptable: `backup`, `restore`, `storage-list` / `storage-test` /
 
 ## For developers
 
-You need the [.NET SDK 9.0+](https://dotnet.microsoft.com/download) (Windows 10/11).
+You need the [.NET SDK 10.0+](https://dotnet.microsoft.com/download) (Windows 10/11).
 
 ```powershell
 dotnet build eBackup.sln

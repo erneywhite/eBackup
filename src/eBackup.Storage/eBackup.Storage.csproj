@@ -1,4 +1,4 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
+<Project Sdk="Microsoft.NET.Sdk">
 
   <ItemGroup>
     <ProjectReference Include="..\eBackup.Abstractions\eBackup.Abstractions.csproj" />
@@ -15,10 +15,13 @@
     <PackageReference Include="AWSSDK.S3" Version="4.0.24.3" />
     <PackageReference Include="FluentFTP" Version="54.2.0" />
     <PackageReference Include="MegaApiClient" Version="1.10.4" />
+    <!-- Не удалять: MegaApiClient 1.10.4 (последняя) тянет Newtonsoft.Json 10.0.2 с уязвимостью
+         GHSA-5crp-9r3c-p9vr (DoS глубоко вложенным JSON, исправлено в 13.0.1). Прямая ссылка поднимает версию. -->
+    <PackageReference Include="Newtonsoft.Json" Version="13.0.4" />
   </ItemGroup>
 
   <PropertyGroup>
-    <TargetFramework>net9.0</TargetFramework>
+    <TargetFramework>net10.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
   </PropertyGroup>

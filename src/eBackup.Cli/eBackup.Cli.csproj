@@ -1,4 +1,4 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
+<Project Sdk="Microsoft.NET.Sdk">
 
   <ItemGroup>
     <ProjectReference Include="..\eBackup.Core\eBackup.Core.csproj" />
@@ -13,7 +13,7 @@
   <PropertyGroup>
     <OutputType>Exe</OutputType>
     <!-- Windows-only: использует DPAPI через eBackup.Security -->
-    <TargetFramework>net9.0-windows</TargetFramework>
+    <TargetFramework>net10.0-windows</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
   </PropertyGroup>

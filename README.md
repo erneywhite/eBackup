@@ -11,7 +11,7 @@
   <a href="https://github.com/erneywhite/eBackup/releases"><img src="https://img.shields.io/github/downloads/erneywhite/eBackup/total?color=FF6DC8&label=%D0%B7%D0%B0%D0%B3%D1%80%D1%83%D0%B7%D0%BA%D0%B8" alt="Downloads"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/лицензия-MIT-green" alt="License"></a>
   <img src="https://img.shields.io/badge/Windows-10%2F11%20x64-0078D6" alt="Windows">
-  <img src="https://img.shields.io/badge/.NET-9-512BD4" alt=".NET 9">
+  <img src="https://img.shields.io/badge/.NET-10-512BD4" alt=".NET 10">
 </p>
 
 <p align="center">🌐 <b>Русский</b> · <a href="README.en.md">English</a></p>
@@ -146,7 +146,7 @@
 
 ## Для разработчиков
 
-Нужен [.NET SDK 9.0+](https://dotnet.microsoft.com/download) (Windows 10/11).
+Нужен [.NET SDK 10.0+](https://dotnet.microsoft.com/download) (Windows 10/11).
 
 ```powershell
 dotnet build eBackup.sln
